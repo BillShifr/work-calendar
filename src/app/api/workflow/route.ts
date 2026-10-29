@@ -6,8 +6,10 @@ import {
   approvalEvents,
   auditEvents,
   overtimeReports,
+  vacationPeriods,
   vacationPlans,
 } from "@/db/schema";
+import { assertVacationAllowance } from "@/domain/vacation";
 import {
   assertTransition,
   workflowStatuses,
@@ -60,6 +62,22 @@ export async function POST(request: Request) {
         to,
         actor.role as ActorRole,
       );
+      if (
+        aggregate === "vacation_plan" &&
+        ["submitted", "approved"].includes(to)
+      ) {
+        const periods = await tx
+          .select({
+            startsOn: vacationPeriods.startsOn,
+            endsOn: vacationPeriods.endsOn,
+          })
+          .from(vacationPeriods)
+          .where(eq(vacationPeriods.planId, id));
+        assertVacationAllowance(
+          periods,
+          (item as typeof vacationPlans.$inferSelect).allowanceDays,
+        );
+      }
       const [updated] = await tx
         .update(table)
         .set({ status: to, version: item.version + 1, updatedAt: new Date() })
@@ -91,6 +109,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Недостаточно прав" }, { status: 403 });
     if (message === "NOT_FOUND")
       return NextResponse.json({ error: "Запись не найдена" }, { status: 404 });
+    if (message === "ALLOWANCE_EXCEEDED")
+      return NextResponse.json(
+        { error: "Количество дней превышает доступный лимит" },
+        { status: 400 },
+      );
     return NextResponse.json(
       {
         error: message.startsWith("Недопустимый переход")

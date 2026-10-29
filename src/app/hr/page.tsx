@@ -27,7 +27,12 @@ const formatRange = (startsOn: string, endsOn: string) =>
     ? formatShortDate(startsOn)
     : `${formatShortDate(startsOn)} — ${formatShortDate(endsOn)}`;
 
-export default async function HrPage() {
+export default async function HrPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ type?: string }>;
+}) {
+  const selectedType = (await searchParams).type;
   const hr = await requireHr();
   const [employees] = await db
     .select({ value: count() })
@@ -66,7 +71,10 @@ export default async function HrPage() {
     .from(vacationPlans)
     .innerJoin(users, eq(users.id, vacationPlans.userId))
     .where(
-      inArray(vacationPlans.status, ["submitted", "hr_proposed", "reopened"]),
+      and(
+        eq(vacationPlans.organizationId, hr.organizationId),
+        inArray(vacationPlans.status, ["submitted", "hr_proposed", "reopened"]),
+      ),
     )
     .limit(8);
   const awaiting = overtime.length + vacations.length;
@@ -80,7 +88,7 @@ export default async function HrPage() {
     hr.organizationId,
     currentYear,
   );
-  const items = [
+  const allItems = [
     ...vacations.map((item) => ({
       ...item,
       kind: "vacation" as const,
@@ -94,11 +102,17 @@ export default async function HrPage() {
       href: `/hr/overtime/${item.id}`,
     })),
   ];
+  const items = allItems.filter((item) =>
+    selectedType === "overtime"
+      ? item.kind === "overtime"
+      : selectedType === "vacation"
+        ? item.kind === "vacation"
+        : true,
+  );
   return (
     <AppShell>
       <header className="pageHeader">
         <h1>Кабинет кадровика</h1>
-        <button className="primaryButton">Напомнить сотрудникам</button>
       </header>
       <section className={styles.metrics} aria-label="Сводка">
         <article className={`card ${styles.metric}`}>
@@ -122,7 +136,7 @@ export default async function HrPage() {
         <article className={`card ${styles.metric}`}>
           <span>Согласовано за месяц</span>
           <strong>
-            {items.filter((item) => item.status === "approved").length}
+            {allItems.filter((item) => item.status === "approved").length}
           </strong>
         </article>
       </section>
@@ -131,11 +145,24 @@ export default async function HrPage() {
           <div className={styles.sectionHeader}>
             <h2>Очередь согласования</h2>
             <div className={styles.filters}>
-              <button className={`${styles.filter} ${styles.filterActive}`}>
+              <Link
+                href="/hr"
+                className={`${styles.filter} ${!selectedType ? styles.filterActive : ""}`}
+              >
                 Все
-              </button>
-              <button className={styles.filter}>Сверхурочные</button>
-              <button className={styles.filter}>Отпуска</button>
+              </Link>
+              <Link
+                href="/hr?type=overtime"
+                className={`${styles.filter} ${selectedType === "overtime" ? styles.filterActive : ""}`}
+              >
+                Внеурочное время
+              </Link>
+              <Link
+                href="/hr?type=vacation"
+                className={`${styles.filter} ${selectedType === "vacation" ? styles.filterActive : ""}`}
+              >
+                Отпуска
+              </Link>
             </div>
           </div>
           <div className={styles.queue}>

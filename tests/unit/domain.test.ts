@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { buildAbsenceRisks } from "@/domain/absence-risk";
 import { isOvertimeMinutes } from "@/domain/overtime";
-import { normalizePeriod, periodDays, periodsOverlap } from "@/domain/vacation";
+import {
+  assertVacationAllowance,
+  normalizePeriod,
+  periodDays,
+  periodsOverlap,
+  totalPeriodDays,
+} from "@/domain/vacation";
 import { canTransition } from "@/domain/workflow";
 
 describe("domain rules", () => {
@@ -21,6 +27,17 @@ describe("domain rules", () => {
     expect(
       periodsOverlap(period, { startsOn: "2027-03-02", endsOn: "2027-03-04" }),
     ).toBe(true);
+  });
+  it("rejects vacation periods above the employee allowance", () => {
+    const periods = [
+      { startsOn: "2027-04-01", endsOn: "2027-04-14" },
+      { startsOn: "2027-08-01", endsOn: "2027-08-15" },
+    ];
+    expect(totalPeriodDays(periods)).toBe(29);
+    expect(() => assertVacationAllowance(periods, 28)).toThrow(
+      "ALLOWANCE_EXCEEDED",
+    );
+    expect(() => assertVacationAllowance(periods, 29)).not.toThrow();
   });
   it("requires HR proposal to be confirmed by employee", () => {
     expect(canTransition("submitted", "hr_proposed", "hr")).toBe(true);

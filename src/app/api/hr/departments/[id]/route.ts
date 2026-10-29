@@ -7,6 +7,8 @@ import { requireHr } from "@/lib/auth";
 
 const bodySchema = z.object({
   updatedAt: z.iso.datetime(),
+  name: z.string().trim().min(2).max(160),
+  isActive: z.boolean(),
   headcount: z.number().int().min(0).max(100_000),
   maxAbsent: z.number().int().min(0).nullable(),
   minPresent: z.number().int().min(0).nullable(),
@@ -52,11 +54,24 @@ export async function PUT(
         new Date(input.updatedAt).getTime()
       )
         throw new Error("VERSION_CONFLICT");
+      if (!input.isActive) {
+        const [assigned] = await tx.execute<{ count: number }>(sql`
+          SELECT COUNT(*)::int AS count FROM department_assignments
+          WHERE department_id = ${id} AND valid_to IS NULL
+        `);
+        if ((assigned?.count ?? 0) > 0)
+          throw new Error("DEPARTMENT_HAS_EMPLOYEES");
+      }
 
       const now = new Date();
       const [updated] = await tx
         .update(departments)
-        .set({ headcount: input.headcount, updatedAt: now })
+        .set({
+          name: input.name,
+          headcount: input.headcount,
+          isActive: input.isActive,
+          updatedAt: now,
+        })
         .where(
           and(
             eq(departments.id, id),
@@ -77,6 +92,8 @@ export async function PUT(
         objectId: id,
         metadata: {
           headcount: input.headcount,
+          name: input.name,
+          isActive: input.isActive,
           maxAbsent: input.maxAbsent,
           minPresent: input.minPresent,
         },
@@ -91,7 +108,9 @@ export async function PUT(
         error:
           message === "NOT_FOUND"
             ? "Отдел не найден"
-            : "Настройки уже изменились. Обновите страницу.",
+            : message === "DEPARTMENT_HAS_EMPLOYEES"
+              ? "Сначала переведите сотрудников в другое подразделение"
+              : "Настройки уже изменились. Обновите страницу.",
       },
       { status: message === "NOT_FOUND" ? 404 : 409 },
     );

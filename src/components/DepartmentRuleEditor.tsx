@@ -10,6 +10,8 @@ type DepartmentRule = {
   headcount: number;
   maxAbsent: number | null;
   minPresent: number | null;
+  isActive: boolean;
+  assignedCount: number;
   updatedAt: string;
 };
 
@@ -29,6 +31,8 @@ export function DepartmentRuleEditor({
         department.id,
         {
           headcount: String(department.headcount),
+          name: department.name,
+          isActive: department.isActive,
           maxAbsent: department.maxAbsent?.toString() ?? "",
           minPresent: department.minPresent?.toString() ?? "",
         },
@@ -37,6 +41,13 @@ export function DepartmentRuleEditor({
   );
   const [savingId, setSavingId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Record<string, string>>({});
+  const [creating, setCreating] = useState(false);
+  const [newDepartment, setNewDepartment] = useState({
+    name: "",
+    headcount: "",
+    maxAbsent: "",
+    minPresent: "",
+  });
 
   function change(id: string, field: string, value: string) {
     setDrafts((current) => ({
@@ -58,6 +69,8 @@ export function DepartmentRuleEditor({
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         updatedAt: department.updatedAt,
+        name: draft.name,
+        isActive: draft.isActive,
         headcount: Number(draft.headcount),
         maxAbsent: optionalNumber(draft.maxAbsent),
         minPresent: optionalNumber(draft.minPresent),
@@ -76,8 +89,103 @@ export function DepartmentRuleEditor({
     router.refresh();
   }
 
+  async function createDepartment() {
+    setCreating(true);
+    const response = await fetch("/api/hr/departments", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        name: newDepartment.name,
+        headcount: Number(newDepartment.headcount),
+        maxAbsent: optionalNumber(newDepartment.maxAbsent),
+        minPresent: optionalNumber(newDepartment.minPresent),
+      }),
+    });
+    const data = await response.json();
+    setCreating(false);
+    if (!response.ok) {
+      setMessages((current) => ({
+        ...current,
+        create: data.error ?? "Не удалось создать",
+      }));
+      return;
+    }
+    setNewDepartment({
+      name: "",
+      headcount: "",
+      maxAbsent: "",
+      minPresent: "",
+    });
+    setMessages((current) => ({ ...current, create: "Подразделение создано" }));
+    router.refresh();
+  }
+
   return (
     <div className={styles.list}>
+      <section className={styles.create}>
+        <h2>Новое подразделение</h2>
+        <label>
+          Название
+          <input
+            value={newDepartment.name}
+            onChange={(event) =>
+              setNewDepartment({ ...newDepartment, name: event.target.value })
+            }
+          />
+        </label>
+        <label>
+          Штат
+          <input
+            type="number"
+            min="0"
+            value={newDepartment.headcount}
+            onChange={(event) =>
+              setNewDepartment({
+                ...newDepartment,
+                headcount: event.target.value,
+              })
+            }
+          />
+        </label>
+        <label>
+          Макс. отсутствующих
+          <input
+            type="number"
+            min="0"
+            placeholder="авто"
+            value={newDepartment.maxAbsent}
+            onChange={(event) =>
+              setNewDepartment({
+                ...newDepartment,
+                maxAbsent: event.target.value,
+              })
+            }
+          />
+        </label>
+        <label>
+          Мин. присутствующих
+          <input
+            type="number"
+            min="0"
+            placeholder="не задан"
+            value={newDepartment.minPresent}
+            onChange={(event) =>
+              setNewDepartment({
+                ...newDepartment,
+                minPresent: event.target.value,
+              })
+            }
+          />
+        </label>
+        <button
+          className="primaryButton"
+          disabled={creating || !newDepartment.name || !newDepartment.headcount}
+          onClick={createDepartment}
+        >
+          Создать
+        </button>
+        <span role="status">{messages.create}</span>
+      </section>
       {departments.map((department) => {
         const draft = drafts[department.id];
         const fallbackLimit = Math.max(
@@ -88,16 +196,28 @@ export function DepartmentRuleEditor({
           <article className={`card ${styles.department}`} key={department.id}>
             <div className={styles.heading}>
               <div>
-                <p className="eyebrow">Активный отдел</p>
-                <h2>{department.name}</h2>
+                <p className="eyebrow">
+                  {draft.isActive ? "Активно" : "Отключено"} ·{" "}
+                  {department.assignedCount} сотрудников
+                </p>
+                <h2>{draft.name}</h2>
               </div>
-              <span className={styles.ruleState}>
+              <span className={styles.ruleState} aria-label="Режим правила">
                 {draft.maxAbsent || draft.minPresent
-                  ? "Собственное правило"
+                  ? "Режим: собственное правило"
                   : `Автоматически: до ${fallbackLimit}`}
               </span>
             </div>
             <div className={styles.fields}>
+              <label>
+                Название
+                <input
+                  value={draft.name}
+                  onChange={(event) =>
+                    change(department.id, "name", event.target.value)
+                  }
+                />
+              </label>
               <label>
                 Штатная численность
                 <input
@@ -140,6 +260,22 @@ export function DepartmentRuleEditor({
                 Пустые поля включают автоматический лимит 25% штата.
               </p>
               <span role="status">{messages[department.id]}</span>
+              <label className={styles.active}>
+                <input
+                  type="checkbox"
+                  checked={draft.isActive}
+                  onChange={(event) =>
+                    setDrafts((current) => ({
+                      ...current,
+                      [department.id]: {
+                        ...current[department.id],
+                        isActive: event.target.checked,
+                      },
+                    }))
+                  }
+                />
+                Подразделение активно
+              </label>
               <button
                 className="primaryButton"
                 disabled={savingId === department.id || !draft.headcount}

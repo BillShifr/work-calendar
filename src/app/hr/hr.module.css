@@ -54,6 +54,8 @@
   flex-wrap: wrap;
 }
 .filter {
+  display: inline-flex;
+  align-items: center;
   min-height: 40px;
   padding: 0 13px;
   border: 1px solid var(--border);
@@ -61,6 +63,7 @@
   background: white;
   color: var(--text-muted);
   font-weight: 700;
+  text-decoration: none;
 }
 .filterActive {
   border-color: var(--primary);

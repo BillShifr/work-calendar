@@ -26,9 +26,7 @@ export default async function OvertimePage() {
     <AppShell>
       <header className="pageHeader">
         <h1>Внеурочное время</h1>
-        <span className="statusPill">
-          {labels[report.status]} · версия {report.version}
-        </span>
+        <span className="statusPill">{labels[report.status]}</span>
       </header>
       <OvertimeCalendar initial={report} />
     </AppShell>

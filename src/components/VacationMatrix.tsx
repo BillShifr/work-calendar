@@ -5,6 +5,7 @@ import { daysInMonth } from "@/domain/overtime";
 import {
   normalizePeriod,
   periodDays,
+  totalPeriodDays,
   type DatePeriod,
 } from "@/domain/vacation";
 import styles from "./VacationMatrix.module.css";
@@ -58,7 +59,7 @@ export function VacationMatrix({
     mode === "hr" ||
     status === "draft" ||
     (status === "hr_proposed" && editingResponse);
-  const total = periods.reduce((sum, period) => sum + periodDays(period), 0);
+  const total = totalPeriodDays(periods);
   function periodFor(date: string) {
     return periods.find(
       (period) => period.startsOn <= date && period.endsOn >= date,
@@ -84,6 +85,14 @@ export function VacationMatrix({
       )
     ) {
       setMessage("Этот период пересекается с уже выбранным.");
+      setStart(null);
+      return;
+    }
+    const nextTotal = total + periodDays(next);
+    if (nextTotal > initial.allowanceDays) {
+      setMessage(
+        `Нельзя добавить период: останется ${Math.max(0, initial.allowanceDays - total)} из ${initial.allowanceDays} дней.`,
+      );
       setStart(null);
       return;
     }
@@ -187,7 +196,9 @@ export function VacationMatrix({
             →
           </button>
         </div>
-        <div className={styles.total}>
+        <div
+          className={`${styles.total} ${total > initial.allowanceDays ? styles.totalExceeded : ""}`}
+        >
           <strong>{total}</strong>
           <span>из {initial.allowanceDays} дней</span>
         </div>

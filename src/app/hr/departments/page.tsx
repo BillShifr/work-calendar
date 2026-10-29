@@ -10,6 +10,8 @@ type DepartmentRow = {
   headcount: number;
   maxAbsent: number | null;
   minPresent: number | null;
+  isActive: boolean;
+  assignedCount: number;
   updatedAt: Date | string;
 };
 
@@ -20,6 +22,8 @@ export default async function HrDepartmentsPage() {
       department.id::text AS id,
       department.name,
       department.headcount,
+      department.is_active AS "isActive",
+      (SELECT COUNT(*)::int FROM department_assignments assignment WHERE assignment.department_id = department.id AND assignment.valid_to IS NULL) AS "assignedCount",
       rule.max_absent AS "maxAbsent",
       rule.min_present AS "minPresent",
       department.updated_at AS "updatedAt"
@@ -32,7 +36,6 @@ export default async function HrDepartmentsPage() {
       LIMIT 1
     ) rule ON true
     WHERE department.organization_id = ${actor.organizationId}
-      AND department.is_active = true
     ORDER BY department.name
   `);
   const departments = rows.map((row) => ({
@@ -42,12 +45,15 @@ export default async function HrDepartmentsPage() {
   return (
     <AppShell>
       <header className="pageHeader">
-        <h1>Правила отделов</h1>
+        <h1>Подразделения</h1>
         <span className="statusPill">
-          {departments.length} активных отделов
+          {departments.filter((item) => item.isActive).length} активных
         </span>
       </header>
-      <DepartmentRuleEditor departments={departments} />
+      <DepartmentRuleEditor
+        key={departments.map((department) => department.id).join(":")}
+        departments={departments}
+      />
     </AppShell>
   );
 }

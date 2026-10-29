@@ -93,8 +93,7 @@ export default async function HrOvertimePage({
           </p>
         </div>
         <span className="statusPill">
-          {statusLabels[report.status] ?? report.status} · версия{" "}
-          {report.version}
+          {statusLabels[report.status] ?? report.status}
         </span>
       </header>
       <OvertimeCalendar initial={initial} mode="hr" />

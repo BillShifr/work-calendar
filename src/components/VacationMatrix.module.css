@@ -48,6 +48,10 @@
   color: var(--primary);
   font-size: 24px;
 }
+.totalExceeded strong,
+.totalExceeded span {
+  color: var(--conflict);
+}
 .total span,
 .message {
   color: var(--text-muted);

@@ -57,7 +57,15 @@ export default async function HrVacationPage({
             подтвердить.
           </p>
         </div>
-        <span className="statusPill">Версия {plan.version}</span>
+        <span className="statusPill">
+          {plan.status === "submitted"
+            ? "Ожидает проверки"
+            : plan.status === "hr_proposed"
+              ? "Ожидает сотрудника"
+              : plan.status === "approved"
+                ? "Утверждено"
+                : "На редактировании"}
+        </span>
       </header>
       <VacationMatrix initial={{ ...plan, periods }} mode="hr" />
     </AppShell>

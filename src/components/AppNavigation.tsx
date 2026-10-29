@@ -14,7 +14,8 @@ export function AppNavigation({ isHr }: { isHr: boolean }) {
     ? [
         ...employeeItems,
         { href: "/hr", label: "Кабинет кадровика" },
-        { href: "/hr/departments", label: "Отделы" },
+        { href: "/hr/employees", label: "Сотрудники" },
+        { href: "/hr/departments", label: "Подразделения" },
       ]
     : employeeItems;
 
@@ -26,7 +27,7 @@ export function AppNavigation({ isHr }: { isHr: boolean }) {
             ? pathname === item.href ||
               pathname.startsWith("/hr/overtime/") ||
               pathname.startsWith("/hr/vacations/")
-            : pathname === item.href;
+            : pathname === item.href || pathname.startsWith(`${item.href}/`);
         return (
           <Link
             href={item.href}

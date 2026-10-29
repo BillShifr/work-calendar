@@ -29,6 +29,26 @@ test("employee and HR complete a bilateral vacation approval", async ({
   await expect(page.getByRole("status")).toContainText("Отправлено");
 
   await page.getByRole("link", { name: "Отпуска" }).click();
+  const planResponse = await page.request.get("/api/vacations?year=2026");
+  const plan = await planResponse.json();
+  const overLimitResponse = await page.request.put("/api/vacations", {
+    data: {
+      year: 2026,
+      version: plan.version,
+      periods: [
+        {
+          id: "server-limit-regression",
+          startsOn: "2026-04-01",
+          endsOn: "2026-04-29",
+          source: "employee",
+        },
+      ],
+    },
+  });
+  expect(overLimitResponse.status()).toBe(409);
+  await expect(overLimitResponse.json()).resolves.toMatchObject({
+    error: "Количество дней превышает доступный лимит.",
+  });
   const vacationMatrix = page.getByLabel(
     "Матрица отпускных дней; прокручивается горизонтально",
   );
@@ -45,6 +65,13 @@ test("employee and HR complete a bilateral vacation approval", async ({
   await page.getByRole("button", { name: /^10 май/ }).click();
   await expect(page.getByText(/Начало: 10 мая/i)).toBeVisible();
   await page.getByRole("button", { name: /^20 май/ }).click();
+  await page.getByRole("button", { name: /^1 июн/ }).click();
+  await page.getByRole("button", { name: /^30 июн/ }).click();
+  await expect(page.getByRole("status")).toContainText(
+    "Нельзя добавить период",
+  );
+  await expect(page.getByText("11", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("из 28 дней", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Сохранить черновик" }).click();
   await page.getByRole("button", { name: "Отправить кадровику" }).click();
   await expect(page.getByRole("status")).toContainText("отправлен");
@@ -54,11 +81,34 @@ test("employee and HR complete a bilateral vacation approval", async ({
   await expect(
     page.getByRole("heading", { name: "Кабинет кадровика" }),
   ).toBeVisible();
-  await page.getByRole("link", { name: "Отделы" }).click();
-  await page.getByLabel("Максимум отсутствующих").fill("1");
-  await page.getByRole("button", { name: "Сохранить правило" }).click();
-  await expect(page.getByRole("status")).toContainText("Сохранено");
+  await page.getByRole("link", { name: "Подразделения" }).click();
+  await page.getByLabel("Название").first().fill("Финансовое управление");
+  await page.getByLabel("Штат", { exact: true }).fill("8");
+  await page.getByRole("button", { name: "Создать" }).click();
+  await expect(
+    page.getByText("Финансовое управление", { exact: true }),
+  ).toBeVisible();
+  await page.getByLabel("Максимум отсутствующих").last().fill("1");
+  await page.getByRole("button", { name: "Сохранить правило" }).last().click();
+  await expect(page.getByRole("status").last()).toContainText("Сохранено");
+  await page.getByRole("link", { name: "Сотрудники" }).click();
+  await page.getByLabel("ФИО").first().fill("Мария Тестова");
+  await page.getByLabel("Логин").fill("maria.test");
+  await page.getByLabel("Временный пароль").fill("Employee-Test-2026!");
+  await page.getByLabel("Должность").first().fill("Ведущий специалист");
+  await page.getByRole("button", { name: "Добавить сотрудника" }).click();
+  await expect(
+    page.getByText("Мария Тестова", { exact: true }).first(),
+  ).toBeVisible();
+  await page.getByLabel("Дней отпуска для всех").fill("30");
+  await page.getByRole("button", { name: "Установить всем" }).click();
+  await expect(page.getByRole("status")).toContainText("Лимит обновлён");
   await page.getByRole("link", { name: "Кабинет кадровика" }).click();
+  await page.getByRole("link", { name: "Внеурочное время" }).last().click();
+  await expect(page).toHaveURL(/type=overtime/);
+  await page.getByRole("link", { name: "Отпуска" }).last().click();
+  await expect(page).toHaveURL(/type=vacation/);
+  await page.getByRole("link", { name: "Все" }).click();
   await page.locator('a[href^="/hr/overtime/"]').click();
   await page.locator('button[aria-label*="15 минут"]').click();
   await page.getByRole("button", { name: "30 мин" }).click();
