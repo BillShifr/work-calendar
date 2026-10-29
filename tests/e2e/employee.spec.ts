@@ -41,6 +41,11 @@ test("employee and HR complete a bilateral vacation approval", async ({
   await expect(
     page.getByRole("heading", { name: "Что требует решения" }),
   ).toBeVisible();
+  await page.getByRole("link", { name: "Отделы" }).click();
+  await page.getByLabel("Максимум отсутствующих").fill("1");
+  await page.getByRole("button", { name: "Сохранить правило" }).click();
+  await expect(page.getByRole("status")).toContainText("Сохранено");
+  await page.getByRole("link", { name: "Кабинет кадровика" }).click();
   await page.locator('a[href^="/hr/overtime/"]').click();
   await page.locator('button[aria-label*="15 минут"]').click();
   await page.getByRole("button", { name: "30 мин" }).click();

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { buildAbsenceRisks } from "@/domain/absence-risk";
 import { isOvertimeMinutes } from "@/domain/overtime";
 import { normalizePeriod, periodDays, periodsOverlap } from "@/domain/vacation";
 import { canTransition } from "@/domain/workflow";
@@ -25,5 +26,45 @@ describe("domain rules", () => {
     expect(canTransition("submitted", "hr_proposed", "hr")).toBe(true);
     expect(canTransition("hr_proposed", "approved", "employee")).toBe(true);
     expect(canTransition("hr_proposed", "approved", "hr")).toBe(false);
+  });
+  it("groups consecutive department conflicts and prioritizes critical staff", () => {
+    const base = {
+      departmentId: "it",
+      departmentName: "Информационные технологии",
+      headcount: 8,
+      maxAbsent: 1,
+      minPresent: null,
+    };
+    const risks = buildAbsenceRisks([
+      {
+        ...base,
+        day: "2027-05-10",
+        absentCount: 2,
+        criticalAbsent: false,
+        employeeNames: ["Алексей", "Мария"],
+      },
+      {
+        ...base,
+        day: "2027-05-11",
+        absentCount: 2,
+        criticalAbsent: true,
+        employeeNames: ["Мария", "Олег"],
+      },
+      {
+        ...base,
+        day: "2027-05-13",
+        absentCount: 1,
+        criticalAbsent: false,
+        employeeNames: ["Алексей"],
+      },
+    ]);
+    expect(risks).toHaveLength(1);
+    expect(risks[0]).toMatchObject({
+      startsOn: "2027-05-10",
+      endsOn: "2027-05-11",
+      peakAbsent: 2,
+      criticalAbsent: true,
+      employeeNames: ["Алексей", "Мария", "Олег"],
+    });
   });
 });

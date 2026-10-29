@@ -121,6 +121,10 @@
   border-radius: 15px;
   background: var(--conflict-soft);
 }
+.overlapList {
+  display: grid;
+  gap: 12px;
+}
 .overlapHead {
   display: flex;
   align-items: center;
@@ -136,6 +140,16 @@
   font-size: 14px;
   line-height: 1.5;
 }
+.overlap h3 {
+  margin: 12px 0 0;
+  font-size: 17px;
+}
+.overlap small {
+  display: block;
+  margin-top: 8px;
+  color: #6f3c3c;
+  line-height: 1.4;
+}
 .calendarStrip {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
@@ -148,8 +162,38 @@
   min-height: 44px;
   border-radius: 9px;
   background: var(--surface-muted);
-  font-size: 12px;
+  padding: 4px;
+  font-size: 11px;
   font-weight: 800;
+}
+.noOverlap {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+  padding: 22px;
+  border: 1px solid #a8ccb0;
+  border-radius: 15px;
+  background: var(--approved-soft);
+}
+.noOverlap > span {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--approved);
+  color: white;
+  font-size: 20px;
+  font-weight: 900;
+}
+.noOverlap strong {
+  color: var(--approved);
+}
+.noOverlap p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.5;
 }
 .calendarStrip .risk {
   background: var(--conflict);

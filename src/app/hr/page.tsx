@@ -4,6 +4,7 @@ import { and, count, eq, inArray } from "drizzle-orm";
 import { AppShell } from "@/components/AppShell";
 import { db } from "@/db/client";
 import { overtimeReports, users, vacationPlans } from "@/db/schema";
+import { getOrganizationAbsenceRisks } from "@/domain/absence-risk-service";
 import { requireHr } from "@/lib/auth";
 import styles from "./hr.module.css";
 
@@ -17,6 +18,14 @@ const labels: Record<string, string> = {
   reopened: "Открыто повторно",
   withdrawn: "Отозвано",
 };
+const formatShortDate = (value: string) =>
+  new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "short" }).format(
+    new Date(`${value}T00:00:00Z`),
+  );
+const formatRange = (startsOn: string, endsOn: string) =>
+  startsOn === endsOn
+    ? formatShortDate(startsOn)
+    : `${formatShortDate(startsOn)} — ${formatShortDate(endsOn)}`;
 
 export default async function HrPage() {
   const hr = await requireHr();
@@ -61,6 +70,16 @@ export default async function HrPage() {
     )
     .limit(8);
   const awaiting = overtime.length + vacations.length;
+  const currentYear = Number(
+    new Intl.DateTimeFormat("en", {
+      timeZone: "Asia/Yekaterinburg",
+      year: "numeric",
+    }).format(new Date()),
+  );
+  const absenceRisks = await getOrganizationAbsenceRisks(
+    hr.organizationId,
+    currentYear,
+  );
   const items = [
     ...vacations.map((item) => ({
       ...item,
@@ -100,8 +119,12 @@ export default async function HrPage() {
         </article>
         <article className={`card ${styles.metric}`}>
           <span>Отпуска с конфликтом</span>
-          <strong>1</strong>
-          <em>в одном отделе</em>
+          <strong>{absenceRisks.length}</strong>
+          <em>
+            {absenceRisks.length
+              ? `${new Set(absenceRisks.map((risk) => risk.departmentId)).size} отделов требуют внимания`
+              : "превышений правил нет"}
+          </em>
         </article>
         <article className={`card ${styles.metric}`}>
           <span>Согласовано за месяц</span>
@@ -150,29 +173,52 @@ export default async function HrPage() {
           <div className={styles.sectionHeader}>
             <h2>Пересечения</h2>
           </div>
-          <div className={styles.overlap}>
-            <div className={styles.overlapHead}>
-              <strong>Высокий риск</strong>
-              <span>ИТ · май 2027</span>
-            </div>
-            <p>
-              Одновременно отсутствуют 4 из 12 сотрудников. Правило отдела
-              допускает не более трёх.
-            </p>
-            <div className={styles.calendarStrip}>
-              {[12, 13, 14, 15, 16, 17, 18].map((day) => (
-                <span
-                  className={day >= 14 && day <= 16 ? styles.risk : ""}
-                  key={day}
+          {absenceRisks.length ? (
+            <div className={styles.overlapList}>
+              {absenceRisks.slice(0, 3).map((risk) => (
+                <article
+                  className={styles.overlap}
+                  key={`${risk.departmentId}-${risk.startsOn}`}
                 >
-                  {day}
-                </span>
+                  <div className={styles.overlapHead}>
+                    <strong>
+                      {risk.criticalAbsent
+                        ? "Критический риск"
+                        : "Превышен лимит"}
+                    </strong>
+                    <span>{formatRange(risk.startsOn, risk.endsOn)}</span>
+                  </div>
+                  <h3>{risk.departmentName}</h3>
+                  <p>
+                    {risk.reason}. Всего в отделе: {risk.headcount}.
+                  </p>
+                  <small>{risk.employeeNames.join(", ")}</small>
+                  <div
+                    className={styles.calendarStrip}
+                    aria-label="Дни конфликта"
+                  >
+                    {risk.days.slice(0, 7).map((day) => (
+                      <span className={styles.risk} key={day}>
+                        {formatShortDate(day)}
+                      </span>
+                    ))}
+                  </div>
+                </article>
               ))}
             </div>
-          </div>
+          ) : (
+            <div className={styles.noOverlap}>
+              <span aria-hidden="true">✓</span>
+              <strong>Пересечений нет</strong>
+              <p>
+                Отправленные и утверждённые планы укладываются в правила
+                отделов.
+              </p>
+            </div>
+          )}
           <p className={styles.note}>
-            Цвет дополнен текстовой оценкой риска. Из конфликта кадровик
-            перейдёт к планам конкретных сотрудников.
+            Расчёт выполняется по реальным периодам, назначениям сотрудников и
+            последнему правилу каждого отдела.
           </p>
         </aside>
       </div>

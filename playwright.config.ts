@@ -9,10 +9,10 @@ export default defineConfig({
   workers: 1,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? "github" : "list",
-  use: { baseURL: "http://localhost:3080", trace: "retain-on-failure" },
+  use: { baseURL: "http://localhost:3081", trace: "retain-on-failure" },
   webServer: {
     command: "npm run start:e2e",
-    url: "http://localhost:3080/api/health",
+    url: "http://localhost:3081/api/health",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },

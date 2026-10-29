@@ -17,6 +17,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
           <Link href="/overtime">Внеурочное время</Link>
           <Link href="/vacations">Отпуска</Link>
           {isHr && <Link href="/hr">Кабинет кадровика</Link>}
+          {isHr && <Link href="/hr/departments">Отделы</Link>}
         </nav>
         <div className="userBox">
           <span>
