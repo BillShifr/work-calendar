@@ -10,6 +10,14 @@ import {
   revisions,
 } from "@/db/schema";
 import { requireHr } from "@/lib/auth";
+import { MAX_OVERTIME_MINUTES_PER_DAY } from "@/domain/overtime";
+
+const overtimeTotalSchema = z
+  .number()
+  .int()
+  .min(5)
+  .max(MAX_OVERTIME_MINUTES_PER_DAY)
+  .multipleOf(5);
 
 const bodySchema = z.object({
   year: z.number().int().min(2020).max(2100),
@@ -17,16 +25,7 @@ const bodySchema = z.object({
   version: z.number().int().positive(),
   zeroConfirmed: z.boolean(),
   reason: z.string().trim().min(3).max(1000),
-  entries: z.record(
-    z.iso.date(),
-    z.union([
-      z.literal(5),
-      z.literal(10),
-      z.literal(15),
-      z.literal(30),
-      z.literal(60),
-    ]),
-  ),
+  entries: z.record(z.iso.date(), overtimeTotalSchema),
 });
 
 export async function PUT(

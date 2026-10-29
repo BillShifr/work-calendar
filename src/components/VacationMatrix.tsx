@@ -30,6 +30,11 @@ const formatDate = (value: string) =>
   );
 const iso = (year: number, month: number, day: number) =>
   `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+const shiftDate = (value: string, days: number) => {
+  const date = new Date(`${value}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+};
 
 export function VacationMatrix({
   initial,
@@ -368,6 +373,22 @@ export function VacationMatrix({
                 const valid = day <= daysInMonth(year, monthIndex + 1);
                 const date = iso(year, monthIndex + 1, day);
                 const period = valid ? periodFor(date) : undefined;
+                const previousPeriod =
+                  valid && period ? periodFor(shiftDate(date, -1)) : undefined;
+                const segmentStart = Boolean(
+                  period && (period.startsOn === date || day === 1),
+                );
+                const segmentEnd = Boolean(
+                  period &&
+                  (period.endsOn === date ||
+                    day === daysInMonth(year, monthIndex + 1)),
+                );
+                const adjacentStart = Boolean(
+                  period &&
+                  period.startsOn === date &&
+                  previousPeriod &&
+                  previousPeriod.id !== period.id,
+                );
                 return (
                   <button
                     key={date}
@@ -375,7 +396,7 @@ export function VacationMatrix({
                     onClick={() => select(date)}
                     aria-label={
                       valid
-                        ? `${day} ${monthName.toLowerCase()}${period ? ", входит в период" : ""}`
+                        ? `${day} ${monthName.toLowerCase()}${period ? `, период ${formatDate(period.startsOn)} — ${formatDate(period.endsOn)}` : ""}`
                         : undefined
                     }
                     className={[
@@ -387,10 +408,31 @@ export function VacationMatrix({
                           : styles.range
                         : "",
                       period?.status === "approved" ? styles.approved : "",
+                      segmentStart ? styles.segmentStart : "",
+                      segmentEnd ? styles.segmentEnd : "",
+                      adjacentStart ? styles.adjacentStart : "",
                       start === date ? styles.start : "",
                     ].join(" ")}
                   >
-                    {valid ? day : ""}
+                    {valid ? (
+                      <>
+                        <span className={styles.dayValue}>{day}</span>
+                        {period ? (
+                          <span
+                            className={styles.periodBracket}
+                            aria-hidden="true"
+                          />
+                        ) : null}
+                        {adjacentStart ? (
+                          <span
+                            className={styles.seamMark}
+                            aria-hidden="true"
+                          />
+                        ) : null}
+                      </>
+                    ) : (
+                      ""
+                    )}
                   </button>
                 );
               })}

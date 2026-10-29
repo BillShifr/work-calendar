@@ -81,6 +81,11 @@
   color: var(--text-muted);
   font-size: var(--text-xs);
 }
+.selectedDate .selectedTotal {
+  color: var(--primary-strong);
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
 .selectedDate strong {
   font-size: var(--text-base);
 }
@@ -101,9 +106,15 @@
   font-size: var(--text-base);
 }
 .minuteButtons button:hover:not(:disabled),
-.minuteButtons .active {
+.minuteButtons button:active:not(:disabled) {
   background: var(--primary);
   color: white;
+}
+.minuteButtons button:focus {
+  position: relative;
+  z-index: 1;
+  outline: 3px solid var(--focus);
+  outline-offset: -4px;
 }
 .minuteButtons button:disabled {
   cursor: not-allowed;

@@ -250,6 +250,55 @@
 .approved {
   box-shadow: inset 0 -3px var(--approved);
 }
+.dayValue {
+  position: relative;
+  z-index: 1;
+}
+.periodBracket {
+  position: absolute;
+  right: 0;
+  bottom: 6px;
+  left: 0;
+  height: 2px;
+  background: currentColor;
+  opacity: 0.58;
+  pointer-events: none;
+}
+.segmentStart .periodBracket {
+  left: 5px;
+}
+.segmentEnd .periodBracket {
+  right: 5px;
+}
+.segmentStart .periodBracket::before,
+.segmentEnd .periodBracket::after {
+  position: absolute;
+  bottom: 0;
+  width: 2px;
+  height: 8px;
+  background: currentColor;
+  content: "";
+}
+.segmentStart .periodBracket::before {
+  left: 0;
+}
+.segmentEnd .periodBracket::after {
+  right: 0;
+}
+.seamMark {
+  position: absolute;
+  z-index: 2;
+  top: 5px;
+  bottom: 5px;
+  left: 0;
+  width: 3px;
+  background: color-mix(in srgb, var(--surface) 86%, transparent);
+  box-shadow: 0 0 6px 2px color-mix(in srgb, var(--surface) 72%, transparent);
+  pointer-events: none;
+}
+.adjacentStart {
+  border-left: 1px solid color-mix(in srgb, var(--primary) 35%, var(--border));
+}
 .start {
   z-index: 3;
   outline: 2px solid var(--primary-strong);

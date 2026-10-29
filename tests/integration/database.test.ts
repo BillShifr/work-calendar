@@ -16,13 +16,15 @@ describe.skipIf(!sql)("database constraints", () => {
       "revisions",
     ]);
   });
-  it("rejects unsupported overtime minutes", async () => {
+  it("keeps accumulated overtime totals on the five-minute grid", async () => {
     const checks =
       await sql!`SELECT pg_get_constraintdef(oid) definition FROM pg_constraint WHERE conrelid='overtime_entries'::regclass`;
     expect(
       checks.some(
         (row) =>
-          row.definition.includes("minutes") && row.definition.includes("60"),
+          row.definition.includes("minutes") &&
+          row.definition.includes("1440") &&
+          row.definition.includes("% 5"),
       ),
     ).toBe(true);
   });

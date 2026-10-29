@@ -22,7 +22,7 @@ test("employee and HR complete a bilateral vacation approval", async ({
     .locator('button[aria-label*="не заполнено"]:not([disabled])')
     .first();
   await availableDay.click();
-  await page.getByRole("button", { name: "15 мин" }).click();
+  await page.getByRole("button", { name: "Добавить 15 минут" }).click();
   await page.getByRole("button", { name: "Сохранить черновик" }).click();
   await expect(page.getByRole("status")).toContainText("Сохранено");
   await page.getByRole("button", { name: "Отправить кадровику" }).click();
@@ -64,13 +64,22 @@ test("employee and HR complete a bilateral vacation approval", async ({
   ).toBeInViewport();
   await page.getByRole("button", { name: /^10 май/ }).click();
   await expect(page.getByText(/Начало: 10 мая/i)).toBeVisible();
+  await page.getByRole("button", { name: /^14 май/ }).click();
+  await page.getByRole("button", { name: /^15 май/ }).click();
   await page.getByRole("button", { name: /^20 май/ }).click();
+  const adjacentPeriodStart = page.getByRole("button", {
+    name: /^15 май, период/,
+  });
+  await expect(
+    adjacentPeriodStart.locator("span[aria-hidden=true]"),
+  ).toHaveCount(2);
+  await page.getByRole("button", { name: /Удалить период 15 мая/ }).click();
   await page.getByRole("button", { name: /^1 июн/ }).click();
   await page.getByRole("button", { name: /^30 июн/ }).click();
   await expect(page.getByRole("status")).toContainText(
     "Нельзя добавить период",
   );
-  await expect(page.getByText("11", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("5", { exact: true }).first()).toBeVisible();
   await expect(page.getByText("из 28 дней", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Сохранить черновик" }).click();
   await page.getByRole("button", { name: "Отправить кадровику" }).click();
@@ -141,8 +150,10 @@ test("employee and HR complete a bilateral vacation approval", async ({
   await expect(
     page.getByRole("button", { name: "Утвердить без изменений" }),
   ).toBeVisible();
-  await page.locator('button[aria-label*="15 минут"]').click();
-  await page.getByRole("button", { name: "30 мин" }).click();
+  await page
+    .locator('button[data-calendar-day][aria-label*="15 минут"]')
+    .click();
+  await page.getByRole("button", { name: "Добавить 30 минут" }).click();
   await page
     .getByLabel("Причина изменений")
     .fill("Уточнение по данным табеля подразделения");
@@ -204,14 +215,25 @@ test("monthly overtime calendar remains usable on mobile", async ({
     )
     .toBeGreaterThanOrEqual(16);
   await day.click();
-  const fiveMinutes = page.getByRole("button", {
-    name: "5 мин",
+  const tenMinutes = page.getByRole("button", {
+    name: "Добавить 10 минут",
     exact: true,
   });
-  await expect(fiveMinutes).toBeEnabled();
+  await expect(tenMinutes).toBeEnabled();
   await expect
-    .poll(async () => (await fiveMinutes.boundingBox())?.height ?? 0)
+    .poll(async () => (await tenMinutes.boundingBox())?.height ?? 0)
     .toBeGreaterThanOrEqual(52);
+  await tenMinutes.click();
+  await tenMinutes.click();
+  await expect(day).toHaveAttribute("aria-label", /20 минут/);
+  await tenMinutes.focus();
+  await expect
+    .poll(() =>
+      tenMinutes.evaluate((element) =>
+        Number.parseFloat(getComputedStyle(element).outlineOffset),
+      ),
+    )
+    .toBeLessThan(0);
 });
 
 test("HR screens use the shared readable UI system", async ({

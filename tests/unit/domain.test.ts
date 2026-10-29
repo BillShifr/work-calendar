@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { buildAbsenceRisks } from "@/domain/absence-risk";
-import { isOvertimeMinutes } from "@/domain/overtime";
+import {
+  addOvertimeMinutes,
+  isOvertimeTotal,
+  MAX_OVERTIME_MINUTES_PER_DAY,
+} from "@/domain/overtime";
 import {
   assertVacationAllowance,
   normalizePeriod,
@@ -11,9 +15,16 @@ import {
 import { canTransition } from "@/domain/workflow";
 
 describe("domain rules", () => {
-  it("accepts only the five overtime values", () => {
-    expect([5, 10, 15, 30, 60].every(isOvertimeMinutes)).toBe(true);
-    expect(isOvertimeMinutes(20)).toBe(false);
+  it("accumulates overtime steps and validates the resulting daily total", () => {
+    expect(addOvertimeMinutes(10, 10)).toBe(20);
+    expect(addOvertimeMinutes(60, 30)).toBe(90);
+    expect(addOvertimeMinutes(MAX_OVERTIME_MINUTES_PER_DAY, 5)).toBe(
+      MAX_OVERTIME_MINUTES_PER_DAY,
+    );
+    expect(isOvertimeTotal(20)).toBe(true);
+    expect(isOvertimeTotal(65)).toBe(true);
+    expect(isOvertimeTotal(62)).toBe(false);
+    expect(isOvertimeTotal(MAX_OVERTIME_MINUTES_PER_DAY + 5)).toBe(false);
   });
   it("normalizes reverse vacation selection", () => {
     expect(normalizePeriod("2027-05-20", "2027-05-10")).toEqual({

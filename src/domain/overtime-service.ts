@@ -7,7 +7,7 @@ import {
   overtimeReports,
   revisions,
 } from "@/db/schema";
-import { isOvertimeMinutes } from "./overtime";
+import { isOvertimeTotal } from "./overtime";
 
 export async function getOvertimeReport(
   user: { id: string; organizationId: string },
@@ -99,7 +99,7 @@ export async function saveOvertimeReport(input: {
     )
       throw new Error("REPORT_READ_ONLY");
     const validEntries = Object.entries(input.entries).filter(([, minutes]) =>
-      isOvertimeMinutes(minutes),
+      isOvertimeTotal(minutes),
     );
     await tx
       .delete(overtimeEntries)

@@ -5,22 +5,21 @@ import {
   getOvertimeReport,
   saveOvertimeReport,
 } from "@/domain/overtime-service";
+import { MAX_OVERTIME_MINUTES_PER_DAY } from "@/domain/overtime";
+
+const overtimeTotalSchema = z
+  .number()
+  .int()
+  .min(5)
+  .max(MAX_OVERTIME_MINUTES_PER_DAY)
+  .multipleOf(5);
 
 const saveSchema = z.object({
   year: z.number().int().min(2020).max(2100),
   month: z.number().int().min(1).max(12),
   version: z.number().int().positive(),
   zeroConfirmed: z.boolean(),
-  entries: z.record(
-    z.iso.date(),
-    z.union([
-      z.literal(5),
-      z.literal(10),
-      z.literal(15),
-      z.literal(30),
-      z.literal(60),
-    ]),
-  ),
+  entries: z.record(z.iso.date(), overtimeTotalSchema),
 });
 
 export async function GET(request: Request) {

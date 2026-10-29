@@ -1,7 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { daysInMonth, OVERTIME_MINUTES } from "@/domain/overtime";
+import {
+  addOvertimeMinutes,
+  daysInMonth,
+  MAX_OVERTIME_MINUTES_PER_DAY,
+  OVERTIME_MINUTES,
+} from "@/domain/overtime";
 import { ToggleControl } from "./FormControls";
 import styles from "./OvertimeCalendar.module.css";
 
@@ -101,7 +106,10 @@ export function OvertimeCalendar({
   }
   function chooseMinutes(minutes: number) {
     if (!selected || !canEdit) return;
-    setEntries((current) => ({ ...current, [selected]: minutes }));
+    setEntries((current) => ({
+      ...current,
+      [selected]: addOvertimeMinutes(current[selected] ?? 0, minutes),
+    }));
     setSources((current) => ({ ...current, [selected]: mode }));
     setZeroConfirmed(false);
     setMessage("Изменение пока не сохранено");
@@ -323,18 +331,26 @@ export function OvertimeCalendar({
               ? `${Number(selected.slice(-2))} ${months[period.month - 1].toLowerCase()}`
               : "—"}
           </strong>
+          {selected && entries[selected] ? (
+            <span className={styles.selectedTotal}>
+              Сейчас: {entries[selected]} мин
+            </span>
+          ) : null}
         </div>
         <div className={styles.minuteButtons}>
           {OVERTIME_MINUTES.map((minutes) => (
             <button
               key={minutes}
-              disabled={!selected || !canEdit}
-              className={
-                selected && entries[selected] === minutes ? styles.active : ""
+              disabled={
+                !selected ||
+                !canEdit ||
+                (entries[selected] ?? 0) + minutes >
+                  MAX_OVERTIME_MINUTES_PER_DAY
               }
+              aria-label={`Добавить ${minutes === 60 ? "1 час" : `${minutes} минут`}`}
               onClick={() => chooseMinutes(minutes)}
             >
-              {minutes === 60 ? "1 час" : `${minutes} мин`}
+              +{minutes === 60 ? "1 час" : `${minutes} мин`}
             </button>
           ))}
         </div>

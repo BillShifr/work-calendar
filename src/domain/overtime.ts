@@ -1,8 +1,20 @@
 export const OVERTIME_MINUTES = [5, 10, 15, 30, 60] as const;
 export type OvertimeMinutes = (typeof OVERTIME_MINUTES)[number];
+export const MAX_OVERTIME_MINUTES_PER_DAY = 24 * 60;
 
-export function isOvertimeMinutes(value: number): value is OvertimeMinutes {
-  return OVERTIME_MINUTES.includes(value as OvertimeMinutes);
+export function isOvertimeTotal(value: number): boolean {
+  return (
+    Number.isInteger(value) &&
+    value >= OVERTIME_MINUTES[0] &&
+    value <= MAX_OVERTIME_MINUTES_PER_DAY &&
+    value % OVERTIME_MINUTES[0] === 0
+  );
+}
+
+export function addOvertimeMinutes(current: number, increment: number): number {
+  if (!OVERTIME_MINUTES.includes(increment as OvertimeMinutes)) return current;
+  const next = current + increment;
+  return next <= MAX_OVERTIME_MINUTES_PER_DAY ? next : current;
 }
 
 export function daysInMonth(year: number, month: number): number {
