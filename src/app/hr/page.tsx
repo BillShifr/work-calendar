@@ -1,9 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { and, count, eq, inArray } from "drizzle-orm";
+import { and, count, eq, inArray, isNull } from "drizzle-orm";
 import { AppShell } from "@/components/AppShell";
 import { db } from "@/db/client";
-import { overtimeReports, users, vacationPlans } from "@/db/schema";
+import {
+  departmentAssignments,
+  departments,
+  overtimeReports,
+  users,
+  vacationPlans,
+} from "@/db/schema";
 import { getOrganizationAbsenceRisks } from "@/domain/absence-risk-service";
 import { requireHr } from "@/lib/auth";
 import styles from "./hr.module.css";
@@ -46,9 +52,21 @@ export default async function HrPage({
       month: overtimeReports.month,
       updatedAt: overtimeReports.updatedAt,
       fullName: users.fullName,
+      departmentName: departments.name,
     })
     .from(overtimeReports)
     .innerJoin(users, eq(users.id, overtimeReports.userId))
+    .leftJoin(
+      departmentAssignments,
+      and(
+        eq(departmentAssignments.userId, users.id),
+        isNull(departmentAssignments.validTo),
+      ),
+    )
+    .leftJoin(
+      departments,
+      eq(departments.id, departmentAssignments.departmentId),
+    )
     .where(
       and(
         eq(overtimeReports.organizationId, hr.organizationId),
@@ -67,9 +85,21 @@ export default async function HrPage({
       year: vacationPlans.year,
       updatedAt: vacationPlans.updatedAt,
       fullName: users.fullName,
+      departmentName: departments.name,
     })
     .from(vacationPlans)
     .innerJoin(users, eq(users.id, vacationPlans.userId))
+    .leftJoin(
+      departmentAssignments,
+      and(
+        eq(departmentAssignments.userId, users.id),
+        isNull(departmentAssignments.validTo),
+      ),
+    )
+    .leftJoin(
+      departments,
+      eq(departments.id, departmentAssignments.departmentId),
+    )
     .where(
       and(
         eq(vacationPlans.organizationId, hr.organizationId),
@@ -88,6 +118,9 @@ export default async function HrPage({
     hr.organizationId,
     currentYear,
   );
+  const departmentsWithOverlaps = new Set(
+    absenceRisks.map((risk) => risk.departmentId),
+  ).size;
   const allItems = [
     ...vacations.map((item) => ({
       ...item,
@@ -125,12 +158,12 @@ export default async function HrPage({
           <strong>{employees.value}</strong>
         </article>
         <article className={`card ${styles.metric}`}>
-          <span>Отпуска с конфликтом</span>
-          <strong>{absenceRisks.length}</strong>
+          <span>Подразделения с пересечениями</span>
+          <strong>{departmentsWithOverlaps}</strong>
           <em>
             {absenceRisks.length
-              ? `${new Set(absenceRisks.map((risk) => risk.departmentId)).size} отделов требуют внимания`
-              : "превышений правил нет"}
+              ? `${absenceRisks.length} периодов пересекаются`
+              : "пересечений нет"}
           </em>
         </article>
         <article className={`card ${styles.metric}`}>
@@ -170,7 +203,7 @@ export default async function HrPage({
               <article className={styles.item} key={item.id}>
                 <div className={styles.person}>
                   <strong>{item.fullName}</strong>
-                  <span>Информационные технологии</span>
+                  <span>{item.departmentName ?? "Без подразделения"}</span>
                 </div>
                 <div className={styles.detail}>
                   {item.title}
@@ -191,11 +224,11 @@ export default async function HrPage({
         </section>
         <aside className={`card ${styles.section}`}>
           <div className={styles.sectionHeader}>
-            <h2>Пересечения</h2>
+            <h2>Пересечения отпусков</h2>
           </div>
           {absenceRisks.length ? (
             <div className={styles.overlapList}>
-              {absenceRisks.slice(0, 3).map((risk) => (
+              {absenceRisks.slice(0, 6).map((risk) => (
                 <article
                   className={styles.overlap}
                   key={`${risk.departmentId}-${risk.startsOn}`}
@@ -203,14 +236,14 @@ export default async function HrPage({
                   <div className={styles.overlapHead}>
                     <strong>
                       {risk.criticalAbsent
-                        ? "Критический риск"
-                        : "Превышен лимит"}
+                        ? "Критичная роль в отпуске"
+                        : `${risk.peakAbsent} сотрудников одновременно`}
                     </strong>
                     <span>{formatRange(risk.startsOn, risk.endsOn)}</span>
                   </div>
                   <h3>{risk.departmentName}</h3>
                   <p>
-                    {risk.reason}. Всего в отделе: {risk.headcount}.
+                    {risk.reason}. Штат подразделения: {risk.headcount}.
                   </p>
                   <small>{risk.employeeNames.join(", ")}</small>
                   <div
@@ -231,8 +264,8 @@ export default async function HrPage({
               <span aria-hidden="true">✓</span>
               <strong>Пересечений нет</strong>
               <p>
-                Отправленные и утверждённые планы укладываются в правила
-                отделов.
+                В отправленных и утверждённых планах нет одновременных отпусков
+                внутри подразделений.
               </p>
             </div>
           )}

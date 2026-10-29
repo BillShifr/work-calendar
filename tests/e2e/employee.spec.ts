@@ -88,9 +88,6 @@ test("employee and HR complete a bilateral vacation approval", async ({
   await expect(
     page.getByText("Финансовое управление", { exact: true }),
   ).toBeVisible();
-  await page.getByLabel("Максимум отсутствующих").last().fill("1");
-  await page.getByRole("button", { name: "Сохранить правило" }).last().click();
-  await expect(page.getByRole("status").last()).toContainText("Сохранено");
   await page.getByRole("link", { name: "Сотрудники" }).click();
   await page.getByLabel("ФИО").first().fill("Мария Тестова");
   await page.getByLabel("Логин").fill("maria.test");

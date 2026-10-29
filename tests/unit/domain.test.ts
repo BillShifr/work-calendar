@@ -49,8 +49,6 @@ describe("domain rules", () => {
       departmentId: "it",
       departmentName: "Информационные технологии",
       headcount: 8,
-      maxAbsent: 1,
-      minPresent: null,
     };
     const risks = buildAbsenceRisks([
       {

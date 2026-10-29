@@ -2,8 +2,6 @@ export type AbsenceDay = {
   departmentId: string;
   departmentName: string;
   headcount: number;
-  maxAbsent: number | null;
-  minPresent: number | null;
   day: string;
   absentCount: number;
   criticalAbsent: boolean;
@@ -18,7 +16,6 @@ export type AbsenceRisk = {
   days: string[];
   peakAbsent: number;
   headcount: number;
-  allowedAbsent: number;
   employeeNames: string[];
   criticalAbsent: boolean;
   reason: string;
@@ -30,28 +27,18 @@ function nextDay(value: string): string {
   return date.toISOString().slice(0, 10);
 }
 
-function allowedAbsent(day: AbsenceDay): number {
-  if (day.maxAbsent !== null && day.minPresent !== null)
-    return Math.min(day.maxAbsent, Math.max(0, day.headcount - day.minPresent));
-  if (day.maxAbsent !== null) return day.maxAbsent;
-  if (day.minPresent !== null)
-    return Math.max(0, day.headcount - day.minPresent);
-  return Math.max(1, Math.floor(day.headcount * 0.25));
-}
-
-function riskReason(day: AbsenceDay, limit: number): string | null {
+function riskReason(day: AbsenceDay): string | null {
   if (day.criticalAbsent) return "Отсутствует критически важный сотрудник";
-  if (day.absentCount > limit)
-    return `Одновременно отсутствуют ${day.absentCount}, допустимо не более ${limit}`;
+  if (day.absentCount > 1)
+    return `Одновременно отсутствуют ${day.absentCount} сотрудников`;
   return null;
 }
 
 export function buildAbsenceRisks(days: AbsenceDay[]): AbsenceRisk[] {
   const risky = days
     .map((day) => {
-      const limit = allowedAbsent(day);
-      const reason = riskReason(day, limit);
-      return reason ? { day, limit, reason } : null;
+      const reason = riskReason(day);
+      return reason ? { day, reason } : null;
     })
     .filter((item): item is NonNullable<typeof item> => item !== null)
     .sort(
@@ -87,7 +74,6 @@ export function buildAbsenceRisks(days: AbsenceDay[]): AbsenceRisk[] {
       days: [item.day.day],
       peakAbsent: item.day.absentCount,
       headcount: item.day.headcount,
-      allowedAbsent: item.limit,
       employeeNames: [...item.day.employeeNames].sort(),
       criticalAbsent: item.day.criticalAbsent,
       reason: item.reason,

@@ -4,25 +4,19 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./DepartmentRuleEditor.module.css";
 
-type DepartmentRule = {
+type Department = {
   id: string;
   name: string;
   headcount: number;
-  maxAbsent: number | null;
-  minPresent: number | null;
   isActive: boolean;
   assignedCount: number;
   updatedAt: string;
 };
 
-function optionalNumber(value: string): number | null {
-  return value === "" ? null : Number(value);
-}
-
 export function DepartmentRuleEditor({
   departments,
 }: {
-  departments: DepartmentRule[];
+  departments: Department[];
 }) {
   const router = useRouter();
   const [drafts, setDrafts] = useState(() =>
@@ -33,8 +27,6 @@ export function DepartmentRuleEditor({
           headcount: String(department.headcount),
           name: department.name,
           isActive: department.isActive,
-          maxAbsent: department.maxAbsent?.toString() ?? "",
-          minPresent: department.minPresent?.toString() ?? "",
         },
       ]),
     ),
@@ -45,11 +37,9 @@ export function DepartmentRuleEditor({
   const [newDepartment, setNewDepartment] = useState({
     name: "",
     headcount: "",
-    maxAbsent: "",
-    minPresent: "",
   });
 
-  function change(id: string, field: string, value: string) {
+  function change(id: string, field: "name" | "headcount", value: string) {
     setDrafts((current) => ({
       ...current,
       [id]: { ...current[id], [field]: value },
@@ -60,7 +50,7 @@ export function DepartmentRuleEditor({
     }));
   }
 
-  async function save(department: DepartmentRule) {
+  async function save(department: Department) {
     const draft = drafts[department.id];
     setSavingId(department.id);
     setMessages((current) => ({ ...current, [department.id]: "Сохраняем…" }));
@@ -72,8 +62,6 @@ export function DepartmentRuleEditor({
         name: draft.name,
         isActive: draft.isActive,
         headcount: Number(draft.headcount),
-        maxAbsent: optionalNumber(draft.maxAbsent),
-        minPresent: optionalNumber(draft.minPresent),
       }),
     });
     const data = await response.json();
@@ -97,8 +85,6 @@ export function DepartmentRuleEditor({
       body: JSON.stringify({
         name: newDepartment.name,
         headcount: Number(newDepartment.headcount),
-        maxAbsent: optionalNumber(newDepartment.maxAbsent),
-        minPresent: optionalNumber(newDepartment.minPresent),
       }),
     });
     const data = await response.json();
@@ -110,12 +96,7 @@ export function DepartmentRuleEditor({
       }));
       return;
     }
-    setNewDepartment({
-      name: "",
-      headcount: "",
-      maxAbsent: "",
-      minPresent: "",
-    });
+    setNewDepartment({ name: "", headcount: "" });
     setMessages((current) => ({ ...current, create: "Подразделение создано" }));
     router.refresh();
   }
@@ -147,36 +128,6 @@ export function DepartmentRuleEditor({
             }
           />
         </label>
-        <label>
-          Макс. отсутствующих
-          <input
-            type="number"
-            min="0"
-            placeholder="авто"
-            value={newDepartment.maxAbsent}
-            onChange={(event) =>
-              setNewDepartment({
-                ...newDepartment,
-                maxAbsent: event.target.value,
-              })
-            }
-          />
-        </label>
-        <label>
-          Мин. присутствующих
-          <input
-            type="number"
-            min="0"
-            placeholder="не задан"
-            value={newDepartment.minPresent}
-            onChange={(event) =>
-              setNewDepartment({
-                ...newDepartment,
-                minPresent: event.target.value,
-              })
-            }
-          />
-        </label>
         <button
           className="primaryButton"
           disabled={creating || !newDepartment.name || !newDepartment.headcount}
@@ -186,12 +137,9 @@ export function DepartmentRuleEditor({
         </button>
         <span role="status">{messages.create}</span>
       </section>
+
       {departments.map((department) => {
         const draft = drafts[department.id];
-        const fallbackLimit = Math.max(
-          1,
-          Math.floor(Number(draft.headcount || 0) * 0.25),
-        );
         return (
           <article className={`card ${styles.department}`} key={department.id}>
             <div className={styles.heading}>
@@ -202,11 +150,7 @@ export function DepartmentRuleEditor({
                 </p>
                 <h2>{draft.name}</h2>
               </div>
-              <span className={styles.ruleState} aria-label="Режим правила">
-                {draft.maxAbsent || draft.minPresent
-                  ? "Режим: собственное правило"
-                  : `Автоматически: до ${fallbackLimit}`}
-              </span>
+              <span role="status">{messages[department.id]}</span>
             </div>
             <div className={styles.fields}>
               <label>
@@ -229,50 +173,25 @@ export function DepartmentRuleEditor({
                   }
                 />
               </label>
-              <label>
-                Максимум отсутствующих
-                <input
-                  type="number"
-                  min="0"
-                  placeholder="авто"
-                  value={draft.maxAbsent}
-                  onChange={(event) =>
-                    change(department.id, "maxAbsent", event.target.value)
-                  }
-                />
-              </label>
-              <label>
-                Минимум присутствующих
-                <input
-                  type="number"
-                  min="0"
-                  placeholder="не задан"
-                  value={draft.minPresent}
-                  onChange={(event) =>
-                    change(department.id, "minPresent", event.target.value)
-                  }
-                />
-              </label>
             </div>
             <div className={styles.footer}>
-              <p>
-                Если заполнены оба ограничения, применяется более строгое.
-                Пустые поля включают автоматический лимит 25% штата.
-              </p>
-              <span role="status">{messages[department.id]}</span>
               <label className={styles.active}>
                 <input
                   type="checkbox"
                   checked={draft.isActive}
-                  onChange={(event) =>
+                  onChange={(event) => {
                     setDrafts((current) => ({
                       ...current,
                       [department.id]: {
                         ...current[department.id],
                         isActive: event.target.checked,
                       },
-                    }))
-                  }
+                    }));
+                    setMessages((current) => ({
+                      ...current,
+                      [department.id]: "Есть несохранённые изменения",
+                    }));
+                  }}
                 />
                 Подразделение активно
               </label>
@@ -281,7 +200,7 @@ export function DepartmentRuleEditor({
                 disabled={savingId === department.id || !draft.headcount}
                 onClick={() => save(department)}
               >
-                Сохранить правило
+                Сохранить
               </button>
             </div>
           </article>

@@ -19,8 +19,6 @@ export async function getOrganizationAbsenceRisks(
       department.id::text AS "departmentId",
       department.name AS "departmentName",
       department.headcount AS "headcount",
-      rule.max_absent AS "maxAbsent",
-      rule.min_present AS "minPresent",
       calendar.day::date::text AS "day",
       count(DISTINCT plan.user_id)::int AS "absentCount",
       bool_or(assignment.is_critical) AS "criticalAbsent",
@@ -31,13 +29,6 @@ export async function getOrganizationAbsenceRisks(
     INNER JOIN department_assignments assignment ON assignment.user_id = plan.user_id
     INNER JOIN departments department ON department.id = assignment.department_id
     CROSS JOIN LATERAL generate_series(period.starts_on, period.ends_on, interval '1 day') AS calendar(day)
-    LEFT JOIN LATERAL (
-      SELECT absence_rule.max_absent, absence_rule.min_present
-      FROM department_absence_rules absence_rule
-      WHERE absence_rule.department_id = department.id
-      ORDER BY absence_rule.updated_at DESC
-      LIMIT 1
-    ) rule ON true
     WHERE plan.organization_id = ${organizationId}
       AND department.organization_id = ${organizationId}
       AND plan.status IN ('submitted', 'hr_proposed', 'approved')
@@ -45,7 +36,7 @@ export async function getOrganizationAbsenceRisks(
       AND assignment.valid_from <= calendar.day::date
       AND (assignment.valid_to IS NULL OR assignment.valid_to >= calendar.day::date)
       AND department.is_active = true
-    GROUP BY department.id, department.name, department.headcount, rule.max_absent, rule.min_present, calendar.day::date
+    GROUP BY department.id, department.name, department.headcount, calendar.day::date
     ORDER BY department.name, calendar.day::date
   `);
   return buildAbsenceRisks(rows);

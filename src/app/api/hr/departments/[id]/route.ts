@@ -2,7 +2,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/db/client";
-import { auditEvents, departmentAbsenceRules, departments } from "@/db/schema";
+import { auditEvents, departments } from "@/db/schema";
 import { requireHr } from "@/lib/auth";
 
 const bodySchema = z.object({
@@ -10,8 +10,6 @@ const bodySchema = z.object({
   name: z.string().trim().min(2).max(160),
   isActive: z.boolean(),
   headcount: z.number().int().min(0).max(100_000),
-  maxAbsent: z.number().int().min(0).nullable(),
-  minPresent: z.number().int().min(0).nullable(),
 });
 
 export async function PUT(
@@ -23,18 +21,10 @@ export async function PUT(
   const parsed = bodySchema.safeParse(await request.json());
   if (!parsed.success)
     return NextResponse.json(
-      { error: "Проверьте численность и ограничения" },
+      { error: "Проверьте название и численность" },
       { status: 400 },
     );
   const input = parsed.data;
-  if (
-    (input.maxAbsent !== null && input.maxAbsent > input.headcount) ||
-    (input.minPresent !== null && input.minPresent > input.headcount)
-  )
-    return NextResponse.json(
-      { error: "Ограничение не может превышать численность отдела" },
-      { status: 400 },
-    );
 
   try {
     const result = await db.transaction(async (tx) => {
@@ -79,23 +69,16 @@ export async function PUT(
           ),
         )
         .returning({ updatedAt: departments.updatedAt });
-      await tx.insert(departmentAbsenceRules).values({
-        departmentId: id,
-        maxAbsent: input.maxAbsent,
-        minPresent: input.minPresent,
-      });
       await tx.insert(auditEvents).values({
         organizationId: actor.organizationId,
         actorId: actor.id,
-        action: "department.absence_rule_updated",
+        action: "department.updated",
         objectType: "department",
         objectId: id,
         metadata: {
           headcount: input.headcount,
           name: input.name,
           isActive: input.isActive,
-          maxAbsent: input.maxAbsent,
-          minPresent: input.minPresent,
         },
       });
       return { ...input, updatedAt: updated.updatedAt.toISOString() };
