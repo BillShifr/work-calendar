@@ -1,0 +1,217 @@
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 20px;
+}
+.calendar {
+  padding: clamp(16px, 2vw, 28px);
+}
+.calendarTop {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 18px;
+}
+.calendarTop h2 {
+  margin: 0;
+  font-size: 26px;
+  letter-spacing: -0.03em;
+}
+.monthNav {
+  display: flex;
+  gap: 8px;
+}
+.monthNav button {
+  width: 46px;
+  height: 46px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: white;
+  cursor: pointer;
+  font-size: 22px;
+}
+.weekdays,
+.grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(58px, 1fr));
+  gap: 8px;
+}
+.weekdays {
+  margin-bottom: 8px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
+  text-transform: uppercase;
+}
+.weekdays span {
+  padding: 8px 0;
+}
+.day {
+  position: relative;
+  min-height: 90px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 15px;
+  background: white;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.day:hover:not(:disabled) {
+  border-color: var(--primary);
+  background: #f7fbf9;
+}
+.day:disabled {
+  color: #a9afac;
+  background: #f2f3f1;
+  cursor: not-allowed;
+}
+.weekend {
+  background: #f7f3ed;
+}
+.selected {
+  border: 3px solid var(--primary);
+  padding: 10px;
+  background: var(--primary-soft);
+}
+.filled {
+  background: var(--primary-soft);
+  border-color: #9fcbbf;
+}
+.dayNumber {
+  font-size: 16px;
+  font-weight: 850;
+}
+.minutes {
+  display: block;
+  margin-top: 17px;
+  color: var(--primary);
+  font-size: 14px;
+  font-weight: 850;
+}
+.empty {
+  visibility: hidden;
+}
+.editor {
+  position: sticky;
+  top: 96px;
+  align-self: start;
+  padding: 24px;
+}
+.editor h2 {
+  margin: 0 0 6px;
+  font-size: 24px;
+}
+.editorHint {
+  margin: 0 0 22px;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+.minuteButtons {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+.minuteButtons button {
+  min-height: 60px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: white;
+  color: var(--text);
+  font-weight: 850;
+  cursor: pointer;
+}
+.minuteButtons button:hover,
+.minuteButtons .active {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: white;
+}
+.clear {
+  width: 100%;
+  margin-top: 10px;
+  min-height: 48px;
+  border: 0;
+  background: transparent;
+  color: var(--conflict);
+  cursor: pointer;
+  font-weight: 750;
+}
+.summary {
+  margin-top: 22px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+.summary strong {
+  display: block;
+  font-size: 30px;
+  letter-spacing: -0.04em;
+}
+.summary span {
+  color: var(--text-muted);
+}
+.saveRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-top: 20px;
+  padding: 18px 20px;
+}
+.zero {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  color: var(--text-muted);
+}
+.zero input {
+  width: 22px;
+  height: 22px;
+  accent-color: var(--primary);
+}
+.message {
+  min-height: 24px;
+  color: var(--primary);
+  font-weight: 750;
+}
+@media (max-width: 980px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+  .editor {
+    position: static;
+  }
+  .minuteButtons {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+@media (max-width: 660px) {
+  .weekdays,
+  .grid {
+    gap: 5px;
+  }
+  .day {
+    min-height: 64px;
+    padding: 8px 5px;
+    border-radius: 11px;
+  }
+  .selected {
+    padding: 6px 3px;
+  }
+  .minutes {
+    margin-top: 8px;
+    font-size: 11px;
+  }
+  .minuteButtons {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .saveRow {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .saveRow button {
+    width: 100%;
+  }
+}
