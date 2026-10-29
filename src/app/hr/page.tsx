@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { count, eq, inArray } from "drizzle-orm";
+import { and, count, eq, inArray } from "drizzle-orm";
 import { AppShell } from "@/components/AppShell";
 import { db } from "@/db/client";
 import { overtimeReports, users, vacationPlans } from "@/db/schema";
@@ -35,7 +35,16 @@ export default async function HrPage() {
     })
     .from(overtimeReports)
     .innerJoin(users, eq(users.id, overtimeReports.userId))
-    .where(eq(overtimeReports.organizationId, hr.organizationId))
+    .where(
+      and(
+        eq(overtimeReports.organizationId, hr.organizationId),
+        inArray(overtimeReports.status, [
+          "submitted",
+          "hr_proposed",
+          "reopened",
+        ]),
+      ),
+    )
     .limit(8);
   const vacations = await db
     .select({
@@ -51,10 +60,7 @@ export default async function HrPage() {
       inArray(vacationPlans.status, ["submitted", "hr_proposed", "reopened"]),
     )
     .limit(8);
-  const awaiting =
-    overtime.filter((item) =>
-      ["submitted", "hr_proposed", "reopened"].includes(item.status),
-    ).length + vacations.length;
+  const awaiting = overtime.length + vacations.length;
   const items = [
     ...vacations.map((item) => ({
       ...item,
@@ -66,7 +72,7 @@ export default async function HrPage() {
       ...item,
       kind: "overtime" as const,
       title: `Внеурочное время · ${String(item.month).padStart(2, "0")}.${item.year}`,
-      href: "/hr",
+      href: `/hr/overtime/${item.id}`,
     })),
   ];
   return (

@@ -5,6 +5,15 @@ import { getOvertimeReport } from "@/domain/overtime-service";
 import { requireUser } from "@/lib/auth";
 
 export const metadata: Metadata = { title: "Внеурочное время" };
+const labels: Record<string, string> = {
+  draft: "Черновик",
+  submitted: "На проверке",
+  hr_proposed: "Есть правка кадров",
+  approved: "Утверждено",
+  rejected: "Отклонено",
+  reopened: "Открыто повторно",
+  withdrawn: "Отозвано",
+};
 export default async function OvertimePage() {
   const user = await requireUser();
   const now = new Date();
@@ -24,7 +33,9 @@ export default async function OvertimePage() {
             закрыты, выходные остаются доступными.
           </p>
         </div>
-        <span className="statusPill">Черновик · версия {report.version}</span>
+        <span className="statusPill">
+          {labels[report.status]} · версия {report.version}
+        </span>
       </header>
       <OvertimeCalendar initial={report} />
     </AppShell>

@@ -25,6 +25,8 @@ test("employee and HR complete a bilateral vacation approval", async ({
   await page.getByRole("button", { name: "15 мин" }).click();
   await page.getByRole("button", { name: "Сохранить черновик" }).click();
   await expect(page.getByRole("status")).toContainText("Сохранено");
+  await page.getByRole("button", { name: "Отправить кадровику" }).click();
+  await expect(page.getByRole("status")).toContainText("Отправлено");
 
   await page.getByRole("link", { name: "Отпуска" }).click();
   await page.getByRole("button", { name: /^10 май/ }).click();
@@ -39,7 +41,19 @@ test("employee and HR complete a bilateral vacation approval", async ({
   await expect(
     page.getByRole("heading", { name: "Что требует решения" }),
   ).toBeVisible();
-  await page.getByRole("link", { name: "Открыть" }).first().click();
+  await page.locator('a[href^="/hr/overtime/"]').click();
+  await page.locator('button[aria-label*="15 минут"]').click();
+  await page.getByRole("button", { name: "30 мин" }).click();
+  await page
+    .getByLabel("Причина кадровой правки")
+    .fill("Уточнение по данным табеля подразделения");
+  await page.getByRole("button", { name: "Предложить сотруднику" }).click();
+  await expect(page.getByRole("status")).toContainText(
+    "Предложение отправлено",
+  );
+
+  await page.goto("/hr");
+  await page.locator('a[href^="/hr/vacations/"]').click();
   await page.getByRole("button", { name: /Удалить период/ }).click();
   await page.getByRole("button", { name: /^12 май/ }).click();
   await page.getByRole("button", { name: /^22 май/ }).click();
@@ -51,6 +65,13 @@ test("employee and HR complete a bilateral vacation approval", async ({
 
   await page.getByRole("button", { name: "Выйти" }).click();
   await login(page, "employee", "Employee-2026!");
+  await expect(
+    page.getByText("Кадровая служба предложила корректировку"),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Подтвердить правку" }).click();
+  await expect(
+    page.getByText("Предложение кадровика утверждено", { exact: true }),
+  ).toBeVisible();
   await page.getByRole("link", { name: "Отпуска" }).click();
   await expect(page.getByText("предложено кадровиком")).toBeVisible();
   await page.getByRole("button", { name: "Подтвердить правку" }).click();
@@ -65,10 +86,15 @@ test("monthly overtime calendar remains usable on mobile", async ({
   await expect(
     page.getByRole("heading", { name: "Внеурочное время" }),
   ).toBeVisible();
+  await page.getByRole("button", { name: "Предыдущий месяц" }).click();
   const day = page.locator('button[data-calendar-day="1"]');
-  const box = await day.boundingBox();
-  expect(box?.width).toBeGreaterThanOrEqual(44);
-  expect(box?.height).toBeGreaterThanOrEqual(44);
+  await expect(day).toBeVisible();
+  await expect
+    .poll(async () => (await day.boundingBox())?.width ?? 0)
+    .toBeGreaterThanOrEqual(44);
+  await expect
+    .poll(async () => (await day.boundingBox())?.height ?? 0)
+    .toBeGreaterThanOrEqual(44);
   await day.click();
   await expect(
     page.getByRole("button", { name: "5 мин", exact: true }),

@@ -1,13 +1,17 @@
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./tests/e2e",
+  outputDir: join(tmpdir(), "tfoms-time-playwright"),
   fullyParallel: false,
+  workers: 1,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? "github" : "list",
   use: { baseURL: "http://localhost:3080", trace: "retain-on-failure" },
   webServer: {
-    command: "npm run dev -- --port 3080",
+    command: "npm run start:e2e",
     url: "http://localhost:3080/api/health",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

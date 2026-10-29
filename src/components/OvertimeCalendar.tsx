@@ -21,18 +21,24 @@ const months = [
 const weekdays = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
 const iso = (year: number, month: number, day: number) =>
   `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+type Source = "employee" | "hr";
+type InitialReport = {
+  id: string;
+  year: number;
+  month: number;
+  version: number;
+  entries: Record<string, number>;
+  sources?: Record<string, Source>;
+  zeroConfirmed: boolean;
+  status: string;
+};
 
 export function OvertimeCalendar({
   initial,
+  mode = "employee",
 }: {
-  initial: {
-    year: number;
-    month: number;
-    version: number;
-    entries: Record<string, number>;
-    zeroConfirmed: boolean;
-    status: string;
-  };
+  initial: InitialReport;
+  mode?: Source;
 }) {
   const [period, setPeriod] = useState({
     year: initial.year,
@@ -40,14 +46,22 @@ export function OvertimeCalendar({
   });
   const [version, setVersion] = useState(initial.version);
   const [entries, setEntries] = useState(initial.entries);
+  const [sources, setSources] = useState<Record<string, Source>>(
+    initial.sources ?? {},
+  );
   const [zeroConfirmed, setZeroConfirmed] = useState(initial.zeroConfirmed);
   const [selected, setSelected] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
-  const [reportId, setReportId] = useState(
-    (initial as typeof initial & { id: string }).id,
-  );
+  const [reportId, setReportId] = useState(initial.id);
   const [status, setStatus] = useState(initial.status);
+  const [reason, setReason] = useState("");
+  const [editingResponse, setEditingResponse] = useState(false);
+  const canEdit =
+    (mode === "hr" &&
+      ["submitted", "reopened", "hr_proposed"].includes(status)) ||
+    status === "draft" ||
+    (mode === "employee" && status === "hr_proposed" && editingResponse);
   const today = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Yekaterinburg",
     year: "numeric",
@@ -67,6 +81,7 @@ export function OvertimeCalendar({
   );
 
   async function changeMonth(delta: number) {
+    if (mode === "hr") return;
     const date = new Date(period.year, period.month - 1 + delta, 1);
     const next = { year: date.getFullYear(), month: date.getMonth() + 1 };
     const response = await fetch(
@@ -75,6 +90,7 @@ export function OvertimeCalendar({
     const data = await response.json();
     setPeriod(next);
     setEntries(data.entries);
+    setSources(data.sources ?? {});
     setVersion(data.version);
     setReportId(data.id);
     setStatus(data.status);
@@ -82,16 +98,21 @@ export function OvertimeCalendar({
     setSelected(null);
     setMessage("");
   }
-
   function chooseMinutes(minutes: number) {
-    if (!selected) return;
+    if (!selected || !canEdit) return;
     setEntries((current) => ({ ...current, [selected]: minutes }));
+    setSources((current) => ({ ...current, [selected]: mode }));
     setZeroConfirmed(false);
     setMessage("Изменение пока не сохранено");
   }
   function clearSelected() {
-    if (!selected) return;
+    if (!selected || !canEdit) return;
     setEntries((current) => {
+      const copy = { ...current };
+      delete copy[selected];
+      return copy;
+    });
+    setSources((current) => {
       const copy = { ...current };
       delete copy[selected];
       return copy;
@@ -105,10 +126,7 @@ export function OvertimeCalendar({
       ArrowUp: -7,
       ArrowDown: 7,
     };
-    if (event.key === "Escape") {
-      setSelected(null);
-      return;
-    }
+    if (event.key === "Escape") return setSelected(null);
     const move = moves[event.key];
     if (!move) return;
     event.preventDefault();
@@ -121,45 +139,72 @@ export function OvertimeCalendar({
   async function save() {
     setSaving(true);
     setMessage("Сохраняем…");
-    const response = await fetch("/api/overtime", {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ ...period, version, entries, zeroConfirmed }),
-    });
+    const response = await fetch(
+      mode === "hr" ? `/api/hr/overtime/${reportId}` : "/api/overtime",
+      {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          ...period,
+          version,
+          entries,
+          zeroConfirmed,
+          reason,
+        }),
+      },
+    );
     const data = await response.json();
     setSaving(false);
     if (!response.ok) {
       setMessage(data.error ?? "Не удалось сохранить");
-      return;
+      return false;
     }
     setVersion(data.version);
-    setMessage("Сохранено");
+    setStatus(data.status ?? status);
+    setEntries(data.entries ?? entries);
+    setSources(data.sources ?? sources);
+    setZeroConfirmed(data.zeroConfirmed ?? zeroConfirmed);
+    setEditingResponse(false);
+    setMessage(
+      mode === "hr" ? "Предложение отправлено сотруднику" : "Сохранено",
+    );
+    return true;
   }
-  async function submit() {
+  async function transition(to: "submitted" | "approved") {
     setSaving(true);
-    setMessage("Отправляем…");
+    setMessage(to === "approved" ? "Подтверждаем…" : "Отправляем…");
     const response = await fetch("/api/workflow", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        aggregate: "overtime_report",
-        id: reportId,
-        to: "submitted",
-      }),
+      body: JSON.stringify({ aggregate: "overtime_report", id: reportId, to }),
     });
     const data = await response.json();
     setSaving(false);
-    if (!response.ok) {
-      setMessage(data.error ?? "Не удалось отправить");
-      return;
-    }
+    if (!response.ok)
+      return setMessage(data.error ?? "Не удалось выполнить действие");
     setStatus(data.status);
     setVersion(data.version);
-    setMessage("Отправлено кадровой службе");
+    setMessage(
+      to === "approved"
+        ? "Предложение кадровика утверждено"
+        : "Отправлено кадровой службе",
+    );
+  }
+  async function saveAndSubmit() {
+    if (await save()) await transition("submitted");
   }
 
   return (
     <>
+      {mode === "employee" && status === "hr_proposed" && (
+        <div className={styles.proposalNotice} role="status">
+          <strong>Кадровая служба предложила корректировку</strong>
+          <span>
+            Янтарные ячейки изменены кадровиком. Подтвердите их или отправьте
+            свой вариант.
+          </span>
+        </div>
+      )}
       <div className={styles.layout}>
         <section
           className={`card ${styles.calendar}`}
@@ -172,20 +217,22 @@ export function OvertimeCalendar({
                 {months[period.month - 1]} {period.year}
               </h2>
             </div>
-            <div className={styles.monthNav}>
-              <button
-                onClick={() => changeMonth(-1)}
-                aria-label="Предыдущий месяц"
-              >
-                ←
-              </button>
-              <button
-                onClick={() => changeMonth(1)}
-                aria-label="Следующий месяц"
-              >
-                →
-              </button>
-            </div>
+            {mode === "employee" && (
+              <div className={styles.monthNav}>
+                <button
+                  onClick={() => changeMonth(-1)}
+                  aria-label="Предыдущий месяц"
+                >
+                  ←
+                </button>
+                <button
+                  onClick={() => changeMonth(1)}
+                  aria-label="Следующий месяц"
+                >
+                  →
+                </button>
+              </div>
+            )}
           </div>
           <div className={styles.weekdays} aria-hidden="true">
             {weekdays.map((day) => (
@@ -209,9 +256,17 @@ export function OvertimeCalendar({
                         styles.day,
                         weekday >= 5 ? styles.weekend : "",
                         selected === date ? styles.selected : "",
-                        entries[date] ? styles.filled : "",
+                        entries[date]
+                          ? sources[date] === "hr"
+                            ? styles.hrFilled
+                            : styles.filled
+                          : "",
+                        status === "approved" && entries[date]
+                          ? styles.approved
+                          : "",
+                        !canEdit ? styles.readonly : "",
                       ].join(" ")}
-                      disabled={future}
+                      disabled={future || !canEdit}
                       aria-pressed={selected === date}
                       aria-label={`${day} ${months[period.month - 1]}, ${entries[date] ? `${entries[date]} минут` : "не заполнено"}${future ? ", будущая дата" : ""}`}
                       onKeyDown={(event) => onDayKey(event, day)}
@@ -235,18 +290,22 @@ export function OvertimeCalendar({
           <h2>
             {selected
               ? `${Number(selected.slice(-2))} ${months[period.month - 1].toLowerCase()}`
-              : "Выберите день"}
+              : canEdit
+                ? "Выберите день"
+                : "Режим просмотра"}
           </h2>
           <p className={styles.editorHint}>
-            {selected
-              ? "Сколько времени вы работали сверх нормы?"
-              : "Нажмите крупную ячейку дня в календаре. Доступны и будни, и выходные."}
+            {canEdit
+              ? selected
+                ? "Сколько времени было отработано сверх нормы?"
+                : "Нажмите крупную ячейку дня. Доступны и будни, и выходные."
+              : "Отчёт уже отправлен. Все значения сохранены в истории изменений."}
           </p>
           <div className={styles.minuteButtons}>
             {OVERTIME_MINUTES.map((minutes) => (
               <button
                 key={minutes}
-                disabled={!selected}
+                disabled={!selected || !canEdit}
                 className={
                   selected && entries[selected] === minutes ? styles.active : ""
                 }
@@ -258,11 +317,35 @@ export function OvertimeCalendar({
           </div>
           <button
             className={styles.clear}
-            disabled={!selected || !entries[selected]}
+            disabled={!selected || !entries[selected] || !canEdit}
             onClick={clearSelected}
           >
             Очистить этот день
           </button>
+          {mode === "hr" && (
+            <label className={styles.reason}>
+              Причина кадровой правки
+              <textarea
+                value={reason}
+                onChange={(event) => setReason(event.target.value)}
+                placeholder="Например: уточнение по табелю подразделения"
+              />
+            </label>
+          )}
+          <div className={styles.legend}>
+            <span>
+              <i className={styles.dot} />
+              Сотрудник
+            </span>
+            <span>
+              <i className={`${styles.dot} ${styles.dotHr}`} />
+              Кадровая правка
+            </span>
+            <span>
+              <i className={`${styles.dot} ${styles.dotApproved}`} />
+              Утверждено
+            </span>
+          </div>
           <div className={styles.summary}>
             <strong>
               {Math.floor(total / 60)} ч {total % 60} мин
@@ -276,7 +359,7 @@ export function OvertimeCalendar({
           <input
             type="checkbox"
             checked={zeroConfirmed}
-            disabled={Object.keys(entries).length > 0 || status !== "draft"}
+            disabled={Object.keys(entries).length > 0 || !canEdit}
             onChange={(event) => setZeroConfirmed(event.target.checked)}
           />
           В этом месяце внеурочного времени не было
@@ -285,28 +368,75 @@ export function OvertimeCalendar({
           <span className={styles.message} role="status">
             {message}
           </span>
-          <button
-            className="secondaryButton"
-            disabled={
-              saving ||
-              status !== "draft" ||
-              (!Object.keys(entries).length && !zeroConfirmed)
-            }
-            onClick={save}
-          >
-            Сохранить черновик
-          </button>
-          <button
-            className="primaryButton"
-            disabled={
-              saving ||
-              status !== "draft" ||
-              (!Object.keys(entries).length && !zeroConfirmed)
-            }
-            onClick={submit}
-          >
-            Отправить кадровику
-          </button>
+          {mode === "hr" && (
+            <button
+              className="primaryButton"
+              disabled={
+                saving ||
+                !canEdit ||
+                !reason.trim() ||
+                (!Object.keys(entries).length && !zeroConfirmed)
+              }
+              onClick={save}
+            >
+              Предложить сотруднику
+            </button>
+          )}
+          {mode === "employee" && status === "draft" && (
+            <>
+              <button
+                className="secondaryButton"
+                disabled={
+                  saving || (!Object.keys(entries).length && !zeroConfirmed)
+                }
+                onClick={save}
+              >
+                Сохранить черновик
+              </button>
+              <button
+                className="primaryButton"
+                disabled={
+                  saving || (!Object.keys(entries).length && !zeroConfirmed)
+                }
+                onClick={saveAndSubmit}
+              >
+                Отправить кадровику
+              </button>
+            </>
+          )}
+          {mode === "employee" &&
+            status === "hr_proposed" &&
+            !editingResponse && (
+              <>
+                <button
+                  className="secondaryButton"
+                  disabled={saving}
+                  onClick={() => setEditingResponse(true)}
+                >
+                  Изменить снова
+                </button>
+                <button
+                  className="primaryButton"
+                  disabled={saving}
+                  onClick={() => transition("approved")}
+                >
+                  Подтвердить правку
+                </button>
+              </>
+            )}
+          {mode === "employee" &&
+            status === "hr_proposed" &&
+            editingResponse && (
+              <button
+                className="primaryButton"
+                disabled={
+                  saving || (!Object.keys(entries).length && !zeroConfirmed)
+                }
+                onClick={save}
+              >
+                Отправить свой вариант
+              </button>
+            )}
         </div>
       </section>
     </>

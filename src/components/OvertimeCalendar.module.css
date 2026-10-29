@@ -80,6 +80,32 @@
   background: var(--primary-soft);
   border-color: #9fcbbf;
 }
+.hrFilled {
+  background: #fff2d8;
+  border-color: #d7a747;
+}
+.approved {
+  background: #e5f3e8;
+  border-color: #79ad85;
+}
+.readonly:disabled {
+  color: var(--text);
+  cursor: default;
+  opacity: 1;
+}
+.proposalNotice {
+  display: flex;
+  gap: 8px 18px;
+  align-items: center;
+  margin-bottom: 18px;
+  padding: 16px 20px;
+  border: 1px solid #e8c980;
+  border-radius: 16px;
+  background: #fff7e5;
+}
+.proposalNotice span {
+  color: var(--text-muted);
+}
 .dayNumber {
   font-size: 16px;
   font-weight: 850;
@@ -139,6 +165,52 @@
   cursor: pointer;
   font-weight: 750;
 }
+.reason {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 750;
+}
+.reason textarea {
+  min-height: 92px;
+  resize: vertical;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  padding: 12px;
+  background: #fff;
+  color: var(--text);
+  font: inherit;
+  font-weight: 500;
+}
+.legend {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.legend span {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.dot {
+  width: 12px;
+  height: 12px;
+  border: 1px solid #9fcbbf;
+  border-radius: 4px;
+  background: var(--primary-soft);
+}
+.dotHr {
+  border-color: #d7a747;
+  background: #fff2d8;
+}
+.dotApproved {
+  border-color: #79ad85;
+  background: #e5f3e8;
+}
 .summary {
   margin-top: 22px;
   padding-top: 20px;
@@ -188,6 +260,10 @@
   }
 }
 @media (max-width: 660px) {
+  .proposalNotice {
+    align-items: flex-start;
+    flex-direction: column;
+  }
   .weekdays,
   .grid {
     gap: 5px;

@@ -1,6 +1,7 @@
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import {
+  approvalEvents,
   auditEvents,
   overtimeEntries,
   overtimeReports,
@@ -64,6 +65,12 @@ export async function getOvertimeReport(
     entries: Object.fromEntries(
       entries.map((entry) => [entry.workDate, entry.minutes]),
     ),
+    sources: Object.fromEntries(
+      entries.map((entry) => [
+        entry.workDate,
+        entry.source === "employee" ? "employee" : "hr",
+      ]),
+    ) as Record<string, "employee" | "hr">,
   };
 }
 
@@ -85,7 +92,11 @@ export async function saveOvertimeReport(input: {
     );
     if (!locked) throw new Error("REPORT_NOT_FOUND");
     if (locked.version !== input.version) throw new Error("VERSION_CONFLICT");
-    if (!["draft", "reopened", "rejected", "withdrawn"].includes(locked.status))
+    if (
+      !["draft", "reopened", "rejected", "withdrawn", "hr_proposed"].includes(
+        locked.status,
+      )
+    )
       throw new Error("REPORT_READ_ONLY");
     const validEntries = Object.entries(input.entries).filter(([, minutes]) =>
       isOvertimeMinutes(minutes),
@@ -103,10 +114,14 @@ export async function saveOvertimeReport(input: {
         })),
       );
     const nextVersion = locked.version + 1;
+    const nextStatus =
+      locked.status === "hr_proposed" ? "submitted" : locked.status;
     const [report] = await tx
       .update(overtimeReports)
       .set({
         version: nextVersion,
+        status: nextStatus as
+          "draft" | "submitted" | "reopened" | "rejected" | "withdrawn",
         zeroConfirmed: validEntries.length ? false : input.zeroConfirmed,
         updatedAt: new Date(),
       })
@@ -114,6 +129,9 @@ export async function saveOvertimeReport(input: {
       .returning();
     const snapshot = {
       entries: Object.fromEntries(validEntries),
+      sources: Object.fromEntries(
+        validEntries.map(([workDate]) => [workDate, "employee"]),
+      ),
       zeroConfirmed: report.zeroConfirmed,
     };
     await tx.insert(revisions).values({
@@ -132,9 +150,21 @@ export async function saveOvertimeReport(input: {
       objectId: locked.id,
       metadata: { version: nextVersion },
     });
+    if (locked.status === "hr_proposed") {
+      await tx.insert(approvalEvents).values({
+        aggregateType: "overtime_report",
+        aggregateId: locked.id,
+        fromStatus: "hr_proposed",
+        toStatus: "submitted",
+        actorId: input.user.id,
+        comment: "Сотрудник отправил встречный вариант",
+      });
+    }
     return {
       version: nextVersion,
+      status: nextStatus,
       entries: snapshot.entries,
+      sources: snapshot.sources,
       zeroConfirmed: report.zeroConfirmed,
     };
   });
