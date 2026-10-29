@@ -7,7 +7,7 @@
   grid-template-columns: minmax(240px, 0.8fr) minmax(320px, 1.3fr) auto;
   gap: 24px;
   align-items: end;
-  padding: 24px;
+  padding: 28px;
   border: 1px solid var(--border-strong);
   background: var(--surface);
 }
@@ -25,12 +25,12 @@
   display: grid;
   gap: 8px;
   color: var(--text-muted);
-  font-size: 14px;
+  font-size: var(--text-sm);
   font-weight: 750;
 }
 .create input,
 .row input {
-  min-height: 52px;
+  min-height: var(--control-height);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-small);
   padding: 0 14px;
@@ -57,7 +57,7 @@
   grid-template-columns: minmax(260px, 1fr) 140px minmax(250px, 0.7fr) auto;
   gap: 24px;
   align-items: end;
-  padding: 18px 20px;
+  padding: 20px 24px;
   border-bottom: 1px solid var(--border);
 }
 .row:last-child {
@@ -70,7 +70,7 @@
 }
 .usage span {
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 700;
 }
 .usage strong {

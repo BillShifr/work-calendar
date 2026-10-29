@@ -4,21 +4,21 @@
   background: var(--surface);
 }
 .proposalNotice {
-  padding: 12px 16px;
+  padding: 16px 20px;
   border-bottom: 1px solid var(--hr);
   background: var(--hr-soft);
   color: var(--hr);
-  font-size: 13px;
+  font-size: var(--text-base);
 }
 .commandBar {
   position: sticky;
-  top: 61px;
+  top: 73px;
   z-index: 10;
   display: flex;
   align-items: center;
-  gap: 18px;
-  min-height: 64px;
-  padding: 8px 12px;
+  gap: 20px;
+  min-height: 76px;
+  padding: 12px 16px;
   border-bottom: 1px solid var(--border-strong);
   background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(12px);
@@ -29,13 +29,13 @@
   border: 1px solid var(--border);
 }
 .monthControl strong {
-  min-width: 164px;
+  min-width: 180px;
   text-align: center;
-  font-size: 15px;
+  font-size: var(--text-lg);
 }
 .monthControl button {
-  width: 42px;
-  height: 42px;
+  width: var(--control-height);
+  height: var(--control-height);
   border: 0;
   background: transparent;
   color: var(--text);
@@ -50,12 +50,12 @@
   white-space: nowrap;
 }
 .summary strong {
-  font-size: 16px;
+  font-size: var(--text-lg);
 }
 .summary span,
 .message {
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 .message {
   flex: 1;
@@ -68,8 +68,8 @@
 .editor {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
+  gap: 16px;
+  padding: 16px;
   border-bottom: 1px solid var(--border);
   background: var(--surface-subtle);
 }
@@ -79,10 +79,10 @@
 }
 .selectedDate span {
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .selectedDate strong {
-  font-size: 14px;
+  font-size: var(--text-base);
 }
 .minuteButtons {
   display: grid;
@@ -92,12 +92,13 @@
   background: var(--border);
 }
 .minuteButtons button {
-  min-height: 44px;
+  min-height: var(--control-height);
   border: 0;
   background: white;
   color: var(--text);
   cursor: pointer;
   font-weight: 700;
+  font-size: var(--text-base);
 }
 .minuteButtons button:hover:not(:disabled),
 .minuteButtons .active {
@@ -109,8 +110,8 @@
   color: var(--text-faint);
 }
 .clear {
-  min-height: 44px;
-  padding: 0 12px;
+  min-height: var(--control-height);
+  padding: 0 16px;
   border: 1px solid var(--border);
   background: transparent;
   color: var(--text-muted);
@@ -131,21 +132,21 @@
   margin-left: auto;
   color: var(--text-muted);
   white-space: nowrap;
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 .reason {
   display: grid;
   grid-template-columns: 190px 1fr;
   align-items: center;
-  gap: 16px;
-  padding: 12px 16px;
+  gap: 20px;
+  padding: 16px 20px;
   border-bottom: 1px solid var(--border);
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 700;
 }
 .reason textarea {
-  min-height: 44px;
+  min-height: var(--control-height);
   resize: vertical;
   padding: 10px 12px;
   border: 1px solid var(--border);
@@ -153,14 +154,15 @@
   background: white;
   color: var(--text);
   font: inherit;
+  font-size: var(--text-base);
 }
 .legend {
   display: flex;
   justify-content: flex-end;
-  gap: 14px;
-  padding: 8px 14px 0;
+  gap: 18px;
+  padding: 12px 16px 0;
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .legend span {
   display: flex;
@@ -198,10 +200,10 @@
 .weekdays span {
   display: grid;
   place-items: center;
-  min-height: 34px;
+  min-height: 44px;
   background: var(--surface-subtle);
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 700;
   text-transform: uppercase;
 }
@@ -251,14 +253,14 @@
   opacity: 1;
 }
 .dayNumber {
-  font-size: 14px;
+  font-size: var(--text-base);
   font-weight: 700;
 }
 .minutes {
   display: block;
   margin-top: 20px;
   color: var(--primary-strong);
-  font-size: 15px;
+  font-size: var(--text-base);
   font-weight: 750;
 }
 .empty {
@@ -330,6 +332,6 @@
   }
   .minutes {
     margin-top: 8px;
-    font-size: 11px;
+    font-size: var(--text-xs);
   }
 }

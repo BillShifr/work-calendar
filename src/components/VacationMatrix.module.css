@@ -5,13 +5,13 @@
 }
 .commandBar {
   position: sticky;
-  top: 61px;
+  top: 73px;
   z-index: 10;
   display: flex;
   align-items: center;
-  gap: 18px;
-  min-height: 64px;
-  padding: 8px 12px;
+  gap: 20px;
+  min-height: 76px;
+  padding: 12px 16px;
   border-bottom: 1px solid var(--border-strong);
   background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(12px);
@@ -22,13 +22,13 @@
   border: 1px solid var(--border);
 }
 .yearControl strong {
-  min-width: 70px;
+  min-width: 84px;
   text-align: center;
-  font-size: 16px;
+  font-size: var(--text-lg);
 }
 .yearControl button {
-  width: 42px;
-  height: 42px;
+  width: var(--control-height);
+  height: var(--control-height);
   border: 0;
   background: transparent;
   color: var(--text);
@@ -55,7 +55,7 @@
 .total span,
 .message {
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 .message {
   flex: 1;
@@ -69,15 +69,15 @@
   display: grid;
   grid-template-columns: 190px 1fr;
   align-items: center;
-  gap: 16px;
-  padding: 12px 16px;
+  gap: 20px;
+  padding: 16px 20px;
   border-bottom: 1px solid var(--border);
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 700;
 }
 .reason textarea {
-  min-height: 44px;
+  min-height: var(--control-height);
   resize: vertical;
   padding: 10px 12px;
   border: 1px solid var(--border);
@@ -85,13 +85,14 @@
   background: white;
   color: var(--text);
   font: inherit;
+  font-size: var(--text-base);
 }
 .periodBar {
   display: flex;
   align-items: center;
-  gap: 12px;
-  min-height: 66px;
-  padding: 10px 14px;
+  gap: 16px;
+  min-height: 76px;
+  padding: 12px 16px;
   border-bottom: 1px solid var(--border);
   background: var(--surface-subtle);
 }
@@ -101,12 +102,12 @@
   min-width: 138px;
 }
 .selection strong {
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 .selection span,
 .empty {
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 .periods {
   display: flex;
@@ -122,8 +123,8 @@
   align-items: center;
   gap: 8px;
   min-width: max-content;
-  min-height: 42px;
-  padding: 5px 5px 5px 10px;
+  min-height: var(--control-height);
+  padding: 6px 6px 6px 12px;
   border: 1px solid var(--border);
   background: white;
 }
@@ -132,15 +133,15 @@
   gap: 1px;
 }
 .period strong {
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .period small {
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .period button {
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
   border: 0;
   background: transparent;
   color: var(--text-muted);
@@ -156,7 +157,7 @@
   gap: 10px;
   color: var(--text-muted);
   white-space: nowrap;
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .legend span {
   display: flex;
@@ -198,28 +199,28 @@
 .dayHead {
   display: grid;
   place-items: center;
-  min-height: 30px;
+  min-height: 40px;
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 700;
 }
 .month {
   display: flex;
   align-items: center;
-  min-height: 38px;
+  min-height: 44px;
   padding-left: 10px;
   color: var(--text);
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 700;
 }
 .day {
   position: relative;
   min-width: 33px;
-  min-height: 38px;
+  min-height: 44px;
   border: 0;
   color: var(--text-muted);
   cursor: pointer;
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 700;
 }
 .day:hover:not(:disabled) {

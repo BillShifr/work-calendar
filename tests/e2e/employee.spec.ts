@@ -194,8 +194,62 @@ test("monthly overtime calendar remains usable on mobile", async ({
   await expect
     .poll(async () => (await day.boundingBox())?.height ?? 0)
     .toBeGreaterThanOrEqual(44);
+  await expect
+    .poll(() =>
+      page
+        .locator("body")
+        .evaluate((element) =>
+          Number.parseFloat(getComputedStyle(element).fontSize),
+        ),
+    )
+    .toBeGreaterThanOrEqual(16);
   await day.click();
-  await expect(
-    page.getByRole("button", { name: "5 мин", exact: true }),
-  ).toBeEnabled();
+  const fiveMinutes = page.getByRole("button", {
+    name: "5 мин",
+    exact: true,
+  });
+  await expect(fiveMinutes).toBeEnabled();
+  await expect
+    .poll(async () => (await fiveMinutes.boundingBox())?.height ?? 0)
+    .toBeGreaterThanOrEqual(52);
+});
+
+test("HR screens use the shared readable UI system", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name === "mobile", "Desktop UI contract check");
+  await login(page, "hr", "CI-only-password-2026!");
+
+  await page.goto("/hr/departments");
+  const headcountIncrease = page.getByRole("button", {
+    name: "Увеличить: Штат",
+    exact: true,
+  });
+  await expect
+    .poll(async () => (await headcountIncrease.boundingBox())?.height ?? 0)
+    .toBeGreaterThanOrEqual(52);
+  await expect
+    .poll(() =>
+      page
+        .getByLabel("Название")
+        .first()
+        .evaluate((element) =>
+          Number.parseFloat(getComputedStyle(element).fontSize),
+        ),
+    )
+    .toBeGreaterThanOrEqual(16);
+
+  await page.goto("/hr/reference-data");
+  const availabilitySwitch = page
+    .getByRole("switch", { name: "Доступна для назначения" })
+    .first();
+  await expect
+    .poll(async () => (await availabilitySwitch.boundingBox())?.height ?? 0)
+    .toBeGreaterThanOrEqual(52);
+
+  await page.goto("/hr");
+  const queueFilter = page.getByRole("link", { name: "Все", exact: true });
+  await expect
+    .poll(async () => (await queueFilter.boundingBox())?.height ?? 0)
+    .toBeGreaterThanOrEqual(48);
 });
