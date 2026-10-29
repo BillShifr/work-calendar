@@ -3,6 +3,14 @@
   border: 1px solid var(--border-strong);
   background: var(--surface);
 }
+.accessNotice {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-strong);
+  background: var(--surface-muted);
+  color: var(--text);
+  font-size: var(--text-base);
+  font-weight: 700;
+}
 .commandBar {
   position: sticky;
   top: 73px;

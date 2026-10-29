@@ -55,6 +55,11 @@ export async function PUT(request: Request) {
         },
         { status: 409 },
       );
+    if (error instanceof Error && error.message === "ENTRY_WINDOW_CLOSED")
+      return NextResponse.json(
+        { error: "Кадровая служба закрыла заполнение этого месяца." },
+        { status: 409 },
+      );
     throw error;
   }
 }

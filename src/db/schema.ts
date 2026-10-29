@@ -145,6 +145,35 @@ export const sessions = pgTable(
   ],
 );
 
+export const entryWindows = pgTable(
+  "entry_windows",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    kind: text("kind").$type<"vacation" | "overtime">().notNull(),
+    year: integer("year").notNull(),
+    month: integer("month").notNull().default(0),
+    isOpen: boolean("is_open").notNull().default(false),
+    updatedBy: uuid("updated_by").references(() => users.id),
+    ...auditColumns,
+  },
+  (table) => [
+    uniqueIndex("entry_windows_org_period_uq").on(
+      table.organizationId,
+      table.kind,
+      table.year,
+      table.month,
+    ),
+    index("entry_windows_org_year_idx").on(
+      table.organizationId,
+      table.year,
+      table.kind,
+    ),
+  ],
+);
+
 export const overtimeReports = pgTable(
   "overtime_reports",
   {

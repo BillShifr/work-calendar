@@ -1,0 +1,140 @@
+.workspace {
+  display: grid;
+  gap: var(--space-4);
+}
+.yearBar {
+  display: flex;
+  align-items: center;
+  min-height: 76px;
+  padding: 12px 16px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+}
+.yearBar button {
+  width: var(--control-height);
+  height: var(--control-height);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 19px;
+}
+.yearBar strong {
+  min-width: 96px;
+  text-align: center;
+  font-size: var(--text-lg);
+}
+.yearBar span {
+  margin-left: 20px;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.section {
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+}
+.sectionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 72px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.sectionHead h2 {
+  margin: 0;
+  font-size: 24px;
+}
+.singleRow,
+.monthRow {
+  display: flex;
+  align-items: center;
+  min-height: 76px;
+  padding: 12px 20px;
+}
+.singleRow {
+  justify-content: space-between;
+  gap: 24px;
+}
+.singleRow > div {
+  display: grid;
+  gap: 2px;
+}
+.singleRow span {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.months {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.monthRow {
+  display: grid;
+  grid-template-columns: minmax(130px, 1fr) 110px 124px;
+  gap: 16px;
+  border-bottom: 1px solid var(--border);
+}
+.monthRow:nth-child(odd) {
+  border-right: 1px solid var(--border);
+}
+.monthRow:nth-last-child(-n + 2) {
+  border-bottom: 0;
+}
+.state {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: 800;
+}
+.state i {
+  width: 10px;
+  height: 10px;
+  background: currentColor;
+}
+.open {
+  color: var(--approved);
+}
+.closed {
+  color: var(--conflict);
+}
+.monthRow button,
+.singleRow button {
+  min-width: 124px;
+}
+@media (max-width: 900px) {
+  .months {
+    grid-template-columns: 1fr;
+  }
+  .monthRow:nth-child(odd) {
+    border-right: 0;
+  }
+  .monthRow:nth-last-child(2) {
+    border-bottom: 1px solid var(--border);
+  }
+}
+@media (max-width: 560px) {
+  .yearBar {
+    flex-wrap: wrap;
+  }
+  .yearBar span {
+    width: 100%;
+    margin: 8px 0 0;
+  }
+  .singleRow {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .monthRow {
+    grid-template-columns: 1fr auto;
+  }
+  .monthRow .state {
+    grid-column: 1;
+  }
+  .monthRow button {
+    grid-column: 2;
+    grid-row: 1 / 3;
+  }
+}

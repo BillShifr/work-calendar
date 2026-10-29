@@ -7,6 +7,19 @@ async function login(page: Page, login: string, password: string) {
   await page.getByRole("button", { name: "Войти" }).click();
 }
 
+async function setEntryWindow(
+  page: Page,
+  kind: "vacation" | "overtime",
+  year: number,
+  month: number,
+  isOpen: boolean,
+) {
+  const response = await page.request.put("/api/hr/entry-windows", {
+    data: { kind, year, month, isOpen },
+  });
+  expect(response.ok()).toBe(true);
+}
+
 test("employee and HR complete a bilateral vacation approval", async ({
   page,
 }, testInfo) => {
@@ -14,6 +27,11 @@ test("employee and HR complete a bilateral vacation approval", async ({
     testInfo.project.name === "mobile",
     "Full workflow runs once on desktop",
   );
+  await login(page, "hr", "CI-only-password-2026!");
+  await setEntryWindow(page, "overtime", 2026, 10, true);
+  await setEntryWindow(page, "vacation", 2027, 0, true);
+  await setEntryWindow(page, "vacation", 2028, 0, false);
+  await page.getByRole("button", { name: "Выйти" }).click();
   await login(page, "employee", "Employee-2026!");
   await expect(
     page.getByRole("heading", { name: "Внеурочное время" }),
@@ -24,22 +42,53 @@ test("employee and HR complete a bilateral vacation approval", async ({
   await availableDay.click();
   await page.getByRole("button", { name: "Добавить 15 минут" }).click();
   await page.getByRole("button", { name: "Сохранить черновик" }).click();
-  await expect(page.getByRole("status")).toContainText("Сохранено");
+  await expect(page.getByText("Сохранено", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Отправить кадровику" }).click();
-  await expect(page.getByRole("status")).toContainText("Отправлено");
+  await expect(
+    page.getByText("Отправлено кадровой службе", { exact: true }),
+  ).toBeVisible();
 
   await page.getByRole("link", { name: "Отпуска" }).click();
-  const planResponse = await page.request.get("/api/vacations?year=2026");
+  await page.getByRole("button", { name: "Следующий год" }).click();
+  await expect(
+    page.getByText("Заполнение на 2028 год закрыто кадровой службой"),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: /^10 май/ })).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: "Сохранить черновик" }),
+  ).toBeDisabled();
+  const closedPlanResponse = await page.request.get("/api/vacations?year=2028");
+  const closedPlan = await closedPlanResponse.json();
+  const closedSaveResponse = await page.request.put("/api/vacations", {
+    data: { year: 2028, version: closedPlan.version, periods: [] },
+  });
+  expect(closedSaveResponse.status()).toBe(409);
+  await expect(closedSaveResponse.json()).resolves.toMatchObject({
+    error: "Кадровая служба закрыла заполнение этого года.",
+  });
+  const closedSubmitResponse = await page.request.post("/api/workflow", {
+    data: {
+      aggregate: "vacation_plan",
+      id: closedPlan.id,
+      to: "submitted",
+    },
+  });
+  expect(closedSubmitResponse.status()).toBe(409);
+  await expect(closedSubmitResponse.json()).resolves.toMatchObject({
+    error: "Период заполнения закрыт кадровой службой",
+  });
+  await page.getByRole("button", { name: "Предыдущий год" }).click();
+  const planResponse = await page.request.get("/api/vacations?year=2027");
   const plan = await planResponse.json();
   const overLimitResponse = await page.request.put("/api/vacations", {
     data: {
-      year: 2026,
+      year: 2027,
       version: plan.version,
       periods: [
         {
           id: "server-limit-regression",
-          startsOn: "2026-04-01",
-          endsOn: "2026-04-29",
+          startsOn: "2027-04-01",
+          endsOn: "2027-04-29",
           source: "employee",
         },
       ],
@@ -83,7 +132,9 @@ test("employee and HR complete a bilateral vacation approval", async ({
   await expect(page.getByText("из 28 дней", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Сохранить черновик" }).click();
   await page.getByRole("button", { name: "Отправить кадровику" }).click();
-  await expect(page.getByRole("status")).toContainText("отправлен");
+  await expect(
+    page.getByText("План отправлен кадровой службе", { exact: true }),
+  ).toBeVisible();
 
   await page.getByRole("button", { name: "Выйти" }).click();
   await login(page, "hr", "CI-only-password-2026!");
@@ -171,7 +222,7 @@ test("employee and HR complete a bilateral vacation approval", async ({
     .getByLabel("Причина изменений")
     .fill("Устранение пересечения с отпуском дежурного специалиста");
   await page.getByRole("button", { name: "Предложить изменения" }).click();
-  await expect(page.getByRole("status")).toContainText("Сохранено");
+  await expect(page.getByText("Сохранено", { exact: true })).toBeVisible();
 
   await page.getByRole("button", { name: "Выйти" }).click();
   await login(page, "employee", "Employee-2026!");
@@ -185,13 +236,18 @@ test("employee and HR complete a bilateral vacation approval", async ({
   await page.getByRole("link", { name: "Отпуска" }).click();
   await expect(page.getByText(/Правка HR/)).toBeVisible();
   await page.getByRole("button", { name: "Подтвердить правку" }).click();
-  await expect(page.getByRole("status")).toContainText("утверждено");
+  await expect(
+    page.getByText("Предложение кадровика утверждено", { exact: true }),
+  ).toBeVisible();
 });
 
 test("monthly overtime calendar remains usable on mobile", async ({
   page,
 }, testInfo) => {
   test.skip(testInfo.project.name !== "mobile", "Mobile-only layout check");
+  await login(page, "hr", "CI-only-password-2026!");
+  await setEntryWindow(page, "overtime", 2026, 9, true);
+  await page.getByRole("button", { name: "Выйти" }).click();
   await login(page, "employee", "Employee-2026!");
   await expect(
     page.getByRole("heading", { name: "Внеурочное время" }),
@@ -241,6 +297,18 @@ test("HR screens use the shared readable UI system", async ({
 }, testInfo) => {
   test.skip(testInfo.project.name === "mobile", "Desktop UI contract check");
   await login(page, "hr", "CI-only-password-2026!");
+
+  await page.goto("/hr/periods");
+  await expect(
+    page.getByRole("heading", { name: "Периоды заполнения" }),
+  ).toBeVisible();
+  const november = page.locator(
+    '[data-period-kind="overtime"][data-month="11"]',
+  );
+  await november.getByRole("button", { name: "Открыть" }).click();
+  await expect(november).toContainText("Открыт");
+  await november.getByRole("button", { name: "Закрыть" }).click();
+  await expect(november).toContainText("Закрыт");
 
   await page.goto("/hr/departments");
   const headcountIncrease = page.getByRole("button", {

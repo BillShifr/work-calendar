@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/db/client";
@@ -57,6 +57,17 @@ export async function POST(request: Request) {
       if (!item) throw new Error("NOT_FOUND");
       if (actor.role === "employee" && item.userId !== actor.id)
         throw new Error("FORBIDDEN");
+      if (actor.role === "employee" && ["submitted", "draft"].includes(to)) {
+        const kind = aggregate === "overtime_report" ? "overtime" : "vacation";
+        const month =
+          aggregate === "overtime_report"
+            ? (item as typeof overtimeReports.$inferSelect).month
+            : 0;
+        const [entryWindow] = await tx.execute<{ isOpen: boolean }>(
+          sql`SELECT is_open AS "isOpen" FROM entry_windows WHERE organization_id=${actor.organizationId} AND kind=${kind} AND year=${item.year} AND month=${month} FOR SHARE`,
+        );
+        if (!entryWindow?.isOpen) throw new Error("ENTRY_WINDOW_CLOSED");
+      }
       assertTransition(
         item.status as WorkflowStatus,
         to,
@@ -113,6 +124,11 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: "Количество дней превышает доступный лимит" },
         { status: 400 },
+      );
+    if (message === "ENTRY_WINDOW_CLOSED")
+      return NextResponse.json(
+        { error: "Период заполнения закрыт кадровой службой" },
+        { status: 409 },
       );
     return NextResponse.json(
       {

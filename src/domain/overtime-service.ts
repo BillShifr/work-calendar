@@ -8,6 +8,7 @@ import {
   revisions,
 } from "@/db/schema";
 import { isOvertimeTotal } from "./overtime";
+import { isEntryWindowOpen } from "./entry-window-service";
 
 export async function getOvertimeReport(
   user: { id: string; organizationId: string },
@@ -60,8 +61,15 @@ export async function getOvertimeReport(
     .select()
     .from(overtimeEntries)
     .where(eq(overtimeEntries.reportId, report.id));
+  const entryWindowOpen = await isEntryWindowOpen(
+    user.organizationId,
+    "overtime",
+    year,
+    month,
+  );
   return {
     ...report,
+    entryWindowOpen,
     entries: Object.fromEntries(
       entries.map((entry) => [entry.workDate, entry.minutes]),
     ),
@@ -83,6 +91,10 @@ export async function saveOvertimeReport(input: {
   zeroConfirmed: boolean;
 }) {
   return db.transaction(async (tx) => {
+    const [entryWindow] = await tx.execute<{ isOpen: boolean }>(
+      sql`SELECT is_open AS "isOpen" FROM entry_windows WHERE organization_id=${input.user.organizationId} AND kind='overtime' AND year=${input.year} AND month=${input.month} FOR SHARE`,
+    );
+    if (!entryWindow?.isOpen) throw new Error("ENTRY_WINDOW_CLOSED");
     const [locked] = await tx.execute<{
       id: string;
       version: number;

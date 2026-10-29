@@ -16,6 +16,11 @@ describe.skipIf(!sql)("database constraints", () => {
       "revisions",
     ]);
   });
+  it("has organization entry windows", async () => {
+    const rows =
+      await sql!`SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_name='entry_windows'`;
+    expect(rows).toEqual([{ table_name: "entry_windows" }]);
+  });
   it("keeps accumulated overtime totals on the five-minute grid", async () => {
     const checks =
       await sql!`SELECT pg_get_constraintdef(oid) definition FROM pg_constraint WHERE conrelid='overtime_entries'::regclass`;

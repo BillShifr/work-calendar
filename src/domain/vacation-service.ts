@@ -12,6 +12,7 @@ import {
   totalPeriodDays,
   type DatePeriod,
 } from "./vacation";
+import { isEntryWindowOpen } from "./entry-window-service";
 
 export async function getVacationPlan(
   user: { id: string; organizationId: string },
@@ -44,8 +45,14 @@ export async function getVacationPlan(
     .select()
     .from(vacationPeriods)
     .where(eq(vacationPeriods.planId, plan.id));
+  const entryWindowOpen = await isEntryWindowOpen(
+    user.organizationId,
+    "vacation",
+    year,
+  );
   return {
     ...plan,
+    entryWindowOpen,
     periods: periods.map((period) => ({
       id: period.id,
       startsOn: period.startsOn,
@@ -81,6 +88,10 @@ export async function saveVacationPlan(input: {
       throw new Error("PERIODS_OVERLAP");
   }
   return db.transaction(async (tx) => {
+    const [entryWindow] = await tx.execute<{ isOpen: boolean }>(
+      sql`SELECT is_open AS "isOpen" FROM entry_windows WHERE organization_id=${input.user.organizationId} AND kind='vacation' AND year=${input.year} AND month=0 FOR SHARE`,
+    );
+    if (!entryWindow?.isOpen) throw new Error("ENTRY_WINDOW_CLOSED");
     const rows = await tx.execute<{
       id: string;
       version: number;

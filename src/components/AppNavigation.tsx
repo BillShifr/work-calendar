@@ -14,6 +14,7 @@ export function AppNavigation({ isHr }: { isHr: boolean }) {
     ? [
         ...employeeItems,
         { href: "/hr", label: "Кабинет кадровика" },
+        { href: "/hr/periods", label: "Периоды" },
         { href: "/hr/employees", label: "Сотрудники" },
         { href: "/hr/departments", label: "Подразделения" },
         { href: "/hr/reference-data", label: "Справочники" },

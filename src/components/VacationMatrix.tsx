@@ -47,6 +47,7 @@ export function VacationMatrix({
     allowanceDays: number;
     status: string;
     periods: DatePeriod[];
+    entryWindowOpen?: boolean;
   };
   mode?: "employee" | "hr";
 }) {
@@ -60,11 +61,16 @@ export function VacationMatrix({
   const [status, setStatus] = useState(initial.status);
   const [reason, setReason] = useState("");
   const [editingResponse, setEditingResponse] = useState(false);
+  const [entryWindowOpen, setEntryWindowOpen] = useState(
+    initial.entryWindowOpen ?? true,
+  );
   const canEdit =
     (mode === "hr" &&
       ["submitted", "reopened", "hr_proposed"].includes(status)) ||
     (mode === "employee" &&
-      (status === "draft" || (status === "hr_proposed" && editingResponse)));
+      entryWindowOpen &&
+      (["draft", "reopened"].includes(status) ||
+        (status === "hr_proposed" && editingResponse)));
   const total = totalPeriodDays(periods);
   function periodFor(date: string) {
     return periods.find(
@@ -117,6 +123,7 @@ export function VacationMatrix({
     setPeriods(data.periods);
     setPlanId(data.id);
     setStatus(data.status);
+    setEntryWindowOpen(data.entryWindowOpen);
     setStart(null);
     setMessage("");
   }
@@ -194,6 +201,20 @@ export function VacationMatrix({
   }
   return (
     <section className={styles.workspace}>
+      {mode === "employee" && !entryWindowOpen ? (
+        <div className={styles.accessNotice} role="status">
+          Заполнение на {year} год закрыто кадровой службой
+        </div>
+      ) : null}
+      {mode === "employee" &&
+      entryWindowOpen &&
+      ["submitted", "approved"].includes(status) ? (
+        <div className={styles.accessNotice} role="status">
+          {status === "submitted"
+            ? "План отправлен кадровику и доступен только для просмотра"
+            : "Утверждённый план доступен только для просмотра"}
+        </div>
+      ) : null}
       <div className={styles.commandBar} aria-label="Действия с планом">
         <div className={styles.yearControl}>
           <button aria-label="Предыдущий год" onClick={() => changeYear(-1)}>
@@ -243,23 +264,27 @@ export function VacationMatrix({
               </button>
             </>
           )}
-          {mode === "employee" && (status === "draft" || editingResponse) && (
-            <button
-              className="secondaryButton"
-              disabled={saving || total > initial.allowanceDays}
-              onClick={save}
-            >
-              {editingResponse
-                ? "Отправить свой вариант"
-                : "Сохранить черновик"}
-            </button>
-          )}
-          {mode === "employee" && status === "draft" && (
+          {mode === "employee" &&
+            (["draft", "reopened"].includes(status) || editingResponse) && (
+              <button
+                className="secondaryButton"
+                disabled={
+                  saving || !entryWindowOpen || total > initial.allowanceDays
+                }
+                onClick={save}
+              >
+                {editingResponse
+                  ? "Отправить свой вариант"
+                  : "Сохранить черновик"}
+              </button>
+            )}
+          {mode === "employee" && ["draft", "reopened"].includes(status) && (
             <button
               className="primaryButton"
               disabled={
                 saving ||
-                status !== "draft" ||
+                !entryWindowOpen ||
+                !["draft", "reopened"].includes(status) ||
                 !periods.length ||
                 total > initial.allowanceDays
               }
@@ -274,6 +299,7 @@ export function VacationMatrix({
               <>
                 <button
                   className="secondaryButton"
+                  disabled={!entryWindowOpen}
                   onClick={() => {
                     setEditingResponse(true);
                     setMessage("Измените периоды и отправьте свой вариант.");

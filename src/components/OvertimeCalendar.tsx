@@ -37,6 +37,7 @@ type InitialReport = {
   sources?: Record<string, Source>;
   zeroConfirmed: boolean;
   status: string;
+  entryWindowOpen?: boolean;
 };
 
 export function OvertimeCalendar({
@@ -63,11 +64,16 @@ export function OvertimeCalendar({
   const [status, setStatus] = useState(initial.status);
   const [reason, setReason] = useState("");
   const [editingResponse, setEditingResponse] = useState(false);
+  const [entryWindowOpen, setEntryWindowOpen] = useState(
+    initial.entryWindowOpen ?? true,
+  );
   const canEdit =
     (mode === "hr" &&
       ["submitted", "reopened", "hr_proposed"].includes(status)) ||
     (mode === "employee" &&
-      (status === "draft" || (status === "hr_proposed" && editingResponse)));
+      entryWindowOpen &&
+      (["draft", "reopened"].includes(status) ||
+        (status === "hr_proposed" && editingResponse)));
   const today = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Yekaterinburg",
     year: "numeric",
@@ -100,6 +106,7 @@ export function OvertimeCalendar({
     setVersion(data.version);
     setReportId(data.id);
     setStatus(data.status);
+    setEntryWindowOpen(data.entryWindowOpen);
     setZeroConfirmed(data.zeroConfirmed);
     setSelected(null);
     setMessage("");
@@ -207,6 +214,20 @@ export function OvertimeCalendar({
 
   return (
     <section className={styles.workspace}>
+      {mode === "employee" && !entryWindowOpen ? (
+        <div className={styles.accessNotice} role="status">
+          Заполнение этого месяца закрыто кадровой службой
+        </div>
+      ) : null}
+      {mode === "employee" &&
+      entryWindowOpen &&
+      ["submitted", "approved"].includes(status) ? (
+        <div className={styles.accessNotice} role="status">
+          {status === "submitted"
+            ? "Отчёт отправлен кадровику и доступен только для просмотра"
+            : "Утверждённый отчёт доступен только для просмотра"}
+        </div>
+      ) : null}
       {mode === "employee" && status === "hr_proposed" && (
         <div className={styles.proposalNotice} role="status">
           <strong>Кадровая служба предложила корректировку</strong>
@@ -265,12 +286,14 @@ export function OvertimeCalendar({
               </button>
             </>
           )}
-          {mode === "employee" && status === "draft" && (
+          {mode === "employee" && ["draft", "reopened"].includes(status) && (
             <>
               <button
                 className="secondaryButton"
                 disabled={
-                  saving || (!Object.keys(entries).length && !zeroConfirmed)
+                  saving ||
+                  !entryWindowOpen ||
+                  (!Object.keys(entries).length && !zeroConfirmed)
                 }
                 onClick={save}
               >
@@ -279,7 +302,9 @@ export function OvertimeCalendar({
               <button
                 className="primaryButton"
                 disabled={
-                  saving || (!Object.keys(entries).length && !zeroConfirmed)
+                  saving ||
+                  !entryWindowOpen ||
+                  (!Object.keys(entries).length && !zeroConfirmed)
                 }
                 onClick={saveAndSubmit}
               >
@@ -293,7 +318,7 @@ export function OvertimeCalendar({
               <>
                 <button
                   className="secondaryButton"
-                  disabled={saving}
+                  disabled={saving || !entryWindowOpen}
                   onClick={() => setEditingResponse(true)}
                 >
                   Изменить снова
@@ -313,7 +338,9 @@ export function OvertimeCalendar({
               <button
                 className="primaryButton"
                 disabled={
-                  saving || (!Object.keys(entries).length && !zeroConfirmed)
+                  saving ||
+                  !entryWindowOpen ||
+                  (!Object.keys(entries).length && !zeroConfirmed)
                 }
                 onClick={save}
               >
