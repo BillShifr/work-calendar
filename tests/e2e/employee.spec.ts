@@ -29,6 +29,19 @@ test("employee and HR complete a bilateral vacation approval", async ({
   await expect(page.getByRole("status")).toContainText("Отправлено");
 
   await page.getByRole("link", { name: "Отпуска" }).click();
+  const vacationMatrix = page.getByLabel(
+    "Матрица отпускных дней; прокручивается горизонтально",
+  );
+  await expect
+    .poll(() =>
+      vacationMatrix.evaluate(
+        (element) => element.scrollWidth <= element.clientWidth + 1,
+      ),
+    )
+    .toBe(true);
+  await expect(
+    page.getByRole("button", { name: "Сохранить черновик" }),
+  ).toBeInViewport();
   await page.getByRole("button", { name: /^10 май/ }).click();
   await expect(page.getByText(/Начало: 10 мая/i)).toBeVisible();
   await page.getByRole("button", { name: /^20 май/ }).click();
@@ -39,7 +52,7 @@ test("employee and HR complete a bilateral vacation approval", async ({
   await page.getByRole("button", { name: "Выйти" }).click();
   await login(page, "hr", "CI-only-password-2026!");
   await expect(
-    page.getByRole("heading", { name: "Что требует решения" }),
+    page.getByRole("heading", { name: "Кабинет кадровика" }),
   ).toBeVisible();
   await page.getByRole("link", { name: "Отделы" }).click();
   await page.getByLabel("Максимум отсутствующих").fill("1");
@@ -78,7 +91,7 @@ test("employee and HR complete a bilateral vacation approval", async ({
     page.getByText("Предложение кадровика утверждено", { exact: true }),
   ).toBeVisible();
   await page.getByRole("link", { name: "Отпуска" }).click();
-  await expect(page.getByText("предложено кадровиком")).toBeVisible();
+  await expect(page.getByText(/Правка HR/)).toBeVisible();
   await page.getByRole("button", { name: "Подтвердить правку" }).click();
   await expect(page.getByRole("status")).toContainText("утверждено");
 });

@@ -1,20 +1,26 @@
 :root {
-  --canvas: #f2f3f1;
-  --surface: #fbfcfa;
-  --surface-muted: #e9ece8;
-  --text: #26302c;
-  --text-muted: #68716d;
-  --border: #d7dcd8;
-  --primary: #2f7d6c;
-  --primary-soft: #dcece7;
-  --hr: #9b6b16;
-  --hr-soft: #f3e5c8;
-  --approved: #34754c;
-  --approved-soft: #dcebdc;
-  --conflict: #a84b4b;
-  --conflict-soft: #f3dddd;
-  --focus: #174b90;
-  --radius: 18px;
+  --canvas: #f3f5f6;
+  --surface: #ffffff;
+  --surface-subtle: #f7f8f9;
+  --surface-muted: #eceff1;
+  --weekend: #f3f5f7;
+  --text: #202a33;
+  --text-muted: #66727d;
+  --text-faint: #a5adb5;
+  --border: #dce1e5;
+  --border-strong: #c7ced4;
+  --primary: #486b82;
+  --primary-strong: #2f5268;
+  --primary-soft: #e7eef2;
+  --hr: #655c78;
+  --hr-soft: #eeebf2;
+  --approved: #476f5d;
+  --approved-soft: #e8f0ec;
+  --conflict: #985252;
+  --conflict-soft: #f5eaea;
+  --focus: #245f88;
+  --radius: 6px;
+  --radius-small: 4px;
   color-scheme: light;
 }
 
@@ -64,10 +70,10 @@ a {
   z-index: 20;
   display: flex;
   align-items: center;
-  gap: 24px;
-  min-height: 76px;
-  padding: 12px clamp(20px, 4vw, 64px);
-  background: rgba(251, 252, 250, 0.96);
+  gap: 20px;
+  min-height: 60px;
+  padding: 8px clamp(18px, 2.4vw, 36px);
+  background: rgba(255, 255, 255, 0.97);
   border-bottom: 1px solid var(--border);
 }
 .brand {
@@ -82,9 +88,9 @@ a {
 .brandMark {
   display: grid;
   place-items: center;
-  width: 42px;
-  height: 42px;
-  border-radius: 14px;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-small);
   color: white;
   background: var(--primary);
 }
@@ -94,11 +100,11 @@ a {
   flex: 1;
 }
 .nav a {
-  min-height: 44px;
+  min-height: 40px;
   display: inline-flex;
   align-items: center;
-  padding: 0 16px;
-  border-radius: 12px;
+  padding: 0 12px;
+  border-radius: var(--radius-small);
   text-decoration: none;
   color: var(--text-muted);
   font-weight: 650;
@@ -106,6 +112,10 @@ a {
 .nav a:hover {
   background: var(--surface-muted);
   color: var(--text);
+}
+.nav a[aria-current="page"] {
+  box-shadow: inset 0 -2px var(--primary);
+  color: var(--primary-strong);
 }
 .userBox {
   display: flex;
@@ -119,25 +129,25 @@ a {
   color: var(--text);
 }
 .plainButton {
-  min-height: 44px;
-  padding: 0 14px;
+  min-height: 38px;
+  padding: 0 12px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-small);
   background: var(--surface);
   color: var(--text);
   cursor: pointer;
 }
 .main {
-  width: min(1440px, 100%);
+  width: min(1680px, 100%);
   margin: 0 auto;
-  padding: clamp(24px, 4vw, 56px);
+  padding: clamp(18px, 2.4vw, 36px);
 }
 .pageHeader {
   display: flex;
   justify-content: space-between;
-  align-items: end;
+  align-items: center;
   gap: 24px;
-  margin-bottom: 28px;
+  margin-bottom: 16px;
 }
 .eyebrow {
   margin: 0 0 8px;
@@ -149,9 +159,9 @@ a {
 }
 h1 {
   margin: 0;
-  font-size: clamp(32px, 4vw, 54px);
-  line-height: 1.02;
-  letter-spacing: -0.045em;
+  font-size: clamp(26px, 3vw, 34px);
+  line-height: 1.15;
+  letter-spacing: -0.025em;
 }
 .lead {
   max-width: 720px;
@@ -167,38 +177,39 @@ h1 {
 }
 .statusPill {
   display: inline-flex;
-  min-height: 34px;
+  min-height: 30px;
   align-items: center;
   gap: 8px;
   padding: 0 12px;
-  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--primary) 28%, transparent);
+  border-radius: var(--radius-small);
   background: var(--primary-soft);
   color: var(--primary);
   font-size: 13px;
   font-weight: 800;
 }
 .primaryButton {
-  min-height: 48px;
-  padding: 0 20px;
+  min-height: 42px;
+  padding: 0 16px;
   border: 0;
-  border-radius: 13px;
+  border-radius: var(--radius-small);
   background: var(--primary);
   color: white;
   font-weight: 800;
   cursor: pointer;
 }
 .primaryButton:hover {
-  background: #276b5d;
+  background: var(--primary-strong);
 }
 .primaryButton:disabled {
   cursor: not-allowed;
   opacity: 0.5;
 }
 .secondaryButton {
-  min-height: 48px;
-  padding: 0 20px;
+  min-height: 42px;
+  padding: 0 16px;
   border: 1px solid var(--border);
-  border-radius: 13px;
+  border-radius: var(--radius-small);
   background: var(--surface);
   color: var(--text);
   font-weight: 750;

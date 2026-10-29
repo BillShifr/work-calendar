@@ -176,156 +176,25 @@ export function VacationMatrix({
     setMessage("Предложение кадровика утверждено");
   }
   return (
-    <>
-      <div className={styles.layout}>
-        <section className={`card ${styles.matrixCard}`}>
-          <div className={styles.matrixToolbar}>
-            <div>
-              <p className="eyebrow">Годовая матрица</p>
-              <h2>{year} год</h2>
-            </div>
-            <div className={styles.yearButtons}>
-              <button
-                aria-label="Предыдущий год"
-                onClick={() => changeYear(-1)}
-              >
-                ←
-              </button>
-              <button aria-label="Следующий год" onClick={() => changeYear(1)}>
-                →
-              </button>
-            </div>
-          </div>
-          <div
-            className={styles.scroll}
-            tabIndex={0}
-            aria-label="Матрица отпускных дней; прокручивается горизонтально"
-          >
-            <div className={styles.matrix}>
-              <span />
-              <>
-                {Array.from({ length: 31 }, (_, index) => (
-                  <span className={styles.dayHead} key={index}>
-                    {index + 1}
-                  </span>
-                ))}
-              </>
-              {months.map((monthName, monthIndex) => (
-                <div style={{ display: "contents" }} key={monthName}>
-                  <span className={styles.month}>{monthName}</span>
-                  {Array.from({ length: 31 }, (_, index) => {
-                    const day = index + 1;
-                    const valid = day <= daysInMonth(year, monthIndex + 1);
-                    const date = iso(year, monthIndex + 1, day);
-                    const period = valid ? periodFor(date) : undefined;
-                    return (
-                      <button
-                        key={date}
-                        disabled={!valid || !canEdit}
-                        onClick={() => select(date)}
-                        aria-label={
-                          valid
-                            ? `${day} ${monthName.toLowerCase()}${period ? ", входит в период" : ""}`
-                            : undefined
-                        }
-                        className={[
-                          styles.day,
-                          !valid
-                            ? styles.invalid
-                            : !canEdit
-                              ? styles.readonly
-                              : "",
-                          period
-                            ? period.source === "hr"
-                              ? styles.hrRange
-                              : styles.range
-                            : "",
-                          period?.status === "approved" ? styles.approved : "",
-                          start === date ? styles.start : "",
-                        ].join(" ")}
-                      >
-                        {valid ? day : ""}
-                      </button>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-        <aside className={`card ${styles.panel}`} aria-live="polite">
-          <p className="eyebrow">План на {year}</p>
-          <h2>{start ? `Начало: ${formatDate(start)}` : "Выберите период"}</h2>
-          <p className={styles.panelText}>
-            {start
-              ? "Начальная ячейка уже отмечена тёмным контуром. Выберите последний день — можно раньше или позже."
-              : "Первое нажатие задаёт начало, второе — конец. Никаких всплывающих календарей."}
-          </p>
-          {mode === "hr" && (
-            <label className={styles.reason}>
-              Причина кадровой правки
-              <textarea
-                value={reason}
-                onChange={(event) => setReason(event.target.value)}
-                placeholder="Например: пересечение с отпуском дежурного специалиста"
-              />
-            </label>
-          )}
-          <div className={styles.legend}>
-            <span>
-              <i className={styles.dot} />
-              Ваш выбор
-            </span>
-            <span>
-              <i className={`${styles.dot} ${styles.dotHr}`} />
-              Предложение кадровика
-            </span>
-            <span>
-              <i className={`${styles.dot} ${styles.dotApproved}`} />
-              Утверждено
-            </span>
-          </div>
-          {periods.length ? (
-            <ul className={styles.periods}>
-              {periods.map((period) => (
-                <li className={styles.period} key={period.id}>
-                  <strong>
-                    {formatDate(period.startsOn)} — {formatDate(period.endsOn)}
-                  </strong>
-                  <small>
-                    {periodDays(period)} дней ·{" "}
-                    {period.source === "hr"
-                      ? "предложено кадровиком"
-                      : "ваш выбор"}
-                  </small>
-                  <button
-                    disabled={!canEdit}
-                    aria-label={`Удалить период ${formatDate(period.startsOn)} — ${formatDate(period.endsOn)}`}
-                    onClick={() => {
-                      setPeriods((current) =>
-                        current.filter((item) => item.id !== period.id),
-                      );
-                      setMessage("Период удалён и пока не сохранён.");
-                    }}
-                  >
-                    ×
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className={styles.empty}>Периодов пока нет</p>
-          )}
-          <p className={styles.total}>
-            <span>{total}</span> из {initial.allowanceDays} дней запланировано
-          </p>
-        </aside>
-      </div>
-      <section className={`card ${styles.saveRow}`}>
+    <section className={styles.workspace}>
+      <div className={styles.commandBar} aria-label="Действия с планом">
+        <div className={styles.yearControl}>
+          <button aria-label="Предыдущий год" onClick={() => changeYear(-1)}>
+            ←
+          </button>
+          <strong>{year}</strong>
+          <button aria-label="Следующий год" onClick={() => changeYear(1)}>
+            →
+          </button>
+        </div>
+        <div className={styles.total}>
+          <strong>{total}</strong>
+          <span>из {initial.allowanceDays} дней</span>
+        </div>
         <span className={styles.message} role="status">
           {message}
         </span>
-        <div className="actions">
+        <div className={`actions ${styles.actions}`}>
           <button
             className="secondaryButton"
             disabled={!start}
@@ -386,7 +255,118 @@ export function VacationMatrix({
               </>
             )}
         </div>
-      </section>
-    </>
+      </div>
+
+      {mode === "hr" && (
+        <label className={styles.reason}>
+          Причина кадровой правки
+          <textarea
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            placeholder="Укажите причину изменения"
+          />
+        </label>
+      )}
+
+      <div className={styles.periodBar} aria-live="polite">
+        <div className={styles.selection}>
+          <strong>{start ? `Начало: ${formatDate(start)}` : "Периоды"}</strong>
+          {start && <span>Выберите дату окончания</span>}
+        </div>
+        {periods.length ? (
+          <ul className={styles.periods}>
+            {periods.map((period) => (
+              <li className={styles.period} key={period.id}>
+                <span>
+                  <strong>
+                    {formatDate(period.startsOn)} — {formatDate(period.endsOn)}
+                  </strong>
+                  <small>
+                    {period.source === "hr" ? "Правка HR" : "Ваш период"} ·{" "}
+                    {periodDays(period)} дн.
+                  </small>
+                </span>
+                <button
+                  disabled={!canEdit}
+                  aria-label={`Удалить период ${formatDate(period.startsOn)} — ${formatDate(period.endsOn)}`}
+                  onClick={() => {
+                    setPeriods((current) =>
+                      current.filter((item) => item.id !== period.id),
+                    );
+                    setMessage("Период удалён и пока не сохранён.");
+                  }}
+                >
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <span className={styles.empty}>Не выбраны</span>
+        )}
+        <div className={styles.legend} aria-label="Обозначения">
+          <span>
+            <i className={styles.dot} /> Выбор
+          </span>
+          <span>
+            <i className={`${styles.dot} ${styles.dotHr}`} /> HR
+          </span>
+          <span>
+            <i className={`${styles.dot} ${styles.dotApproved}`} /> Утверждено
+          </span>
+        </div>
+      </div>
+
+      <div
+        className={styles.scroll}
+        tabIndex={0}
+        aria-label="Матрица отпускных дней; прокручивается горизонтально"
+      >
+        <div className={styles.matrix}>
+          <span className={styles.corner} />
+          {Array.from({ length: 31 }, (_, index) => (
+            <span className={styles.dayHead} key={index}>
+              {index + 1}
+            </span>
+          ))}
+          {months.map((monthName, monthIndex) => (
+            <div style={{ display: "contents" }} key={monthName}>
+              <span className={styles.month}>{monthName}</span>
+              {Array.from({ length: 31 }, (_, index) => {
+                const day = index + 1;
+                const valid = day <= daysInMonth(year, monthIndex + 1);
+                const date = iso(year, monthIndex + 1, day);
+                const period = valid ? periodFor(date) : undefined;
+                return (
+                  <button
+                    key={date}
+                    disabled={!valid || !canEdit}
+                    onClick={() => select(date)}
+                    aria-label={
+                      valid
+                        ? `${day} ${monthName.toLowerCase()}${period ? ", входит в период" : ""}`
+                        : undefined
+                    }
+                    className={[
+                      styles.day,
+                      !valid ? styles.invalid : !canEdit ? styles.readonly : "",
+                      period
+                        ? period.source === "hr"
+                          ? styles.hrRange
+                          : styles.range
+                        : "",
+                      period?.status === "approved" ? styles.approved : "",
+                      start === date ? styles.start : "",
+                    ].join(" ")}
+                  >
+                    {valid ? day : ""}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }

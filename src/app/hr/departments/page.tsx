@@ -42,15 +42,7 @@ export default async function HrDepartmentsPage() {
   return (
     <AppShell>
       <header className="pageHeader">
-        <div>
-          <p className="eyebrow">Справочники кадровой службы</p>
-          <h1>Правила отделов</h1>
-          <p className="lead">
-            Настройте численность и допустимое отсутствие. Изменения сразу
-            участвуют в расчёте пересечений отпусков, а предыдущие правила
-            сохраняются в истории.
-          </p>
-        </div>
+        <h1>Правила отделов</h1>
         <span className="statusPill">
           {departments.length} активных отделов
         </span>

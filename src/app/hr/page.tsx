@@ -97,14 +97,7 @@ export default async function HrPage() {
   return (
     <AppShell>
       <header className="pageHeader">
-        <div>
-          <p className="eyebrow">Кадровая служба</p>
-          <h1>Что требует решения</h1>
-          <p className="lead">
-            Очередь объединяет отчёты и отпускные планы. Сначала показаны
-            просроченные записи, кадровые предложения и конфликты.
-          </p>
-        </div>
+        <h1>Кабинет кадровика</h1>
         <button className="primaryButton">Напомнить сотрудникам</button>
       </header>
       <section className={styles.metrics} aria-label="Сводка">
@@ -216,10 +209,6 @@ export default async function HrPage() {
               </p>
             </div>
           )}
-          <p className={styles.note}>
-            Расчёт выполняется по реальным периодам, назначениям сотрудников и
-            последнему правилу каждого отдела.
-          </p>
         </aside>
       </div>
     </AppShell>

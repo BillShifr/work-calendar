@@ -25,14 +25,7 @@ export default async function OvertimePage() {
   return (
     <AppShell>
       <header className="pageHeader">
-        <div>
-          <p className="eyebrow">Личный кабинет</p>
-          <h1>Внеурочное время</h1>
-          <p className="lead">
-            Выберите день, затем одно из пяти точных значений. Будущие даты
-            закрыты, выходные остаются доступными.
-          </p>
-        </div>
+        <h1>Внеурочное время</h1>
         <span className="statusPill">
           {labels[report.status]} · версия {report.version}
         </span>

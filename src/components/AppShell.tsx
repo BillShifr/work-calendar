@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
+import { AppNavigation } from "./AppNavigation";
 
 export async function AppShell({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
@@ -13,12 +14,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
           </span>
           <span>TFOMS Time</span>
         </Link>
-        <nav className="nav" aria-label="Основная навигация">
-          <Link href="/overtime">Внеурочное время</Link>
-          <Link href="/vacations">Отпуска</Link>
-          {isHr && <Link href="/hr">Кабинет кадровика</Link>}
-          {isHr && <Link href="/hr/departments">Отделы</Link>}
-        </nav>
+        <AppNavigation isHr={isHr} />
         <div className="userBox">
           <span>
             <strong>{user.fullName}</strong>

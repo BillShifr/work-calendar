@@ -195,179 +195,41 @@ export function OvertimeCalendar({
   }
 
   return (
-    <>
+    <section className={styles.workspace}>
       {mode === "employee" && status === "hr_proposed" && (
         <div className={styles.proposalNotice} role="status">
           <strong>Кадровая служба предложила корректировку</strong>
-          <span>
-            Янтарные ячейки изменены кадровиком. Подтвердите их или отправьте
-            свой вариант.
-          </span>
         </div>
       )}
-      <div className={styles.layout}>
-        <section
-          className={`card ${styles.calendar}`}
-          aria-label="Календарь внеурочного времени"
-        >
-          <div className={styles.calendarTop}>
-            <div>
-              <p className="eyebrow">Отчётный месяц</p>
-              <h2>
-                {months[period.month - 1]} {period.year}
-              </h2>
-            </div>
-            {mode === "employee" && (
-              <div className={styles.monthNav}>
-                <button
-                  onClick={() => changeMonth(-1)}
-                  aria-label="Предыдущий месяц"
-                >
-                  ←
-                </button>
-                <button
-                  onClick={() => changeMonth(1)}
-                  aria-label="Следующий месяц"
-                >
-                  →
-                </button>
-              </div>
-            )}
-          </div>
-          <div className={styles.weekdays} aria-hidden="true">
-            {weekdays.map((day) => (
-              <span key={day}>{day}</span>
-            ))}
-          </div>
-          <div className={styles.grid}>
-            {cells.map((day, index) =>
-              day === null ? (
-                <span className={styles.empty} key={`e-${index}`} />
-              ) : (
-                (() => {
-                  const date = iso(period.year, period.month, day);
-                  const weekday = (offset + day - 1) % 7;
-                  const future = date > today;
-                  return (
-                    <button
-                      data-calendar-day={day}
-                      key={date}
-                      className={[
-                        styles.day,
-                        weekday >= 5 ? styles.weekend : "",
-                        selected === date ? styles.selected : "",
-                        entries[date]
-                          ? sources[date] === "hr"
-                            ? styles.hrFilled
-                            : styles.filled
-                          : "",
-                        status === "approved" && entries[date]
-                          ? styles.approved
-                          : "",
-                        !canEdit ? styles.readonly : "",
-                      ].join(" ")}
-                      disabled={future || !canEdit}
-                      aria-pressed={selected === date}
-                      aria-label={`${day} ${months[period.month - 1]}, ${entries[date] ? `${entries[date]} минут` : "не заполнено"}${future ? ", будущая дата" : ""}`}
-                      onKeyDown={(event) => onDayKey(event, day)}
-                      onClick={() => setSelected(date)}
-                    >
-                      <span className={styles.dayNumber}>{day}</span>
-                      {entries[date] && (
-                        <span className={styles.minutes}>
-                          {entries[date]} мин
-                        </span>
-                      )}
-                    </button>
-                  );
-                })()
-              ),
-            )}
-          </div>
-        </section>
-        <aside className={`card ${styles.editor}`} aria-live="polite">
-          <p className="eyebrow">Быстрое действие</p>
-          <h2>
-            {selected
-              ? `${Number(selected.slice(-2))} ${months[period.month - 1].toLowerCase()}`
-              : canEdit
-                ? "Выберите день"
-                : "Режим просмотра"}
-          </h2>
-          <p className={styles.editorHint}>
-            {canEdit
-              ? selected
-                ? "Сколько времени было отработано сверх нормы?"
-                : "Нажмите крупную ячейку дня. Доступны и будни, и выходные."
-              : "Отчёт уже отправлен. Все значения сохранены в истории изменений."}
-          </p>
-          <div className={styles.minuteButtons}>
-            {OVERTIME_MINUTES.map((minutes) => (
-              <button
-                key={minutes}
-                disabled={!selected || !canEdit}
-                className={
-                  selected && entries[selected] === minutes ? styles.active : ""
-                }
-                onClick={() => chooseMinutes(minutes)}
-              >
-                {minutes === 60 ? "1 час" : `${minutes} мин`}
-              </button>
-            ))}
-          </div>
-          <button
-            className={styles.clear}
-            disabled={!selected || !entries[selected] || !canEdit}
-            onClick={clearSelected}
-          >
-            Очистить этот день
-          </button>
-          {mode === "hr" && (
-            <label className={styles.reason}>
-              Причина кадровой правки
-              <textarea
-                value={reason}
-                onChange={(event) => setReason(event.target.value)}
-                placeholder="Например: уточнение по табелю подразделения"
-              />
-            </label>
+      <div className={styles.commandBar} aria-label="Действия с отчётом">
+        <div className={styles.monthControl}>
+          {mode === "employee" && (
+            <button
+              onClick={() => changeMonth(-1)}
+              aria-label="Предыдущий месяц"
+            >
+              ←
+            </button>
           )}
-          <div className={styles.legend}>
-            <span>
-              <i className={styles.dot} />
-              Сотрудник
-            </span>
-            <span>
-              <i className={`${styles.dot} ${styles.dotHr}`} />
-              Кадровая правка
-            </span>
-            <span>
-              <i className={`${styles.dot} ${styles.dotApproved}`} />
-              Утверждено
-            </span>
-          </div>
-          <div className={styles.summary}>
-            <strong>
-              {Math.floor(total / 60)} ч {total % 60} мин
-            </strong>
-            <span>Итого за месяц · {Object.keys(entries).length} дней</span>
-          </div>
-        </aside>
-      </div>
-      <section className={`card ${styles.saveRow}`}>
-        <label className={styles.zero}>
-          <input
-            type="checkbox"
-            checked={zeroConfirmed}
-            disabled={Object.keys(entries).length > 0 || !canEdit}
-            onChange={(event) => setZeroConfirmed(event.target.checked)}
-          />
-          В этом месяце внеурочного времени не было
-        </label>
-        <div className="actions">
-          <span className={styles.message} role="status">
-            {message}
-          </span>
+          <strong>
+            {months[period.month - 1]} {period.year}
+          </strong>
+          {mode === "employee" && (
+            <button onClick={() => changeMonth(1)} aria-label="Следующий месяц">
+              →
+            </button>
+          )}
+        </div>
+        <div className={styles.summary}>
+          <strong>
+            {Math.floor(total / 60)} ч {total % 60} мин
+          </strong>
+          <span>{Object.keys(entries).length} дней</span>
+        </div>
+        <span className={styles.message} role="status">
+          {message}
+        </span>
+        <div className={`actions ${styles.actions}`}>
           {mode === "hr" && (
             <button
               className="primaryButton"
@@ -438,7 +300,127 @@ export function OvertimeCalendar({
               </button>
             )}
         </div>
-      </section>
-    </>
+      </div>
+
+      <div className={styles.editor} aria-live="polite">
+        <div className={styles.selectedDate}>
+          <span>{canEdit ? "Выбранный день" : "Просмотр"}</span>
+          <strong>
+            {selected
+              ? `${Number(selected.slice(-2))} ${months[period.month - 1].toLowerCase()}`
+              : "—"}
+          </strong>
+        </div>
+        <div className={styles.minuteButtons}>
+          {OVERTIME_MINUTES.map((minutes) => (
+            <button
+              key={minutes}
+              disabled={!selected || !canEdit}
+              className={
+                selected && entries[selected] === minutes ? styles.active : ""
+              }
+              onClick={() => chooseMinutes(minutes)}
+            >
+              {minutes === 60 ? "1 час" : `${minutes} мин`}
+            </button>
+          ))}
+        </div>
+        <button
+          className={styles.clear}
+          disabled={!selected || !entries[selected] || !canEdit}
+          onClick={clearSelected}
+        >
+          Очистить
+        </button>
+        <label className={styles.zero}>
+          <input
+            type="checkbox"
+            checked={zeroConfirmed}
+            disabled={Object.keys(entries).length > 0 || !canEdit}
+            onChange={(event) => setZeroConfirmed(event.target.checked)}
+          />
+          Внеурочного времени не было
+        </label>
+      </div>
+
+      {mode === "hr" && (
+        <label className={styles.reason}>
+          Причина кадровой правки
+          <textarea
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            placeholder="Укажите причину изменения"
+          />
+        </label>
+      )}
+
+      <div className={styles.legend} aria-label="Обозначения">
+        <span>
+          <i className={styles.dot} /> Сотрудник
+        </span>
+        <span>
+          <i className={`${styles.dot} ${styles.dotHr}`} /> HR
+        </span>
+        <span>
+          <i className={`${styles.dot} ${styles.dotApproved}`} /> Утверждено
+        </span>
+      </div>
+
+      <div
+        className={styles.calendar}
+        aria-label="Календарь внеурочного времени"
+      >
+        <div className={styles.weekdays} aria-hidden="true">
+          {weekdays.map((day) => (
+            <span key={day}>{day}</span>
+          ))}
+        </div>
+        <div className={styles.grid}>
+          {cells.map((day, index) =>
+            day === null ? (
+              <span className={styles.empty} key={`e-${index}`} />
+            ) : (
+              (() => {
+                const date = iso(period.year, period.month, day);
+                const weekday = (offset + day - 1) % 7;
+                const future = date > today;
+                return (
+                  <button
+                    data-calendar-day={day}
+                    key={date}
+                    className={[
+                      styles.day,
+                      weekday >= 5 ? styles.weekend : "",
+                      selected === date ? styles.selected : "",
+                      entries[date]
+                        ? sources[date] === "hr"
+                          ? styles.hrFilled
+                          : styles.filled
+                        : "",
+                      status === "approved" && entries[date]
+                        ? styles.approved
+                        : "",
+                      !canEdit ? styles.readonly : "",
+                    ].join(" ")}
+                    disabled={future || !canEdit}
+                    aria-pressed={selected === date}
+                    aria-label={`${day} ${months[period.month - 1]}, ${entries[date] ? `${entries[date]} минут` : "не заполнено"}${future ? ", будущая дата" : ""}`}
+                    onKeyDown={(event) => onDayKey(event, day)}
+                    onClick={() => setSelected(date)}
+                  >
+                    <span className={styles.dayNumber}>{day}</span>
+                    {entries[date] && (
+                      <span className={styles.minutes}>
+                        {entries[date]} мин
+                      </span>
+                    )}
+                  </button>
+                );
+              })()
+            ),
+          )}
+        </div>
+      </div>
+    </section>
   );
 }

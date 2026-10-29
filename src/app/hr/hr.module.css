@@ -1,11 +1,15 @@
 .metrics {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 14px;
-  margin-bottom: 20px;
+  gap: 1px;
+  margin-bottom: 16px;
+  border: 1px solid var(--border-strong);
+  background: var(--border);
 }
 .metric {
-  padding: 20px;
+  padding: 16px;
+  border: 0;
+  border-radius: 0;
 }
 .metric span {
   display: block;
@@ -16,11 +20,11 @@
 .metric strong {
   display: block;
   margin-top: 10px;
-  font-size: 34px;
+  font-size: 28px;
   letter-spacing: -0.04em;
 }
 .metric em {
-  color: var(--conflict);
+  color: var(--text-muted);
   font-style: normal;
   font-size: 12px;
   font-weight: 800;
@@ -28,10 +32,10 @@
 .dashboard {
   display: grid;
   grid-template-columns: minmax(0, 1.5fr) minmax(310px, 0.7fr);
-  gap: 20px;
+  gap: 16px;
 }
 .section {
-  padding: 24px;
+  padding: 18px;
 }
 .sectionHeader {
   display: flex;
@@ -53,7 +57,7 @@
   min-height: 40px;
   padding: 0 13px;
   border: 1px solid var(--border);
-  border-radius: 11px;
+  border-radius: var(--radius-small);
   background: white;
   color: var(--text-muted);
   font-weight: 700;
@@ -65,7 +69,8 @@
 }
 .queue {
   display: grid;
-  gap: 10px;
+  gap: 0;
+  border: 1px solid var(--border);
 }
 .item {
   display: grid;
@@ -74,8 +79,9 @@
   align-items: center;
   min-height: 76px;
   padding: 13px 15px;
-  border: 1px solid var(--border);
-  border-radius: 14px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
   background: white;
 }
 .person strong,
@@ -92,7 +98,7 @@
   align-items: center;
   min-height: 32px;
   padding: 0 10px;
-  border-radius: 999px;
+  border-radius: var(--radius-small);
   background: var(--hr-soft);
   color: var(--hr);
   font-size: 12px;
@@ -109,7 +115,7 @@
   min-height: 42px;
   padding: 0 14px;
   border: 1px solid var(--border);
-  border-radius: 11px;
+  border-radius: var(--radius-small);
   background: white;
   cursor: pointer;
   font-weight: 750;
@@ -118,7 +124,7 @@
 .overlap {
   padding: 16px;
   border: 1px solid var(--conflict);
-  border-radius: 15px;
+  border-radius: var(--radius-small);
   background: var(--conflict-soft);
 }
 .overlapList {
@@ -160,7 +166,7 @@
   display: grid;
   place-items: center;
   min-height: 44px;
-  border-radius: 9px;
+  border-radius: var(--radius-small);
   background: var(--surface-muted);
   padding: 4px;
   font-size: 11px;
@@ -172,7 +178,7 @@
   gap: 8px;
   padding: 22px;
   border: 1px solid #a8ccb0;
-  border-radius: 15px;
+  border-radius: var(--radius-small);
   background: var(--approved-soft);
 }
 .noOverlap > span {
@@ -180,7 +186,7 @@
   place-items: center;
   width: 38px;
   height: 38px;
-  border-radius: 50%;
+  border-radius: var(--radius-small);
   background: var(--approved);
   color: white;
   font-size: 20px;

@@ -3,7 +3,7 @@
   gap: 16px;
 }
 .department {
-  padding: clamp(18px, 3vw, 28px);
+  padding: 20px;
 }
 .heading,
 .footer {
@@ -17,7 +17,8 @@
 }
 .ruleState {
   padding: 8px 11px;
-  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--primary) 25%, transparent);
+  border-radius: var(--radius-small);
   background: var(--primary-soft);
   color: var(--primary);
   font-size: 12px;
@@ -39,7 +40,7 @@
 .fields input {
   min-height: 52px;
   border: 1px solid var(--border);
-  border-radius: 13px;
+  border-radius: var(--radius-small);
   padding: 0 14px;
   background: white;
   color: var(--text);
