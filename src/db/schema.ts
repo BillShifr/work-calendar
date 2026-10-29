@@ -63,6 +63,22 @@ export const departments = pgTable(
   ],
 );
 
+export const jobTitles = pgTable(
+  "job_titles",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    name: text("name").notNull(),
+    isActive: boolean("is_active").notNull().default(true),
+    ...auditColumns,
+  },
+  (table) => [
+    uniqueIndex("job_titles_org_name_uq").on(table.organizationId, table.name),
+  ],
+);
+
 export const users = pgTable(
   "users",
   {
@@ -93,6 +109,7 @@ export const departmentAssignments = pgTable(
     departmentId: uuid("department_id")
       .notNull()
       .references(() => departments.id),
+    jobTitleId: uuid("job_title_id").references(() => jobTitles.id),
     validFrom: date("valid_from").notNull(),
     validTo: date("valid_to"),
     jobTitle: text("job_title"),

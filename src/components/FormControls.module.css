@@ -1,0 +1,124 @@
+.number {
+  display: grid;
+  grid-template-columns: 52px minmax(64px, 1fr) 52px;
+  min-height: 52px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-small);
+  background: white;
+  overflow: hidden;
+}
+.number:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+.number button {
+  min-width: 52px;
+  border: 0;
+  background: var(--primary-soft);
+  color: var(--primary-strong);
+  cursor: pointer;
+  font-size: 22px;
+  font-weight: 800;
+}
+.number button:hover:not(:disabled) {
+  background: var(--primary);
+  color: white;
+}
+.number button:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+.number input {
+  width: 100%;
+  min-width: 0;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 0 6px !important;
+  text-align: center;
+  font: inherit;
+  font-weight: 800;
+  outline: 0 !important;
+  box-shadow: none !important;
+}
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 6px 12px 6px 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-small);
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
+  text-align: left;
+}
+.toggle > span {
+  position: relative;
+  width: 50px;
+  height: 30px;
+  flex: 0 0 auto;
+  border: 1px solid var(--border-strong);
+  border-radius: 15px;
+  background: var(--surface-muted);
+}
+.toggle i {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 22%);
+  transition: transform 120ms ease;
+}
+.toggle[aria-checked="true"] > span {
+  border-color: var(--primary);
+  background: var(--primary);
+}
+.toggle[aria-checked="true"] i {
+  transform: translateX(20px);
+}
+.toggle[aria-checked="true"] strong {
+  color: var(--primary-strong);
+}
+.toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+.toggle strong {
+  font-size: 14px;
+  font-weight: 750;
+}
+.select {
+  position: relative;
+  display: block;
+}
+.select select {
+  width: 100%;
+  min-height: 52px;
+  appearance: none;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-small);
+  padding: 0 42px 0 12px;
+  background: white;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+}
+.select select:focus {
+  border-color: var(--primary);
+  outline: 3px solid color-mix(in srgb, var(--primary) 20%, transparent);
+}
+.select > i {
+  position: absolute;
+  top: 50%;
+  right: 14px;
+  pointer-events: none;
+  color: var(--primary);
+  font-size: 20px;
+  font-style: normal;
+  transform: translateY(-58%);
+}

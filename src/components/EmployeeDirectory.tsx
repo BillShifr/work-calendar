@@ -2,9 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { NumberControl, SelectControl, ToggleControl } from "./FormControls";
 import styles from "./EmployeeDirectory.module.css";
 
 type Department = { id: string; name: string };
+type JobTitle = { id: string; name: string };
+type Role = "employee" | "hr";
 type Employee = {
   id: string;
   fullName: string;
@@ -13,31 +16,68 @@ type Employee = {
   isActive: boolean;
   departmentId: string | null;
   departmentName: string | null;
+  jobTitleId: string | null;
   jobTitle: string | null;
   isCritical: boolean | null;
   allowanceDays: number;
 };
 
+function RoleChoice({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: Role;
+  onChange: (value: Role) => void;
+}) {
+  return (
+    <fieldset className={styles.roleChoice}>
+      <legend>{label}</legend>
+      <div>
+        <button
+          type="button"
+          aria-pressed={value === "employee"}
+          onClick={() => onChange("employee")}
+        >
+          Сотрудник
+        </button>
+        <button
+          type="button"
+          aria-pressed={value === "hr"}
+          onClick={() => onChange("hr")}
+        >
+          Кадровая служба
+        </button>
+      </div>
+    </fieldset>
+  );
+}
+
 export function EmployeeDirectory({
   employees,
   departments,
+  jobTitles,
   year,
 }: {
   employees: Employee[];
   departments: Department[];
+  jobTitles: JobTitle[];
   year: number;
 }) {
   const router = useRouter();
   const [bulkDays, setBulkDays] = useState("28");
   const [message, setMessage] = useState("");
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
   const [create, setCreate] = useState({
     fullName: "",
     login: "",
     temporaryPassword: "",
     departmentId: departments[0]?.id ?? "",
-    jobTitle: "",
-    role: "employee",
+    jobTitleId: jobTitles[0]?.id ?? "",
+    role: "employee" as Role,
     isCritical: false,
     allowanceDays: 28,
   });
@@ -48,7 +88,7 @@ export function EmployeeDirectory({
         {
           fullName: employee.fullName,
           departmentId: employee.departmentId ?? "",
-          jobTitle: employee.jobTitle ?? "",
+          jobTitleId: employee.jobTitleId ?? "",
           role: employee.role === "hr_lead" ? "hr" : employee.role,
           isCritical: Boolean(employee.isCritical),
           isActive: employee.isActive,
@@ -59,7 +99,15 @@ export function EmployeeDirectory({
     ),
   );
 
+  const canCreate =
+    create.fullName.trim().length >= 3 &&
+    create.login.trim().length >= 3 &&
+    create.temporaryPassword.length >= 12 &&
+    Boolean(create.departmentId) &&
+    Boolean(create.jobTitleId);
+
   async function createEmployee() {
+    setSavingId("new");
     setMessage("Создаём сотрудника…");
     const response = await fetch("/api/hr/employees", {
       method: "POST",
@@ -67,15 +115,17 @@ export function EmployeeDirectory({
       body: JSON.stringify({ ...create, year }),
     });
     const data = await response.json();
+    setSavingId(null);
     if (!response.ok)
       return setMessage(data.error ?? "Не удалось создать сотрудника");
     setMessage("Сотрудник создан");
+    setShowCreate(false);
     setCreate({
       fullName: "",
       login: "",
       temporaryPassword: "",
       departmentId: departments[0]?.id ?? "",
-      jobTitle: "",
+      jobTitleId: jobTitles[0]?.id ?? "",
       role: "employee",
       isCritical: false,
       allowanceDays: 28,
@@ -95,6 +145,7 @@ export function EmployeeDirectory({
     setSavingId(null);
     if (!response.ok) return setMessage(data.error ?? "Не удалось сохранить");
     setMessage("Изменения сотрудника сохранены");
+    setEditingId(null);
     router.refresh();
   }
 
@@ -114,275 +165,355 @@ export function EmployeeDirectory({
 
   return (
     <div className={styles.workspace}>
-      <section className={styles.toolbar} aria-label="Общие настройки отпусков">
-        <strong>Лимит отпуска на {year} год</strong>
-        <input
-          aria-label="Дней отпуска для всех"
-          type="number"
-          min="0"
-          max="366"
-          value={bulkDays}
-          onChange={(event) => setBulkDays(event.target.value)}
-        />
-        <button className="primaryButton" onClick={applyToAll}>
-          Установить всем
-        </button>
-        <a className="secondaryButton" href={`/hr/employees?year=${year - 1}`}>
-          ← {year - 1}
-        </a>
-        <a className="secondaryButton" href={`/hr/employees?year=${year + 1}`}>
-          {year + 1} →
-        </a>
-        <span role="status">{message}</span>
-      </section>
-
-      <section className={styles.create}>
-        <h2>Новый сотрудник</h2>
-        <div className={styles.createGrid}>
-          <label>
-            ФИО
-            <input
-              value={create.fullName}
-              onChange={(event) =>
-                setCreate({ ...create, fullName: event.target.value })
-              }
-            />
-          </label>
-          <label>
-            Логин
-            <input
-              value={create.login}
-              onChange={(event) =>
-                setCreate({ ...create, login: event.target.value })
-              }
-            />
-          </label>
-          <label>
-            Временный пароль
-            <input
-              type="password"
-              value={create.temporaryPassword}
-              onChange={(event) =>
-                setCreate({ ...create, temporaryPassword: event.target.value })
-              }
-            />
-          </label>
-          <label>
-            Подразделение
-            <select
-              value={create.departmentId}
-              onChange={(event) =>
-                setCreate({ ...create, departmentId: event.target.value })
-              }
+      <section className={styles.commandBar} aria-label="Действия со штатом">
+        <div className={styles.yearControl}>
+          <span>Отпускной год</span>
+          <div>
+            <a
+              aria-label={`Открыть ${year - 1} год`}
+              href={`/hr/employees?year=${year - 1}`}
             >
-              {departments.map((department) => (
-                <option value={department.id} key={department.id}>
-                  {department.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Должность
-            <input
-              value={create.jobTitle}
-              onChange={(event) =>
-                setCreate({ ...create, jobTitle: event.target.value })
-              }
-            />
-          </label>
-          <label>
-            Роль
-            <select
-              value={create.role}
-              onChange={(event) =>
-                setCreate({ ...create, role: event.target.value })
-              }
+              ←
+            </a>
+            <strong>{year}</strong>
+            <a
+              aria-label={`Открыть ${year + 1} год`}
+              href={`/hr/employees?year=${year + 1}`}
             >
-              <option value="employee">Сотрудник</option>
-              <option value="hr">Кадровая служба</option>
-            </select>
-          </label>
-          <label>
-            Дней отпуска
-            <input
-              type="number"
-              min="0"
-              max="366"
-              value={create.allowanceDays}
-              onChange={(event) =>
-                setCreate({
-                  ...create,
-                  allowanceDays: Number(event.target.value),
-                })
-              }
-            />
-          </label>
-          <label className={styles.check}>
-            <input
-              type="checkbox"
-              checked={create.isCritical}
-              onChange={(event) =>
-                setCreate({ ...create, isCritical: event.target.checked })
-              }
-            />
-            Критичная роль
-          </label>
-          <button className="primaryButton" onClick={createEmployee}>
-            Добавить сотрудника
+              →
+            </a>
+          </div>
+        </div>
+        <div className={styles.bulkAllowance}>
+          <label>Дней отпуска для всех</label>
+          <NumberControl
+            label="Дней отпуска для всех"
+            min={0}
+            max={366}
+            value={bulkDays}
+            onChange={setBulkDays}
+          />
+          <button className="secondaryButton" onClick={applyToAll}>
+            Применить ко всем
           </button>
         </div>
+        <button
+          className="primaryButton"
+          onClick={() => setShowCreate((value) => !value)}
+        >
+          {showCreate ? "Закрыть форму" : "Добавить сотрудника"}
+        </button>
       </section>
 
+      {showCreate && (
+        <section className={styles.create} aria-labelledby="create-employee">
+          <div className={styles.sectionHeading}>
+            <div>
+              <h2 id="create-employee">Новый сотрудник</h2>
+            </div>
+          </div>
+          <div className={styles.formGrid}>
+            <label>
+              ФИО
+              <input
+                autoComplete="name"
+                value={create.fullName}
+                onChange={(event) =>
+                  setCreate({ ...create, fullName: event.target.value })
+                }
+              />
+            </label>
+            <label>
+              Логин
+              <input
+                autoComplete="username"
+                value={create.login}
+                onChange={(event) =>
+                  setCreate({ ...create, login: event.target.value })
+                }
+              />
+            </label>
+            <label>
+              Временный пароль
+              <input
+                type="password"
+                autoComplete="new-password"
+                value={create.temporaryPassword}
+                onChange={(event) =>
+                  setCreate({
+                    ...create,
+                    temporaryPassword: event.target.value,
+                  })
+                }
+              />
+            </label>
+            <label>
+              Подразделение
+              <SelectControl
+                label="Подразделение нового сотрудника"
+                value={create.departmentId}
+                onChange={(event) =>
+                  setCreate({ ...create, departmentId: event.target.value })
+                }
+              >
+                {departments.map((department) => (
+                  <option value={department.id} key={department.id}>
+                    {department.name}
+                  </option>
+                ))}
+              </SelectControl>
+            </label>
+            <label>
+              Должность
+              <SelectControl
+                label="Должность нового сотрудника"
+                value={create.jobTitleId}
+                onChange={(event) =>
+                  setCreate({ ...create, jobTitleId: event.target.value })
+                }
+              >
+                {jobTitles.map((title) => (
+                  <option value={title.id} key={title.id}>
+                    {title.name}
+                  </option>
+                ))}
+              </SelectControl>
+            </label>
+            <div className={styles.allowanceField}>
+              <label>Дней отпуска</label>
+              <NumberControl
+                label="Дней отпуска нового сотрудника"
+                min={0}
+                max={366}
+                value={create.allowanceDays}
+                onChange={(value) =>
+                  setCreate({ ...create, allowanceDays: Number(value) })
+                }
+              />
+            </div>
+            <RoleChoice
+              label="Доступ к системе"
+              value={create.role}
+              onChange={(role) => setCreate({ ...create, role })}
+            />
+            <div className={styles.toggleField}>
+              <span>Особые условия</span>
+              <ToggleControl
+                label="Критичная должность"
+                checked={create.isCritical}
+                onChange={(isCritical) => setCreate({ ...create, isCritical })}
+              />
+            </div>
+          </div>
+          <div className={styles.formActions}>
+            <button
+              className="secondaryButton"
+              onClick={() => setShowCreate(false)}
+            >
+              Отмена
+            </button>
+            <button
+              className="primaryButton"
+              disabled={!canCreate || savingId === "new"}
+              onClick={createEmployee}
+            >
+              Создать сотрудника
+            </button>
+          </div>
+        </section>
+      )}
+
+      <div className={styles.sectionHeading}>
+        <div>
+          <h2>Штат</h2>
+          <p>{employees.length} сотрудников</p>
+        </div>
+        <span role="status">{message}</span>
+      </div>
       <section className={styles.list} aria-label="Список сотрудников">
         {employees.map((employee) => {
           const draft = drafts[employee.id];
+          const editing = editingId === employee.id;
           return (
             <article className={styles.employee} key={employee.id}>
-              <div className={styles.identity}>
-                <strong>{employee.fullName}</strong>
-                <span>@{employee.login}</span>
-                <em>{employee.isActive ? "Активен" : "Отключён"}</em>
-              </div>
-              <label>
-                ФИО
-                <input
-                  value={draft.fullName}
-                  onChange={(event) =>
-                    setDrafts({
-                      ...drafts,
-                      [employee.id]: { ...draft, fullName: event.target.value },
-                    })
-                  }
-                />
-              </label>
-              <label>
-                Подразделение
-                <select
-                  value={draft.departmentId}
-                  onChange={(event) =>
-                    setDrafts({
-                      ...drafts,
-                      [employee.id]: {
-                        ...draft,
-                        departmentId: event.target.value,
-                      },
-                    })
+              <div className={styles.employeeSummary}>
+                <div className={styles.identity}>
+                  <strong>{employee.fullName}</strong>
+                  <span>@{employee.login}</span>
+                </div>
+                <div className={styles.assignment}>
+                  <strong>
+                    {employee.jobTitle ?? "Должность не назначена"}
+                  </strong>
+                  <span>{employee.departmentName ?? "Без подразделения"}</span>
+                </div>
+                <div className={styles.allowanceSummary}>
+                  <strong>{employee.allowanceDays}</strong>
+                  <span>дней отпуска</span>
+                </div>
+                <span
+                  className={
+                    employee.isActive ? styles.active : styles.inactive
                   }
                 >
-                  {departments.map((department) => (
-                    <option value={department.id} key={department.id}>
-                      {department.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Должность
-                <input
-                  value={draft.jobTitle}
-                  onChange={(event) =>
-                    setDrafts({
-                      ...drafts,
-                      [employee.id]: { ...draft, jobTitle: event.target.value },
-                    })
-                  }
-                />
-              </label>
-              <label>
-                Роль
-                <select
-                  value={draft.role}
-                  onChange={(event) =>
-                    setDrafts({
-                      ...drafts,
-                      [employee.id]: {
-                        ...draft,
-                        role: event.target.value as "employee" | "hr",
-                      },
-                    })
-                  }
+                  {employee.isActive ? "Активен" : "Отключён"}
+                </span>
+                <button
+                  className="secondaryButton"
+                  onClick={() => setEditingId(editing ? null : employee.id)}
                 >
-                  <option value="employee">Сотрудник</option>
-                  <option value="hr">Кадровая служба</option>
-                </select>
-              </label>
-              <label>
-                Дней отпуска
-                <input
-                  type="number"
-                  min="0"
-                  max="366"
-                  value={draft.allowanceDays}
-                  onChange={(event) =>
-                    setDrafts({
-                      ...drafts,
-                      [employee.id]: {
-                        ...draft,
-                        allowanceDays: Number(event.target.value),
-                      },
-                    })
-                  }
-                />
-              </label>
-              <label>
-                Новый пароль
-                <input
-                  type="password"
-                  placeholder="не менять"
-                  value={draft.newPassword}
-                  onChange={(event) =>
-                    setDrafts({
-                      ...drafts,
-                      [employee.id]: {
-                        ...draft,
-                        newPassword: event.target.value,
-                      },
-                    })
-                  }
-                />
-              </label>
-              <div className={styles.flags}>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={draft.isCritical}
-                    onChange={(event) =>
-                      setDrafts({
-                        ...drafts,
-                        [employee.id]: {
-                          ...draft,
-                          isCritical: event.target.checked,
-                        },
-                      })
-                    }
-                  />
-                  Критичная роль
-                </label>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={draft.isActive}
-                    onChange={(event) =>
-                      setDrafts({
-                        ...drafts,
-                        [employee.id]: {
-                          ...draft,
-                          isActive: event.target.checked,
-                        },
-                      })
-                    }
-                  />
-                  Учётная запись активна
-                </label>
+                  {editing ? "Закрыть" : "Редактировать"}
+                </button>
               </div>
-              <button
-                className="primaryButton"
-                disabled={savingId === employee.id}
-                onClick={() => saveEmployee(employee)}
-              >
-                Сохранить
-              </button>
+              {editing && (
+                <div className={styles.editPanel}>
+                  <div className={styles.formGrid}>
+                    <label>
+                      ФИО
+                      <input
+                        value={draft.fullName}
+                        onChange={(event) =>
+                          setDrafts({
+                            ...drafts,
+                            [employee.id]: {
+                              ...draft,
+                              fullName: event.target.value,
+                            },
+                          })
+                        }
+                      />
+                    </label>
+                    <label>
+                      Подразделение
+                      <SelectControl
+                        label={`Подразделение: ${employee.fullName}`}
+                        value={draft.departmentId}
+                        onChange={(event) =>
+                          setDrafts({
+                            ...drafts,
+                            [employee.id]: {
+                              ...draft,
+                              departmentId: event.target.value,
+                            },
+                          })
+                        }
+                      >
+                        {departments.map((department) => (
+                          <option value={department.id} key={department.id}>
+                            {department.name}
+                          </option>
+                        ))}
+                      </SelectControl>
+                    </label>
+                    <label>
+                      Должность
+                      <SelectControl
+                        label={`Должность: ${employee.fullName}`}
+                        value={draft.jobTitleId}
+                        onChange={(event) =>
+                          setDrafts({
+                            ...drafts,
+                            [employee.id]: {
+                              ...draft,
+                              jobTitleId: event.target.value,
+                            },
+                          })
+                        }
+                      >
+                        {jobTitles.map((title) => (
+                          <option value={title.id} key={title.id}>
+                            {title.name}
+                          </option>
+                        ))}
+                      </SelectControl>
+                    </label>
+                    <div className={styles.allowanceField}>
+                      <label>Дней отпуска</label>
+                      <NumberControl
+                        label={`Дней отпуска: ${employee.fullName}`}
+                        min={0}
+                        max={366}
+                        value={draft.allowanceDays}
+                        onChange={(value) =>
+                          setDrafts({
+                            ...drafts,
+                            [employee.id]: {
+                              ...draft,
+                              allowanceDays: Number(value),
+                            },
+                          })
+                        }
+                      />
+                    </div>
+                    <label>
+                      Новый временный пароль
+                      <input
+                        type="password"
+                        autoComplete="new-password"
+                        placeholder="Оставьте пустым, чтобы не менять"
+                        value={draft.newPassword}
+                        onChange={(event) =>
+                          setDrafts({
+                            ...drafts,
+                            [employee.id]: {
+                              ...draft,
+                              newPassword: event.target.value,
+                            },
+                          })
+                        }
+                      />
+                    </label>
+                    <RoleChoice
+                      label="Доступ к системе"
+                      value={draft.role}
+                      onChange={(role) =>
+                        setDrafts({
+                          ...drafts,
+                          [employee.id]: { ...draft, role },
+                        })
+                      }
+                    />
+                    <div className={styles.toggleField}>
+                      <span>Статус и условия</span>
+                      <ToggleControl
+                        label="Критичная должность"
+                        checked={draft.isCritical}
+                        onChange={(isCritical) =>
+                          setDrafts({
+                            ...drafts,
+                            [employee.id]: { ...draft, isCritical },
+                          })
+                        }
+                      />
+                      <ToggleControl
+                        label="Учётная запись активна"
+                        checked={draft.isActive}
+                        onChange={(isActive) =>
+                          setDrafts({
+                            ...drafts,
+                            [employee.id]: { ...draft, isActive },
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
+                  <div className={styles.formActions}>
+                    <button
+                      className="secondaryButton"
+                      onClick={() => setEditingId(null)}
+                    >
+                      Отмена
+                    </button>
+                    <button
+                      className="primaryButton"
+                      disabled={savingId === employee.id || !draft.jobTitleId}
+                      onClick={() => saveEmployee(employee)}
+                    >
+                      Сохранить изменения
+                    </button>
+                  </div>
+                </div>
+              )}
             </article>
           );
         })}

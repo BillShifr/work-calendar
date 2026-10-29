@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { and, count, eq, inArray, isNull } from "drizzle-orm";
+import { and, count, eq, inArray, isNull, sql } from "drizzle-orm";
 import { AppShell } from "@/components/AppShell";
 import { db } from "@/db/client";
 import {
@@ -15,15 +15,6 @@ import { requireHr } from "@/lib/auth";
 import styles from "./hr.module.css";
 
 export const metadata: Metadata = { title: "Кабинет кадровика" };
-const labels: Record<string, string> = {
-  draft: "Черновик",
-  submitted: "Ожидает проверки",
-  hr_proposed: "Ожидает сотрудника",
-  approved: "Утверждено",
-  rejected: "Отклонено",
-  reopened: "Открыто повторно",
-  withdrawn: "Отозвано",
-};
 const formatShortDate = (value: string) =>
   new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "short" }).format(
     new Date(`${value}T00:00:00Z`),
@@ -40,10 +31,27 @@ export default async function HrPage({
 }) {
   const selectedType = (await searchParams).type;
   const hr = await requireHr();
+  const [actionableCounts] = await db.execute<{
+    overtime: number;
+    vacations: number;
+  }>(sql`
+    SELECT
+      (SELECT COUNT(*)::int FROM overtime_reports
+       WHERE organization_id = ${hr.organizationId}
+         AND status IN ('submitted', 'reopened')) AS overtime,
+      (SELECT COUNT(*)::int FROM vacation_plans
+       WHERE organization_id = ${hr.organizationId}
+         AND status IN ('submitted', 'reopened')) AS vacations
+  `);
   const [employees] = await db
     .select({ value: count() })
     .from(users)
-    .where(eq(users.organizationId, hr.organizationId));
+    .where(
+      and(
+        eq(users.organizationId, hr.organizationId),
+        eq(users.isActive, true),
+      ),
+    );
   const overtime = await db
     .select({
       id: overtimeReports.id,
@@ -53,6 +61,7 @@ export default async function HrPage({
       updatedAt: overtimeReports.updatedAt,
       fullName: users.fullName,
       departmentName: departments.name,
+      totalMinutes: sql<number>`COALESCE((SELECT SUM(entry.minutes) FROM overtime_entries entry WHERE entry.report_id = ${overtimeReports.id}), 0)::int`,
     })
     .from(overtimeReports)
     .innerJoin(users, eq(users.id, overtimeReports.userId))
@@ -70,13 +79,10 @@ export default async function HrPage({
     .where(
       and(
         eq(overtimeReports.organizationId, hr.organizationId),
-        inArray(overtimeReports.status, [
-          "submitted",
-          "hr_proposed",
-          "reopened",
-        ]),
+        inArray(overtimeReports.status, ["submitted", "reopened"]),
       ),
     )
+    .orderBy(overtimeReports.updatedAt)
     .limit(8);
   const vacations = await db
     .select({
@@ -86,6 +92,7 @@ export default async function HrPage({
       updatedAt: vacationPlans.updatedAt,
       fullName: users.fullName,
       departmentName: departments.name,
+      totalDays: sql<number>`COALESCE((SELECT SUM((period.ends_on - period.starts_on) + 1) FROM vacation_periods period WHERE period.plan_id = ${vacationPlans.id}), 0)::int`,
     })
     .from(vacationPlans)
     .innerJoin(users, eq(users.id, vacationPlans.userId))
@@ -103,11 +110,30 @@ export default async function HrPage({
     .where(
       and(
         eq(vacationPlans.organizationId, hr.organizationId),
-        inArray(vacationPlans.status, ["submitted", "hr_proposed", "reopened"]),
+        inArray(vacationPlans.status, ["submitted", "reopened"]),
       ),
     )
+    .orderBy(vacationPlans.updatedAt)
     .limit(8);
-  const awaiting = overtime.length + vacations.length;
+  const [{ value: waitingEmployee }] = await db
+    .select({ value: count() })
+    .from(vacationPlans)
+    .where(
+      and(
+        eq(vacationPlans.organizationId, hr.organizationId),
+        eq(vacationPlans.status, "hr_proposed"),
+      ),
+    );
+  const [{ value: waitingOvertimeEmployee }] = await db
+    .select({ value: count() })
+    .from(overtimeReports)
+    .where(
+      and(
+        eq(overtimeReports.organizationId, hr.organizationId),
+        eq(overtimeReports.status, "hr_proposed"),
+      ),
+    );
+  const awaiting = actionableCounts.overtime + actionableCounts.vacations;
   const currentYear = Number(
     new Intl.DateTimeFormat("en", {
       timeZone: "Asia/Yekaterinburg",
@@ -126,12 +152,14 @@ export default async function HrPage({
       ...item,
       kind: "vacation" as const,
       title: `План отпуска · ${item.year}`,
+      summary: `${item.totalDays} дн. выбрано`,
       href: `/hr/vacations/${item.id}`,
     })),
     ...overtime.map((item) => ({
       ...item,
       kind: "overtime" as const,
       title: `Внеурочное время · ${String(item.month).padStart(2, "0")}.${item.year}`,
+      summary: `${item.totalMinutes} мин. указано`,
       href: `/hr/overtime/${item.id}`,
     })),
   ];
@@ -151,10 +179,9 @@ export default async function HrPage({
         <article className={`card ${styles.metric}`}>
           <span>Требуют решения</span>
           <strong>{awaiting}</strong>
-          <em>сначала просроченные</em>
         </article>
         <article className={`card ${styles.metric}`}>
-          <span>Сотрудников</span>
+          <span>Активных сотрудников</span>
           <strong>{employees.value}</strong>
         </article>
         <article className={`card ${styles.metric}`}>
@@ -167,10 +194,8 @@ export default async function HrPage({
           </em>
         </article>
         <article className={`card ${styles.metric}`}>
-          <span>Согласовано за месяц</span>
-          <strong>
-            {allItems.filter((item) => item.status === "approved").length}
-          </strong>
+          <span>Ждём ответа сотрудника</span>
+          <strong>{waitingEmployee + waitingOvertimeEmployee}</strong>
         </article>
       </section>
       <div className={styles.dashboard}>
@@ -208,18 +233,21 @@ export default async function HrPage({
                 <div className={styles.detail}>
                   {item.title}
                   <br />
-                  Изменено {item.updatedAt.toLocaleDateString("ru-RU")}
+                  {item.summary} · отправлено{" "}
+                  {item.updatedAt.toLocaleDateString("ru-RU")}
                 </div>
-                <span
-                  className={`${styles.state} ${item.status === "approved" ? styles.stateGreen : ""}`}
-                >
-                  {labels[item.status]}
-                </span>
                 <Link className={styles.open} href={item.href}>
-                  Открыть
+                  {item.kind === "vacation"
+                    ? "Проверить отпуск"
+                    : "Проверить время"}
                 </Link>
               </article>
             ))}
+            {!items.length && (
+              <p className={styles.emptyQueue}>
+                Новых решений от вас не требуется.
+              </p>
+            )}
           </div>
         </section>
         <aside className={`card ${styles.section}`}>

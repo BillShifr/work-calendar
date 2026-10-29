@@ -13,7 +13,7 @@ import { requireHr } from "@/lib/auth";
 import styles from "./review.module.css";
 
 const statusLabels: Record<string, string> = {
-  submitted: "Ожидает проверки",
+  submitted: "Требуется решение",
   hr_proposed: "Ожидает сотрудника",
   reopened: "Открыто повторно",
   approved: "Утверждено",
@@ -83,14 +83,10 @@ export default async function HrOvertimePage({
       <header className="pageHeader">
         <div>
           <p className="eyebrow">
-            Кадровая проверка · {String(report.month).padStart(2, "0")}.
+            Проверка времени · {String(report.month).padStart(2, "0")}.
             {report.year}
           </p>
           <h1>{report.fullName}</h1>
-          <p className="lead">
-            Уточните отдельные дни прямо в крупном календаре и объясните
-            причину. Сотрудник увидит изменённые значения янтарным цветом.
-          </p>
         </div>
         <span className="statusPill">
           {statusLabels[report.status] ?? report.status}
@@ -99,7 +95,6 @@ export default async function HrOvertimePage({
       <OvertimeCalendar initial={initial} mode="hr" />
       <section className={`card ${styles.history}`}>
         <div>
-          <p className="eyebrow">Прозрачное согласование</p>
           <h2>История решений</h2>
         </div>
         {history.length ? (

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { NumberControl, ToggleControl } from "./FormControls";
 import styles from "./DepartmentRuleEditor.module.css";
 
 type Department = {
@@ -116,14 +117,13 @@ export function DepartmentRuleEditor({
         </label>
         <label>
           Штат
-          <input
-            type="number"
-            min="0"
+          <NumberControl
+            label="Штат"
             value={newDepartment.headcount}
-            onChange={(event) =>
+            onChange={(value) =>
               setNewDepartment({
                 ...newDepartment,
-                headcount: event.target.value,
+                headcount: value,
               })
             }
           />
@@ -164,27 +164,26 @@ export function DepartmentRuleEditor({
               </label>
               <label>
                 Штатная численность
-                <input
-                  type="number"
-                  min="0"
+                <NumberControl
+                  label={`Штатная численность: ${department.name}`}
                   value={draft.headcount}
-                  onChange={(event) =>
-                    change(department.id, "headcount", event.target.value)
+                  onChange={(value) =>
+                    change(department.id, "headcount", value)
                   }
                 />
               </label>
             </div>
             <div className={styles.footer}>
-              <label className={styles.active}>
-                <input
-                  type="checkbox"
+              <div className={styles.active}>
+                <ToggleControl
+                  label="Подразделение активно"
                   checked={draft.isActive}
-                  onChange={(event) => {
+                  onChange={(checked) => {
                     setDrafts((current) => ({
                       ...current,
                       [department.id]: {
                         ...current[department.id],
-                        isActive: event.target.checked,
+                        isActive: checked,
                       },
                     }));
                     setMessages((current) => ({
@@ -193,8 +192,7 @@ export function DepartmentRuleEditor({
                     }));
                   }}
                 />
-                Подразделение активно
-              </label>
+              </div>
               <button
                 className="primaryButton"
                 disabled={savingId === department.id || !draft.headcount}

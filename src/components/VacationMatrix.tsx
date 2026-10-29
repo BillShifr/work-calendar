@@ -56,9 +56,10 @@ export function VacationMatrix({
   const [reason, setReason] = useState("");
   const [editingResponse, setEditingResponse] = useState(false);
   const canEdit =
-    mode === "hr" ||
-    status === "draft" ||
-    (status === "hr_proposed" && editingResponse);
+    (mode === "hr" &&
+      ["submitted", "reopened", "hr_proposed"].includes(status)) ||
+    (mode === "employee" &&
+      (status === "draft" || (status === "hr_proposed" && editingResponse)));
   const total = totalPeriodDays(periods);
   function periodFor(date: string) {
     return periods.find(
@@ -159,7 +160,7 @@ export function VacationMatrix({
     setVersion(data.version);
     setMessage("План отправлен кадровой службе");
   }
-  async function acceptHrProposal() {
+  async function approve() {
     setSaving(true);
     setMessage("Подтверждаем…");
     const response = await fetch("/api/workflow", {
@@ -182,7 +183,9 @@ export function VacationMatrix({
     setPeriods((current) =>
       current.map((period) => ({ ...period, status: "approved" })),
     );
-    setMessage("Предложение кадровика утверждено");
+    setMessage(
+      mode === "hr" ? "План утверждён" : "Предложение кадровика утверждено",
+    );
   }
   return (
     <section className={styles.workspace}>
@@ -213,22 +216,39 @@ export function VacationMatrix({
           >
             Отменить выбор
           </button>
-          <button
-            className="secondaryButton"
-            disabled={
-              saving ||
-              (mode === "employee" && status !== "draft" && !editingResponse) ||
-              (mode === "hr" && !reason.trim()) ||
-              total > initial.allowanceDays
-            }
-            onClick={save}
-          >
-            {mode === "hr"
-              ? "Предложить сотруднику"
-              : editingResponse
+          {mode === "hr" && canEdit && (
+            <>
+              {status !== "hr_proposed" && (
+                <button
+                  className="secondaryButton"
+                  disabled={saving || total > initial.allowanceDays}
+                  onClick={approve}
+                >
+                  Утвердить без изменений
+                </button>
+              )}
+              <button
+                className="primaryButton"
+                disabled={
+                  saving || !reason.trim() || total > initial.allowanceDays
+                }
+                onClick={save}
+              >
+                Предложить изменения
+              </button>
+            </>
+          )}
+          {mode === "employee" && (status === "draft" || editingResponse) && (
+            <button
+              className="secondaryButton"
+              disabled={saving || total > initial.allowanceDays}
+              onClick={save}
+            >
+              {editingResponse
                 ? "Отправить свой вариант"
                 : "Сохранить черновик"}
-          </button>
+            </button>
+          )}
           {mode === "employee" && status === "draft" && (
             <button
               className="primaryButton"
@@ -259,7 +279,7 @@ export function VacationMatrix({
                 <button
                   className="primaryButton"
                   disabled={saving}
-                  onClick={acceptHrProposal}
+                  onClick={approve}
                 >
                   Подтвердить правку
                 </button>
@@ -268,9 +288,9 @@ export function VacationMatrix({
         </div>
       </div>
 
-      {mode === "hr" && (
+      {mode === "hr" && canEdit && (
         <label className={styles.reason}>
-          Причина кадровой правки
+          Причина изменений
           <textarea
             value={reason}
             onChange={(event) => setReason(event.target.value)}

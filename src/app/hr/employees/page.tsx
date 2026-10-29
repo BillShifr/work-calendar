@@ -12,6 +12,7 @@ type EmployeeRow = {
   isActive: boolean;
   departmentId: string | null;
   departmentName: string | null;
+  jobTitleId: string | null;
   jobTitle: string | null;
   isCritical: boolean | null;
   allowanceDays: number | null;
@@ -30,21 +31,27 @@ export default async function EmployeesPage({
     requestedYear <= 2100
       ? requestedYear
       : new Date().getFullYear() + 1;
-  const [employees, departments] = await Promise.all([
+  const [employees, departments, jobTitles] = await Promise.all([
     db.execute<EmployeeRow>(sql`
       SELECT employee.id::text AS id, employee.full_name AS "fullName", employee.login,
         employee.role, employee.is_active AS "isActive", assignment.department_id::text AS "departmentId",
-        department.name AS "departmentName", assignment.job_title AS "jobTitle",
+        department.name AS "departmentName", assignment.job_title_id::text AS "jobTitleId",
+        COALESCE(title.name, assignment.job_title) AS "jobTitle",
         assignment.is_critical AS "isCritical", plan.allowance_days AS "allowanceDays"
       FROM users employee
       LEFT JOIN department_assignments assignment ON assignment.user_id = employee.id AND assignment.valid_to IS NULL
       LEFT JOIN departments department ON department.id = assignment.department_id
+      LEFT JOIN job_titles title ON title.id = assignment.job_title_id
       LEFT JOIN vacation_plans plan ON plan.user_id = employee.id AND plan.year = ${year}
       WHERE employee.organization_id = ${actor.organizationId}
       ORDER BY employee.is_active DESC, employee.full_name
     `),
     db.execute<{ id: string; name: string }>(sql`
       SELECT id::text AS id, name FROM departments
+      WHERE organization_id = ${actor.organizationId} AND is_active = true ORDER BY name
+    `),
+    db.execute<{ id: string; name: string }>(sql`
+      SELECT id::text AS id, name FROM job_titles
       WHERE organization_id = ${actor.organizationId} AND is_active = true ORDER BY name
     `),
   ]);
@@ -63,6 +70,7 @@ export default async function EmployeesPage({
           allowanceDays: employee.allowanceDays ?? 28,
         }))}
         departments={departments}
+        jobTitles={jobTitles}
         year={year}
       />
     </AppShell>

@@ -133,11 +133,6 @@
   white-space: nowrap;
   font-size: 13px;
 }
-.zero input {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--primary);
-}
 .reason {
   display: grid;
   grid-template-columns: 190px 1fr;

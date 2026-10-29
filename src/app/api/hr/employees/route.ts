@@ -7,6 +7,7 @@ import {
   auditEvents,
   departmentAssignments,
   departments,
+  jobTitles,
   users,
   vacationPlans,
 } from "@/db/schema";
@@ -22,7 +23,7 @@ const schema = z.object({
     .regex(/^[a-zA-Z0-9._-]+$/),
   temporaryPassword: z.string().min(12).max(200),
   departmentId: z.uuid(),
-  jobTitle: z.string().trim().min(2).max(160),
+  jobTitleId: z.uuid(),
   role: z.enum(["employee", "hr"]),
   isCritical: z.boolean(),
   allowanceDays: z.number().int().min(0).max(366),
@@ -57,6 +58,18 @@ export async function POST(request: Request) {
         )
         .limit(1);
       if (!department) throw new Error("DEPARTMENT_NOT_FOUND");
+      const [jobTitle] = await tx
+        .select({ id: jobTitles.id, name: jobTitles.name })
+        .from(jobTitles)
+        .where(
+          and(
+            eq(jobTitles.id, input.jobTitleId),
+            eq(jobTitles.organizationId, actor.organizationId),
+            eq(jobTitles.isActive, true),
+          ),
+        )
+        .limit(1);
+      if (!jobTitle) throw new Error("JOB_TITLE_NOT_FOUND");
       const [created] = await tx
         .insert(users)
         .values({
@@ -70,8 +83,9 @@ export async function POST(request: Request) {
       await tx.insert(departmentAssignments).values({
         userId: created.id,
         departmentId: department.id,
+        jobTitleId: jobTitle.id,
         validFrom: new Date().toISOString().slice(0, 10),
-        jobTitle: input.jobTitle,
+        jobTitle: jobTitle.name,
         isCritical: input.isCritical,
       });
       await tx.insert(vacationPlans).values({
@@ -88,6 +102,7 @@ export async function POST(request: Request) {
         objectId: created.id,
         metadata: {
           departmentId: department.id,
+          jobTitleId: jobTitle.id,
           role: input.role,
           allowanceDays: input.allowanceDays,
           year: input.year,
@@ -103,11 +118,19 @@ export async function POST(request: Request) {
         error:
           message === "DEPARTMENT_NOT_FOUND"
             ? "Подразделение не найдено или неактивно"
-            : message.includes("users_org_login_uq")
-              ? "Такой логин уже используется"
-              : "Не удалось создать сотрудника",
+            : message === "JOB_TITLE_NOT_FOUND"
+              ? "Должность не найдена или отключена"
+              : message.includes("users_org_login_uq")
+                ? "Такой логин уже используется"
+                : "Не удалось создать сотрудника",
       },
-      { status: message === "DEPARTMENT_NOT_FOUND" ? 404 : 409 },
+      {
+        status:
+          message === "DEPARTMENT_NOT_FOUND" ||
+          message === "JOB_TITLE_NOT_FOUND"
+            ? 404
+            : 409,
+      },
     );
   }
 }

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { daysInMonth, OVERTIME_MINUTES } from "@/domain/overtime";
+import { ToggleControl } from "./FormControls";
 import styles from "./OvertimeCalendar.module.css";
 
 const months = [
@@ -60,8 +61,8 @@ export function OvertimeCalendar({
   const canEdit =
     (mode === "hr" &&
       ["submitted", "reopened", "hr_proposed"].includes(status)) ||
-    status === "draft" ||
-    (mode === "employee" && status === "hr_proposed" && editingResponse);
+    (mode === "employee" &&
+      (status === "draft" || (status === "hr_proposed" && editingResponse)));
   const today = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Yekaterinburg",
     year: "numeric",
@@ -186,7 +187,9 @@ export function OvertimeCalendar({
     setVersion(data.version);
     setMessage(
       to === "approved"
-        ? "Предложение кадровика утверждено"
+        ? mode === "hr"
+          ? "Отчёт утверждён"
+          : "Предложение кадровика утверждено"
         : "Отправлено кадровой службе",
     );
   }
@@ -230,19 +233,29 @@ export function OvertimeCalendar({
           {message}
         </span>
         <div className={`actions ${styles.actions}`}>
-          {mode === "hr" && (
-            <button
-              className="primaryButton"
-              disabled={
-                saving ||
-                !canEdit ||
-                !reason.trim() ||
-                (!Object.keys(entries).length && !zeroConfirmed)
-              }
-              onClick={save}
-            >
-              Предложить сотруднику
-            </button>
+          {mode === "hr" && canEdit && (
+            <>
+              {status !== "hr_proposed" && (
+                <button
+                  className="secondaryButton"
+                  disabled={saving}
+                  onClick={() => transition("approved")}
+                >
+                  Утвердить без изменений
+                </button>
+              )}
+              <button
+                className="primaryButton"
+                disabled={
+                  saving ||
+                  !reason.trim() ||
+                  (!Object.keys(entries).length && !zeroConfirmed)
+                }
+                onClick={save}
+              >
+                Предложить изменения
+              </button>
+            </>
           )}
           {mode === "employee" && status === "draft" && (
             <>
@@ -332,20 +345,19 @@ export function OvertimeCalendar({
         >
           Очистить
         </button>
-        <label className={styles.zero}>
-          <input
-            type="checkbox"
+        <div className={styles.zero}>
+          <ToggleControl
+            label="Внеурочного времени не было"
             checked={zeroConfirmed}
             disabled={Object.keys(entries).length > 0 || !canEdit}
-            onChange={(event) => setZeroConfirmed(event.target.checked)}
+            onChange={setZeroConfirmed}
           />
-          Внеурочного времени не было
-        </label>
+        </div>
       </div>
 
-      {mode === "hr" && (
+      {mode === "hr" && canEdit && (
         <label className={styles.reason}>
-          Причина кадровой правки
+          Причина изменений
           <textarea
             value={reason}
             onChange={(event) => setReason(event.target.value)}

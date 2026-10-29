@@ -81,6 +81,7 @@ test("employee and HR complete a bilateral vacation approval", async ({
   await expect(
     page.getByRole("heading", { name: "Кабинет кадровика" }),
   ).toBeVisible();
+  await expect(page.getByText("Ожидает проверки")).toHaveCount(0);
   await page.getByRole("link", { name: "Подразделения" }).click();
   await page.getByLabel("Название").first().fill("Финансовое управление");
   await page.getByLabel("Штат", { exact: true }).fill("8");
@@ -88,17 +89,47 @@ test("employee and HR complete a bilateral vacation approval", async ({
   await expect(
     page.getByText("Финансовое управление", { exact: true }),
   ).toBeVisible();
+  await page.getByRole("link", { name: "Справочники" }).click();
+  await page.getByLabel("Название должности").fill("Ведущий специалист");
+  await Promise.all([
+    page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/api/hr/job-titles") &&
+        response.request().method() === "POST",
+    ),
+    page.getByRole("button", { name: "Добавить должность" }).click(),
+  ]);
+  await expect(page.locator('input[value="Ведущий специалист"]')).toBeVisible();
+  await page.waitForLoadState("networkidle");
   await page.getByRole("link", { name: "Сотрудники" }).click();
+  await page.getByRole("button", { name: "Добавить сотрудника" }).click();
+  await expect(page.locator('input[type="number"]')).toHaveCount(0);
+  await expect(page.locator('input[type="checkbox"]')).toHaveCount(0);
+  const allowanceDecrease = page.getByRole("button", {
+    name: "Уменьшить: Дней отпуска нового сотрудника",
+  });
+  await expect
+    .poll(async () => (await allowanceDecrease.boundingBox())?.height ?? 0)
+    .toBeGreaterThanOrEqual(44);
+  await expect
+    .poll(
+      async () =>
+        (await page.getByLabel("Должность нового сотрудника").boundingBox())
+          ?.height ?? 0,
+    )
+    .toBeGreaterThanOrEqual(44);
   await page.getByLabel("ФИО").first().fill("Мария Тестова");
   await page.getByLabel("Логин").fill("maria.test");
   await page.getByLabel("Временный пароль").fill("Employee-Test-2026!");
-  await page.getByLabel("Должность").first().fill("Ведущий специалист");
-  await page.getByRole("button", { name: "Добавить сотрудника" }).click();
+  await page
+    .getByLabel("Должность нового сотрудника")
+    .selectOption({ label: "Ведущий специалист" });
+  await page.getByRole("button", { name: "Создать сотрудника" }).click();
   await expect(
     page.getByText("Мария Тестова", { exact: true }).first(),
   ).toBeVisible();
-  await page.getByLabel("Дней отпуска для всех").fill("30");
-  await page.getByRole("button", { name: "Установить всем" }).click();
+  await page.getByLabel("Дней отпуска для всех", { exact: true }).fill("30");
+  await page.getByRole("button", { name: "Применить ко всем" }).click();
   await expect(page.getByRole("status")).toContainText("Лимит обновлён");
   await page.getByRole("link", { name: "Кабинет кадровика" }).click();
   await page.getByRole("link", { name: "Внеурочное время" }).last().click();
@@ -107,12 +138,15 @@ test("employee and HR complete a bilateral vacation approval", async ({
   await expect(page).toHaveURL(/type=vacation/);
   await page.getByRole("link", { name: "Все" }).click();
   await page.locator('a[href^="/hr/overtime/"]').click();
+  await expect(
+    page.getByRole("button", { name: "Утвердить без изменений" }),
+  ).toBeVisible();
   await page.locator('button[aria-label*="15 минут"]').click();
   await page.getByRole("button", { name: "30 мин" }).click();
   await page
-    .getByLabel("Причина кадровой правки")
+    .getByLabel("Причина изменений")
     .fill("Уточнение по данным табеля подразделения");
-  await page.getByRole("button", { name: "Предложить сотруднику" }).click();
+  await page.getByRole("button", { name: "Предложить изменения" }).click();
   await expect(page.getByRole("status")).toContainText(
     "Предложение отправлено",
   );
@@ -123,9 +157,9 @@ test("employee and HR complete a bilateral vacation approval", async ({
   await page.getByRole("button", { name: /^12 май/ }).click();
   await page.getByRole("button", { name: /^22 май/ }).click();
   await page
-    .getByLabel("Причина кадровой правки")
+    .getByLabel("Причина изменений")
     .fill("Устранение пересечения с отпуском дежурного специалиста");
-  await page.getByRole("button", { name: "Предложить сотруднику" }).click();
+  await page.getByRole("button", { name: "Предложить изменения" }).click();
   await expect(page.getByRole("status")).toContainText("Сохранено");
 
   await page.getByRole("button", { name: "Выйти" }).click();
