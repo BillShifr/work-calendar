@@ -39,6 +39,10 @@ cat > "$fixture/bin/podman" <<'SH'
 set -eu
 printf 'podman %s\n' "$*" >> "$TEST_STATE/calls"
 case "$*" in
+  "compose build migrate app")
+    echo "profiled service migrate is unavailable without --profile ops" >&2
+    exit 1
+    ;;
   *"to_regclass('public.schema_migrations')"*) printf 't\n' ;;
 esac
 SH
@@ -63,7 +67,7 @@ CONTAINER_ENGINE=podman \
   sh "$fixture/project/scripts/update-production.sh"
 
 test -f "$fixture/merged"
-grep -F "podman compose build migrate app" "$fixture/calls" >/dev/null
+grep -F "podman compose --profile ops build migrate app" "$fixture/calls" >/dev/null
 grep -F "verify-release-image.sh VCS_REF=$new_revision $new_revision" "$fixture/calls" >/dev/null
 grep -F "backup-release.sh VCS_REF=$old_revision $fixture/home/backups/hr-auto" "$fixture/calls" >/dev/null
 grep -F "deploy-release.sh VCS_REF=$new_revision" "$fixture/calls" >/dev/null
