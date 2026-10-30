@@ -48,8 +48,11 @@ jobs:
       - run: npm run test:integration
       - name: Deployment script syntax
         run: find scripts -type f -name '*.sh' -print0 | xargs -0 -n1 sh -n
-      - name: Manual production update contract
-        run: sh tests/deploy/update-production.test.sh
+      - name: Manual production deployment contracts
+        run: |
+          for test_script in tests/deploy/*.test.sh; do
+            sh "$test_script"
+          done
       - name: Compose configuration
         run: docker compose config --quiet
         env:

@@ -20,7 +20,10 @@ if [ "$pull_release" = true ]; then
 fi
 sh "$script_dir/verify-release-image.sh" "$expected_revision"
 
-compose up -d db
+# The database is deliberately reused across releases. podman-compose may try to
+# recreate an already running container and then collide with its deterministic
+# service name unless recreation is disabled explicitly.
+compose up -d --no-recreate db
 attempt=0
 until compose --profile ops run --rm --no-deps -T db-tools pg_isready >/dev/null 2>&1; do
   attempt=$((attempt + 1))
