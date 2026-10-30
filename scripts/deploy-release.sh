@@ -2,27 +2,20 @@
 set -eu
 
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-bundle_dir=$(CDPATH= cd -- "$script_dir/.." && pwd)
+project_root=$(CDPATH= cd -- "$script_dir/.." && pwd)
 . "$script_dir/lib/container-engine.sh"
 
-if [ -f "$bundle_dir/SHA256SUMS" ]; then
-  (cd "$bundle_dir" && sha256sum -c SHA256SUMS)
-fi
-if [ -f "$bundle_dir/RELEASE" ]; then
-  VCS_REF=$(sed -n 's/^VCS_REF=//p' "$bundle_dir/RELEASE")
-  export VCS_REF
-fi
 expected_revision=${VCS_REF:?VCS_REF must be a full Git commit SHA}
 case "$expected_revision" in *[!0-9a-f]*|'') exit 1 ;; esac
 test "${#expected_revision}" -eq 40
 
-pull_release=${DEPLOY_PULL:-true}
+pull_release=${DEPLOY_PULL:-false}
 case "$pull_release" in true|false) ;; *) exit 1 ;; esac
 compose config >/dev/null
 
 if [ "$pull_release" = true ]; then
-  container_engine pull "${APP_IMAGE_REPOSITORY:-docker.io/billshifr/tfoms-time}:$expected_revision"
-  container_engine pull "${MIGRATOR_IMAGE_REPOSITORY:-docker.io/billshifr/tfoms-time-migrator}:$expected_revision"
+  container_engine pull "${APP_IMAGE_REPOSITORY:-tfoms-time}:$expected_revision"
+  container_engine pull "${MIGRATOR_IMAGE_REPOSITORY:-tfoms-time-migrator}:$expected_revision"
   container_engine pull postgres:18.1-alpine
 fi
 sh "$script_dir/verify-release-image.sh" "$expected_revision"
@@ -60,14 +53,14 @@ until curl --max-time 3 --silent --fail \
   sleep 5
 done
 
-if [ -f "$bundle_dir/.env" ]; then
-  if grep -q '^VCS_REF=' "$bundle_dir/.env"; then
-    sed -i.bak "s/^VCS_REF=.*/VCS_REF=$expected_revision/" "$bundle_dir/.env"
-    rm -f "$bundle_dir/.env.bak"
+if [ -f "$project_root/.env" ]; then
+  if grep -q '^VCS_REF=' "$project_root/.env"; then
+    sed -i.bak "s/^VCS_REF=.*/VCS_REF=$expected_revision/" "$project_root/.env"
+    rm -f "$project_root/.env.bak"
   else
-    printf 'VCS_REF=%s\n' "$expected_revision" >> "$bundle_dir/.env"
+    printf 'VCS_REF=%s\n' "$expected_revision" >> "$project_root/.env"
   fi
-  chmod 600 "$bundle_dir/.env"
+  chmod 600 "$project_root/.env"
 fi
 compose ps
 printf 'Release deployed: %s\n' "$expected_revision"

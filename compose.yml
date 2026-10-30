@@ -17,7 +17,7 @@ services:
     security_opt: ["no-new-privileges:true"]
     networks: [tfoms-time]
   migrate:
-    image: ${MIGRATOR_IMAGE_REPOSITORY:-docker.io/billshifr/tfoms-time-migrator}:${VCS_REF:-local}
+    image: ${MIGRATOR_IMAGE_REPOSITORY:-tfoms-time-migrator}:${VCS_REF:-local}
     build:
       context: .
       target: migrator
@@ -44,7 +44,7 @@ services:
     profiles: ["ops"]
     networks: [tfoms-time]
   app:
-    image: ${APP_IMAGE_REPOSITORY:-docker.io/billshifr/tfoms-time}:${VCS_REF:-local}
+    image: ${APP_IMAGE_REPOSITORY:-tfoms-time}:${VCS_REF:-local}
     build:
       context: .
       target: runtime

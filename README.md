@@ -33,7 +33,7 @@ npm run dev -- --port 3080
 
 ## Production
 
-Production-релиз собирается в два immutable-образа по полному Git SHA: web и migrator. После merge в `main` GitHub Actions проверяет код, миграции, browser E2E и контейнеры, публикует образы и сохраняет проверенный deployment bundle. Обновление production-сервера выполняется оператором вручную из этого bundle.
+После merge в `main` GitHub Actions проверяет код, миграции, browser E2E и сборку двух контейнеров по полному Git SHA. Образы не публикуются во внешний registry и CI не имеет доступа к production. Оператор вручную запускает `scripts/update-production.sh`: скрипт допускает только fast-forward на `main` с успешным CI, локально собирает те же образы, делает backup существующей БД и только затем применяет миграции и переключает приложение.
 
 Справочники production заполняются отдельно от локальных тестовых данных:
 
