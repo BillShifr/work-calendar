@@ -8,18 +8,28 @@ const employeeItems = [
   { href: "/vacations", label: "Отпуска" },
 ];
 
-export function AppNavigation({ isHr }: { isHr: boolean }) {
+export function AppNavigation({
+  isHr,
+  canApprove,
+}: {
+  isHr: boolean;
+  canApprove: boolean;
+}) {
   const pathname = usePathname();
   const items = isHr
     ? [
         ...employeeItems,
         { href: "/hr", label: "Кабинет кадровика" },
+        ...(canApprove ? [{ href: "/approvals", label: "Согласование" }] : []),
+        { href: "/hr/reporting", label: "Свод" },
         { href: "/hr/periods", label: "Периоды" },
         { href: "/hr/employees", label: "Сотрудники" },
         { href: "/hr/departments", label: "Подразделения" },
         { href: "/hr/reference-data", label: "Справочники" },
       ]
-    : employeeItems;
+    : canApprove
+      ? [...employeeItems, { href: "/approvals", label: "Согласование" }]
+      : employeeItems;
 
   return (
     <nav className="nav" aria-label="Основная навигация">

@@ -10,9 +10,16 @@ import {
   timestamp,
   uniqueIndex,
   uuid,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
-export const roleEnum = pgEnum("role", ["employee", "hr", "hr_lead", "admin"]);
+export const roleEnum = pgEnum("role", [
+  "employee",
+  "department_head",
+  "hr",
+  "hr_lead",
+  "admin",
+]);
 export const workflowStatusEnum = pgEnum("workflow_status", [
   "draft",
   "submitted",
@@ -24,6 +31,7 @@ export const workflowStatusEnum = pgEnum("workflow_status", [
 ]);
 export const actorRoleEnum = pgEnum("actor_role", [
   "employee",
+  "department_head",
   "hr",
   "hr_lead",
   "admin",
@@ -55,6 +63,9 @@ export const departments = pgTable(
       .references(() => organizations.id),
     name: text("name").notNull(),
     headcount: integer("headcount").notNull().default(0),
+    parentId: uuid("parent_id").references((): AnyPgColumn => departments.id),
+    headUserId: uuid("head_user_id"),
+    approverUserId: uuid("approver_user_id"),
     isActive: boolean("is_active").notNull().default(true),
     ...auditColumns,
   },
@@ -72,6 +83,9 @@ export const jobTitles = pgTable(
       .references(() => organizations.id),
     name: text("name").notNull(),
     isActive: boolean("is_active").notNull().default(true),
+    irregularLeaveMaxDays: integer("irregular_leave_max_days")
+      .notNull()
+      .default(0),
     ...auditColumns,
   },
   (table) => [
@@ -184,6 +198,7 @@ export const overtimeReports = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id),
+    departmentId: uuid("department_id").references(() => departments.id),
     year: integer("year").notNull(),
     month: integer("month").notNull(),
     status: workflowStatusEnum("status").notNull().default("draft"),
@@ -203,6 +218,66 @@ export const overtimeReports = pgTable(
       table.status,
       table.year,
       table.month,
+    ),
+  ],
+);
+
+export const employeeIrregularLeaveTerms = pgTable(
+  "employee_irregular_leave_terms",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id),
+    year: integer("year").notNull(),
+    maxDaysOverride: integer("max_days_override"),
+    actualDays: integer("actual_days"),
+    proposedNextYearDays: integer("proposed_next_year_days"),
+    ...auditColumns,
+  },
+  (table) => [
+    uniqueIndex("employee_irregular_leave_terms_user_year_uq").on(
+      table.userId,
+      table.year,
+    ),
+  ],
+);
+
+export const departmentQuarterApprovals = pgTable(
+  "department_quarter_approvals",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    departmentId: uuid("department_id")
+      .notNull()
+      .references(() => departments.id),
+    year: integer("year").notNull(),
+    quarter: integer("quarter").notNull(),
+    status: text("status")
+      .$type<"draft" | "approved" | "reopened">()
+      .notNull()
+      .default("draft"),
+    approvedBy: uuid("approved_by").references(() => users.id),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    version: integer("version").notNull().default(1),
+    ...auditColumns,
+  },
+  (table) => [
+    uniqueIndex("department_quarter_approvals_period_uq").on(
+      table.departmentId,
+      table.year,
+      table.quarter,
+    ),
+    index("department_quarter_approvals_queue_idx").on(
+      table.organizationId,
+      table.year,
+      table.quarter,
+      table.status,
     ),
   ],
 );

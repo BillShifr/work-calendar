@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { OvertimeCalendar } from "@/components/OvertimeCalendar";
@@ -42,6 +42,14 @@ export default async function HrOvertimePage({
       and(
         eq(overtimeReports.id, id),
         eq(overtimeReports.organizationId, actor.organizationId),
+        sql`EXISTS (
+          SELECT 1 FROM department_quarter_approvals approval
+          WHERE approval.organization_id = ${actor.organizationId}
+            AND approval.department_id = ${overtimeReports.departmentId}
+            AND approval.year = ${overtimeReports.year}
+            AND approval.quarter = CEIL(${overtimeReports.month} / 3.0)::int
+            AND approval.status = 'approved'
+        )`,
       ),
     )
     .limit(1);

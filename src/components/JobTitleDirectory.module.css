@@ -4,7 +4,7 @@
 }
 .create {
   display: grid;
-  grid-template-columns: minmax(240px, 0.8fr) minmax(320px, 1.3fr) auto;
+  grid-template-columns: minmax(220px, 0.8fr) minmax(300px, 1.3fr) 190px auto;
   gap: 24px;
   align-items: end;
   padding: 28px;
@@ -21,7 +21,8 @@
   line-height: 1.45;
 }
 .create label,
-.row label {
+.row label,
+.maxDays {
   display: grid;
   gap: 8px;
   color: var(--text-muted);
@@ -54,11 +55,18 @@
 }
 .row {
   display: grid;
-  grid-template-columns: minmax(260px, 1fr) 140px minmax(250px, 0.7fr) auto;
+  grid-template-columns:
+    minmax(260px, 1fr) 180px 110px minmax(250px, 0.7fr)
+    auto;
   gap: 24px;
   align-items: end;
   padding: 20px 24px;
   border-bottom: 1px solid var(--border);
+}
+.maxDays > span {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: 750;
 }
 .row:last-child {
   border-bottom: 0;

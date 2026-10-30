@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { buildAbsenceRisks } from "@/domain/absence-risk";
 import {
+  monthsForQuarter,
+  quarterForMonth,
+} from "@/domain/department-approval";
+import {
   addOvertimeMinutes,
   isOvertimeTotal,
   MAX_OVERTIME_MINUTES_PER_DAY,
@@ -54,6 +58,14 @@ describe("domain rules", () => {
     expect(canTransition("submitted", "hr_proposed", "hr")).toBe(true);
     expect(canTransition("hr_proposed", "approved", "employee")).toBe(true);
     expect(canTransition("hr_proposed", "approved", "hr")).toBe(false);
+    expect(canTransition("hr_proposed", "approved", "department_head")).toBe(
+      true,
+    );
+  });
+  it("maps every month to the correct approval quarter", () => {
+    expect(quarterForMonth(1)).toBe(1);
+    expect(quarterForMonth(12)).toBe(4);
+    expect(monthsForQuarter(3)).toEqual([7, 8, 9]);
   });
   it("groups consecutive department conflicts and prioritizes critical staff", () => {
     const base = {

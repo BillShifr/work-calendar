@@ -11,8 +11,10 @@ export default async function ReferenceDataPage() {
     name: string;
     isActive: boolean;
     employeeCount: number;
+    irregularLeaveMaxDays: number;
   }>(sql`
     SELECT title.id::text, title.name, title.is_active AS "isActive",
+      title.irregular_leave_max_days AS "irregularLeaveMaxDays",
       COUNT(assignment.id)::int AS "employeeCount"
     FROM job_titles title
     LEFT JOIN department_assignments assignment

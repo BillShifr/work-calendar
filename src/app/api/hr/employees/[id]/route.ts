@@ -18,7 +18,7 @@ const schema = z.object({
   fullName: z.string().trim().min(3).max(160),
   departmentId: z.uuid(),
   jobTitleId: z.uuid(),
-  role: z.enum(["employee", "hr"]),
+  role: z.enum(["employee", "department_head", "hr"]),
   isCritical: z.boolean(),
   isActive: z.boolean(),
   allowanceDays: z.number().int().min(0).max(366),
@@ -114,24 +114,25 @@ export async function PUT(
           ),
         )
         .limit(1);
+      const today = new Date().toISOString().slice(0, 10);
       const assignmentChanged =
         !assignment || assignment.departmentId !== input.departmentId;
-      if (assignmentChanged && assignment) {
+      if ((assignmentChanged || !input.isActive) && assignment) {
         await tx
           .update(departmentAssignments)
-          .set({ validTo: new Date().toISOString().slice(0, 10) })
+          .set({ validTo: today, updatedAt: new Date() })
           .where(eq(departmentAssignments.id, assignment.id));
       }
-      if (assignmentChanged) {
+      if (input.isActive && assignmentChanged) {
         await tx.insert(departmentAssignments).values({
           userId: id,
           departmentId: input.departmentId,
           jobTitleId: jobTitle.id,
-          validFrom: new Date().toISOString().slice(0, 10),
+          validFrom: today,
           jobTitle: jobTitle.name,
           isCritical: input.isCritical,
         });
-      } else if (assignment) {
+      } else if (input.isActive && assignment) {
         await tx
           .update(departmentAssignments)
           .set({
@@ -141,6 +142,40 @@ export async function PUT(
             updatedAt: new Date(),
           })
           .where(eq(departmentAssignments.id, assignment.id));
+      }
+      const affectedDepartmentIds = new Set<string>();
+      if (assignment && (assignmentChanged || !input.isActive))
+        affectedDepartmentIds.add(assignment.departmentId);
+      if (input.isActive && assignmentChanged)
+        affectedDepartmentIds.add(input.departmentId);
+      if (affectedDepartmentIds.size) {
+        const reopenedApprovals = await tx.execute<{ id: string }>(sql`
+          UPDATE department_quarter_approvals
+          SET status='reopened', approved_by=NULL, approved_at=NULL,
+            version=version + 1, updated_at=now()
+          WHERE organization_id=${actor.organizationId}
+            AND department_id IN (${sql.join(
+              [...affectedDepartmentIds].map(
+                (departmentId) => sql`${departmentId}`,
+              ),
+              sql`, `,
+            )})
+            AND status='approved'
+            AND make_date(year, (quarter - 1) * 3 + 1, 1) <= ${today}
+            AND (make_date(year, quarter * 3, 1) + interval '1 month - 1 day')::date >= ${today}
+          RETURNING id
+        `);
+        if (reopenedApprovals.length)
+          await tx.insert(auditEvents).values(
+            reopenedApprovals.map((approval) => ({
+              organizationId: actor.organizationId,
+              actorId: actor.id,
+              action: "department_quarter.reopened",
+              objectType: "department_quarter_approval",
+              objectId: approval.id,
+              metadata: { reason: "employee_assignment_changed", userId: id },
+            })),
+          );
       }
       await tx
         .insert(vacationPlans)

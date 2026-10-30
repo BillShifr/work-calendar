@@ -7,12 +7,12 @@ import styles from "./EmployeeDirectory.module.css";
 
 type Department = { id: string; name: string };
 type JobTitle = { id: string; name: string };
-type Role = "employee" | "hr";
+type Role = "employee" | "department_head" | "hr";
 type Employee = {
   id: string;
   fullName: string;
   login: string;
-  role: "employee" | "hr" | "hr_lead";
+  role: "employee" | "department_head" | "hr" | "hr_lead" | "admin";
   isActive: boolean;
   departmentId: string | null;
   departmentName: string | null;
@@ -35,6 +35,13 @@ function RoleChoice({
     <fieldset className={styles.roleChoice}>
       <legend>{label}</legend>
       <div>
+        <button
+          type="button"
+          aria-pressed={value === "department_head"}
+          onClick={() => onChange("department_head")}
+        >
+          Руководитель подразделения
+        </button>
         <button
           type="button"
           aria-pressed={value === "employee"}
@@ -89,7 +96,10 @@ export function EmployeeDirectory({
           fullName: employee.fullName,
           departmentId: employee.departmentId ?? "",
           jobTitleId: employee.jobTitleId ?? "",
-          role: employee.role === "hr_lead" ? "hr" : employee.role,
+          role:
+            employee.role === "hr_lead" || employee.role === "admin"
+              ? "hr"
+              : employee.role,
           isCritical: Boolean(employee.isCritical),
           isActive: employee.isActive,
           allowanceDays: employee.allowanceDays,

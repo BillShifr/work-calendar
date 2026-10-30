@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { NumberControl, ToggleControl } from "./FormControls";
+import { NumberControl, SelectControl, ToggleControl } from "./FormControls";
 import styles from "./DepartmentRuleEditor.module.css";
 
 type Department = {
@@ -11,13 +11,18 @@ type Department = {
   headcount: number;
   isActive: boolean;
   assignedCount: number;
+  parentId: string | null;
+  headUserId: string | null;
+  approverUserId: string | null;
   updatedAt: string;
 };
 
 export function DepartmentRuleEditor({
   departments,
+  employees,
 }: {
   departments: Department[];
+  employees: Array<{ id: string; fullName: string }>;
 }) {
   const router = useRouter();
   const [drafts, setDrafts] = useState(() =>
@@ -28,6 +33,9 @@ export function DepartmentRuleEditor({
           headcount: String(department.headcount),
           name: department.name,
           isActive: department.isActive,
+          parentId: department.parentId ?? "",
+          headUserId: department.headUserId ?? "",
+          approverUserId: department.approverUserId ?? "",
         },
       ]),
     ),
@@ -38,9 +46,16 @@ export function DepartmentRuleEditor({
   const [newDepartment, setNewDepartment] = useState({
     name: "",
     headcount: "",
+    parentId: "",
+    headUserId: "",
+    approverUserId: "",
   });
 
-  function change(id: string, field: "name" | "headcount", value: string) {
+  function change(
+    id: string,
+    field: "name" | "headcount" | "parentId" | "headUserId" | "approverUserId",
+    value: string,
+  ) {
     setDrafts((current) => ({
       ...current,
       [id]: { ...current[id], [field]: value },
@@ -63,6 +78,9 @@ export function DepartmentRuleEditor({
         name: draft.name,
         isActive: draft.isActive,
         headcount: Number(draft.headcount),
+        parentId: draft.parentId || null,
+        headUserId: draft.headUserId || null,
+        approverUserId: draft.approverUserId || null,
       }),
     });
     const data = await response.json();
@@ -86,6 +104,10 @@ export function DepartmentRuleEditor({
       body: JSON.stringify({
         name: newDepartment.name,
         headcount: Number(newDepartment.headcount),
+        parentId: newDepartment.parentId || null,
+        headUserId: newDepartment.headUserId || null,
+        approverUserId:
+          newDepartment.approverUserId || newDepartment.headUserId || null,
       }),
     });
     const data = await response.json();
@@ -97,7 +119,13 @@ export function DepartmentRuleEditor({
       }));
       return;
     }
-    setNewDepartment({ name: "", headcount: "" });
+    setNewDepartment({
+      name: "",
+      headcount: "",
+      parentId: "",
+      headUserId: "",
+      approverUserId: "",
+    });
     setMessages((current) => ({ ...current, create: "Подразделение создано" }));
     router.refresh();
   }
@@ -127,6 +155,68 @@ export function DepartmentRuleEditor({
               })
             }
           />
+        </label>
+        <label>
+          Вышестоящее подразделение
+          <SelectControl
+            label="Вышестоящее подразделение"
+            value={newDepartment.parentId}
+            onChange={(event) =>
+              setNewDepartment({
+                ...newDepartment,
+                parentId: event.target.value,
+              })
+            }
+          >
+            <option value="">Нет</option>
+            {departments.map((department) => (
+              <option value={department.id} key={department.id}>
+                {department.name}
+              </option>
+            ))}
+          </SelectControl>
+        </label>
+        <label>
+          Руководитель
+          <SelectControl
+            label="Руководитель нового подразделения"
+            value={newDepartment.headUserId}
+            onChange={(event) => {
+              const headUserId = event.target.value;
+              setNewDepartment({
+                ...newDepartment,
+                headUserId,
+                approverUserId: newDepartment.approverUserId || headUserId,
+              });
+            }}
+          >
+            <option value="">Не назначен</option>
+            {employees.map((employee) => (
+              <option value={employee.id} key={employee.id}>
+                {employee.fullName}
+              </option>
+            ))}
+          </SelectControl>
+        </label>
+        <label>
+          Согласующий
+          <SelectControl
+            label="Согласующий нового подразделения"
+            value={newDepartment.approverUserId}
+            onChange={(event) =>
+              setNewDepartment({
+                ...newDepartment,
+                approverUserId: event.target.value,
+              })
+            }
+          >
+            <option value="">Руководитель подразделения</option>
+            {employees.map((employee) => (
+              <option value={employee.id} key={employee.id}>
+                {employee.fullName}
+              </option>
+            ))}
+          </SelectControl>
         </label>
         <button
           className="primaryButton"
@@ -171,6 +261,68 @@ export function DepartmentRuleEditor({
                     change(department.id, "headcount", value)
                   }
                 />
+              </label>
+              <label>
+                Вышестоящее подразделение
+                <SelectControl
+                  label={`Вышестоящее подразделение: ${department.name}`}
+                  value={draft.parentId}
+                  onChange={(event) =>
+                    change(department.id, "parentId", event.target.value)
+                  }
+                >
+                  <option value="">Нет</option>
+                  {departments
+                    .filter((item) => item.id !== department.id)
+                    .map((item) => (
+                      <option value={item.id} key={item.id}>
+                        {item.name}
+                      </option>
+                    ))}
+                </SelectControl>
+              </label>
+              <label>
+                Руководитель
+                <SelectControl
+                  label={`Руководитель: ${department.name}`}
+                  value={draft.headUserId}
+                  onChange={(event) => {
+                    const headUserId = event.target.value;
+                    setDrafts((current) => ({
+                      ...current,
+                      [department.id]: {
+                        ...current[department.id],
+                        headUserId,
+                        approverUserId:
+                          current[department.id].approverUserId || headUserId,
+                      },
+                    }));
+                  }}
+                >
+                  <option value="">Не назначен</option>
+                  {employees.map((employee) => (
+                    <option value={employee.id} key={employee.id}>
+                      {employee.fullName}
+                    </option>
+                  ))}
+                </SelectControl>
+              </label>
+              <label>
+                Согласующий
+                <SelectControl
+                  label={`Согласующий: ${department.name}`}
+                  value={draft.approverUserId}
+                  onChange={(event) =>
+                    change(department.id, "approverUserId", event.target.value)
+                  }
+                >
+                  <option value="">Руководитель подразделения</option>
+                  {employees.map((employee) => (
+                    <option value={employee.id} key={employee.id}>
+                      {employee.fullName}
+                    </option>
+                  ))}
+                </SelectControl>
               </label>
             </div>
             <div className={styles.footer}>

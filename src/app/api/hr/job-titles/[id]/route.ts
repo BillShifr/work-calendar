@@ -8,6 +8,7 @@ import { requireHr } from "@/lib/auth";
 const schema = z.object({
   name: z.string().trim().min(2).max(160),
   isActive: z.boolean(),
+  irregularLeaveMaxDays: z.number().int().min(0).max(30).default(0),
 });
 
 export async function PUT(

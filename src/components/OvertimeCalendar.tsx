@@ -28,6 +28,7 @@ const weekdays = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
 const iso = (year: number, month: number, day: number) =>
   `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 type Source = "employee" | "hr";
+type Mode = Source | "review";
 type InitialReport = {
   id: string;
   year: number;
@@ -45,7 +46,7 @@ export function OvertimeCalendar({
   mode = "employee",
 }: {
   initial: InitialReport;
-  mode?: Source;
+  mode?: Mode;
 }) {
   const [period, setPeriod] = useState({
     year: initial.year,
@@ -205,7 +206,7 @@ export function OvertimeCalendar({
         ? mode === "hr"
           ? "Отчёт утверждён"
           : "Предложение кадровика утверждено"
-        : "Отправлено кадровой службе",
+        : "Отправлено на согласование",
     );
   }
   async function saveAndSubmit() {
@@ -224,7 +225,7 @@ export function OvertimeCalendar({
       ["submitted", "approved"].includes(status) ? (
         <div className={styles.accessNotice} role="status">
           {status === "submitted"
-            ? "Отчёт отправлен кадровику и доступен только для просмотра"
+            ? "Отчёт отправлен на согласование и доступен только для просмотра"
             : "Утверждённый отчёт доступен только для просмотра"}
         </div>
       ) : null}
@@ -308,7 +309,7 @@ export function OvertimeCalendar({
                 }
                 onClick={saveAndSubmit}
               >
-                Отправить кадровику
+                Отправить на согласование
               </button>
             </>
           )}

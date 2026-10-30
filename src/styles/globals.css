@@ -255,8 +255,31 @@ h1 {
   border: 0;
 }
 
+@media (max-width: 1500px) and (min-width: 801px) {
+  .topbar {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 8px 20px;
+  }
+  .nav {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-content: center;
+    overflow-x: auto;
+  }
+  .nav a {
+    flex: 0 0 auto;
+    padding: 0 14px;
+  }
+  .userBox {
+    grid-column: 3;
+    grid-row: 1;
+  }
+}
+
 @media (max-width: 800px) {
   .topbar {
+    display: flex;
     align-items: flex-start;
     flex-wrap: wrap;
     gap: 8px;

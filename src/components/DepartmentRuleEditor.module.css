@@ -4,7 +4,7 @@
 }
 .create {
   display: grid;
-  grid-template-columns: minmax(260px, 1.5fr) minmax(140px, 0.5fr) auto 1fr;
+  grid-template-columns: repeat(3, minmax(220px, 1fr));
   align-items: end;
   gap: 16px;
   padding: 20px;
@@ -56,9 +56,9 @@
 }
 .fields {
   display: grid;
-  grid-template-columns: minmax(260px, 1.5fr) minmax(180px, 0.5fr);
+  grid-template-columns: repeat(2, minmax(240px, 1fr));
   gap: 14px;
-  max-width: 820px;
+  max-width: 1100px;
   margin-top: 24px;
 }
 .fields input {

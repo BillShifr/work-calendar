@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { expect, test, type Page } from "@playwright/test";
 
 async function login(page: Page, login: string, password: string) {
@@ -43,9 +44,9 @@ test("employee and HR complete a bilateral vacation approval", async ({
   await page.getByRole("button", { name: "Добавить 15 минут" }).click();
   await page.getByRole("button", { name: "Сохранить черновик" }).click();
   await expect(page.getByText("Сохранено", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Отправить кадровику" }).click();
+  await page.getByRole("button", { name: "Отправить на согласование" }).click();
   await expect(
-    page.getByText("Отправлено кадровой службе", { exact: true }),
+    page.getByText("Отправлено на согласование", { exact: true }),
   ).toBeVisible();
 
   await page.getByRole("link", { name: "Отпуска" }).click();
@@ -138,16 +139,106 @@ test("employee and HR complete a bilateral vacation approval", async ({
 
   await page.getByRole("button", { name: "Выйти" }).click();
   await login(page, "hr", "CI-only-password-2026!");
+  await page.getByRole("link", { name: "Согласование" }).click();
+  const fourthQuarter = page
+    .locator("article")
+    .filter({ hasText: "4 квартал" });
+  await expect(fourthQuarter).toContainText("6 из 6 отчётов");
+  await fourthQuarter.getByRole("button", { name: "Согласовано" }).click();
+  await expect(page.getByRole("status")).toContainText("Согласован 4 квартал");
+  await page.getByRole("link", { name: "Свод" }).click();
+  await page.getByLabel("Максимум дней для всех", { exact: true }).fill("11");
+  await page.getByRole("button", { name: "Применить", exact: true }).click();
+  await expect(page.getByRole("status")).toContainText("Обновлено сотрудников");
+  await page
+    .getByRole("textbox", { name: "Дней по договору: Алексей Морозов" })
+    .fill("10");
+  await page
+    .getByRole("textbox", {
+      name: "Предложение на следующий год: Алексей Морозов",
+    })
+    .fill("9");
+  await page
+    .locator("article")
+    .filter({ hasText: "Алексей Морозов" })
+    .getByRole("button", { name: "Сохранить" })
+    .click();
+  await expect(page.getByRole("status")).toContainText("Значения сохранены");
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("link", { name: "Выгрузить Excel" }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe("tfoms-overtime-summary-2026.xlsx");
+  const downloadPath = await download.path();
+  expect(downloadPath).not.toBeNull();
+  const exportedFile = await readFile(downloadPath!);
+  expect(exportedFile.byteLength).toBeGreaterThan(5_000);
+  expect(exportedFile.subarray(0, 2).toString()).toBe("PK");
+  await page.getByRole("link", { name: "Кабинет кадровика" }).click();
   await expect(
     page.getByRole("heading", { name: "Кабинет кадровика" }),
   ).toBeVisible();
   await expect(page.getByText("Ожидает проверки")).toHaveCount(0);
+  await page.getByRole("link", { name: "Внеурочное время" }).last().click();
+  await expect(page).toHaveURL(/type=overtime/);
+  await page.getByRole("link", { name: "Отпуска" }).last().click();
+  await expect(page).toHaveURL(/type=vacation/);
+  await page.getByRole("link", { name: "Все" }).click();
+  await page
+    .locator("article")
+    .filter({ hasText: "Алексей Морозов" })
+    .filter({ hasText: /Внеурочное время · 10\.2026/ })
+    .getByRole("link", { name: "Проверить время" })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Утвердить без изменений" }),
+  ).toBeVisible();
+  await page
+    .locator('button[data-calendar-day][aria-label*="15 минут"]')
+    .click();
+  await page.getByRole("button", { name: "Добавить 30 минут" }).click();
+  await page
+    .getByLabel("Причина изменений")
+    .fill("Уточнение по данным табеля подразделения");
+  await page.getByRole("button", { name: "Предложить изменения" }).click();
+  await expect(page.getByRole("status")).toContainText(
+    "Предложение отправлено",
+  );
+
+  await page.goto("/hr");
+  await page.locator('a[href^="/hr/vacations/"]').click();
+  await page.getByRole("button", { name: /Удалить период/ }).click();
+  await page.getByRole("button", { name: /^12 май/ }).click();
+  await page.getByRole("button", { name: /^22 май/ }).click();
+  await page
+    .getByLabel("Причина изменений")
+    .fill("Устранение пересечения с отпуском дежурного специалиста");
+  await page.getByRole("button", { name: "Предложить изменения" }).click();
+  await expect(page.getByText("Сохранено", { exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: "Выйти" }).click();
+  await login(page, "employee", "Employee-2026!");
+  await expect(
+    page.getByText("Кадровая служба предложила корректировку"),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Подтвердить правку" }).click();
+  await expect(
+    page.getByText("Предложение кадровика утверждено", { exact: true }),
+  ).toBeVisible();
+  await page.getByRole("link", { name: "Отпуска" }).click();
+  await expect(page.getByText(/Правка HR/)).toBeVisible();
+  await page.getByRole("button", { name: "Подтвердить правку" }).click();
+  await expect(
+    page.getByText("Предложение кадровика утверждено", { exact: true }),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "Выйти" }).click();
+  await login(page, "hr", "CI-only-password-2026!");
   await page.getByRole("link", { name: "Подразделения" }).click();
   await page.getByLabel("Название").first().fill("Финансовое управление");
   await page.getByLabel("Штат", { exact: true }).fill("8");
   await page.getByRole("button", { name: "Создать" }).click();
   await expect(
-    page.getByText("Финансовое управление", { exact: true }),
+    page.getByRole("heading", { name: "Финансовое управление", exact: true }),
   ).toBeVisible();
   await page.getByRole("link", { name: "Справочники" }).click();
   await page.getByLabel("Название должности").fill("Ведущий специалист");
@@ -191,54 +282,14 @@ test("employee and HR complete a bilateral vacation approval", async ({
   await page.getByLabel("Дней отпуска для всех", { exact: true }).fill("30");
   await page.getByRole("button", { name: "Применить ко всем" }).click();
   await expect(page.getByRole("status")).toContainText("Лимит обновлён");
-  await page.getByRole("link", { name: "Кабинет кадровика" }).click();
-  await page.getByRole("link", { name: "Внеурочное время" }).last().click();
-  await expect(page).toHaveURL(/type=overtime/);
-  await page.getByRole("link", { name: "Отпуска" }).last().click();
-  await expect(page).toHaveURL(/type=vacation/);
-  await page.getByRole("link", { name: "Все" }).click();
-  await page.locator('a[href^="/hr/overtime/"]').click();
+  await page.getByRole("link", { name: "Согласование" }).click();
+  const reopenedQuarter = page
+    .locator("article")
+    .filter({ hasText: "4 квартал" });
+  await expect(reopenedQuarter).toContainText("6 из 9 отчётов");
   await expect(
-    page.getByRole("button", { name: "Утвердить без изменений" }),
-  ).toBeVisible();
-  await page
-    .locator('button[data-calendar-day][aria-label*="15 минут"]')
-    .click();
-  await page.getByRole("button", { name: "Добавить 30 минут" }).click();
-  await page
-    .getByLabel("Причина изменений")
-    .fill("Уточнение по данным табеля подразделения");
-  await page.getByRole("button", { name: "Предложить изменения" }).click();
-  await expect(page.getByRole("status")).toContainText(
-    "Предложение отправлено",
-  );
-
-  await page.goto("/hr");
-  await page.locator('a[href^="/hr/vacations/"]').click();
-  await page.getByRole("button", { name: /Удалить период/ }).click();
-  await page.getByRole("button", { name: /^12 май/ }).click();
-  await page.getByRole("button", { name: /^22 май/ }).click();
-  await page
-    .getByLabel("Причина изменений")
-    .fill("Устранение пересечения с отпуском дежурного специалиста");
-  await page.getByRole("button", { name: "Предложить изменения" }).click();
-  await expect(page.getByText("Сохранено", { exact: true })).toBeVisible();
-
-  await page.getByRole("button", { name: "Выйти" }).click();
-  await login(page, "employee", "Employee-2026!");
-  await expect(
-    page.getByText("Кадровая служба предложила корректировку"),
-  ).toBeVisible();
-  await page.getByRole("button", { name: "Подтвердить правку" }).click();
-  await expect(
-    page.getByText("Предложение кадровика утверждено", { exact: true }),
-  ).toBeVisible();
-  await page.getByRole("link", { name: "Отпуска" }).click();
-  await expect(page.getByText(/Правка HR/)).toBeVisible();
-  await page.getByRole("button", { name: "Подтвердить правку" }).click();
-  await expect(
-    page.getByText("Предложение кадровика утверждено", { exact: true }),
-  ).toBeVisible();
+    reopenedQuarter.getByRole("button", { name: "Согласовано" }),
+  ).toBeDisabled();
 });
 
 test("monthly overtime calendar remains usable on mobile", async ({

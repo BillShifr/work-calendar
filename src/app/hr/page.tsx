@@ -37,8 +37,15 @@ export default async function HrPage({
   }>(sql`
     SELECT
       (SELECT COUNT(*)::int FROM overtime_reports
-       WHERE organization_id = ${hr.organizationId}
-         AND status IN ('submitted', 'reopened')) AS overtime,
+       WHERE overtime_reports.organization_id = ${hr.organizationId}
+         AND overtime_reports.status IN ('submitted', 'reopened')
+         AND EXISTS (
+           SELECT 1 FROM department_quarter_approvals approval
+           WHERE approval.department_id = overtime_reports.department_id
+             AND approval.year = overtime_reports.year
+             AND approval.quarter = CEIL(overtime_reports.month / 3.0)::int
+             AND approval.status = 'approved'
+         )) AS overtime,
       (SELECT COUNT(*)::int FROM vacation_plans
        WHERE organization_id = ${hr.organizationId}
          AND status IN ('submitted', 'reopened')) AS vacations
@@ -80,6 +87,13 @@ export default async function HrPage({
       and(
         eq(overtimeReports.organizationId, hr.organizationId),
         inArray(overtimeReports.status, ["submitted", "reopened"]),
+        sql`EXISTS (
+          SELECT 1 FROM department_quarter_approvals approval
+          WHERE approval.department_id = ${overtimeReports.departmentId}
+            AND approval.year = ${overtimeReports.year}
+            AND approval.quarter = CEIL(${overtimeReports.month} / 3.0)::int
+            AND approval.status = 'approved'
+        )`,
       ),
     )
     .orderBy(overtimeReports.updatedAt)

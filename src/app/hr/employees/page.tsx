@@ -8,7 +8,7 @@ type EmployeeRow = {
   id: string;
   fullName: string;
   login: string;
-  role: "employee" | "hr" | "hr_lead";
+  role: "employee" | "department_head" | "hr" | "hr_lead" | "admin";
   isActive: boolean;
   departmentId: string | null;
   departmentName: string | null;

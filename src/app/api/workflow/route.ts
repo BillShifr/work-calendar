@@ -34,9 +34,10 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   const { aggregate, id, to, comment } = parsed.data;
+  const isEmployee = ["employee", "department_head"].includes(actor.role);
   if (
     ["hr_proposed", "rejected", "reopened"].includes(to) &&
-    actor.role !== "employee" &&
+    !isEmployee &&
     !comment
   )
     return NextResponse.json(
@@ -55,9 +56,8 @@ export async function POST(request: Request) {
         )
         .limit(1);
       if (!item) throw new Error("NOT_FOUND");
-      if (actor.role === "employee" && item.userId !== actor.id)
-        throw new Error("FORBIDDEN");
-      if (actor.role === "employee" && ["submitted", "draft"].includes(to)) {
+      if (isEmployee && item.userId !== actor.id) throw new Error("FORBIDDEN");
+      if (isEmployee && ["submitted", "draft"].includes(to)) {
         const kind = aggregate === "overtime_report" ? "overtime" : "vacation";
         const month =
           aggregate === "overtime_report"
@@ -67,6 +67,25 @@ export async function POST(request: Request) {
           sql`SELECT is_open AS "isOpen" FROM entry_windows WHERE organization_id=${actor.organizationId} AND kind=${kind} AND year=${item.year} AND month=${month} FOR SHARE`,
         );
         if (!entryWindow?.isOpen) throw new Error("ENTRY_WINDOW_CLOSED");
+      }
+      if (
+        aggregate === "overtime_report" &&
+        !isEmployee &&
+        ["hr", "hr_lead"].includes(actor.role)
+      ) {
+        const report = item as typeof overtimeReports.$inferSelect;
+        const [managerApproval] = await tx.execute<{ approved: boolean }>(sql`
+          SELECT EXISTS (
+            SELECT 1 FROM department_quarter_approvals approval
+            WHERE approval.organization_id = ${actor.organizationId}
+              AND approval.department_id = ${report.departmentId}
+              AND approval.year = ${report.year}
+              AND approval.quarter = ${Math.ceil(report.month / 3)}
+              AND approval.status = 'approved'
+          ) AS approved
+        `);
+        if (!managerApproval?.approved)
+          throw new Error("MANAGER_APPROVAL_REQUIRED");
       }
       assertTransition(
         item.status as WorkflowStatus,
@@ -111,6 +130,29 @@ export async function POST(request: Request) {
         objectId: id,
         metadata: { from: item.status, to },
       });
+      if (aggregate === "overtime_report" && !isEmployee && to === "reopened") {
+        const report = item as typeof overtimeReports.$inferSelect;
+        const [reopenedApproval] = await tx.execute<{ id: string }>(sql`
+          UPDATE department_quarter_approvals
+          SET status = 'reopened', approved_by = NULL, approved_at = NULL,
+            version = version + 1, updated_at = now()
+          WHERE organization_id = ${actor.organizationId}
+            AND department_id = ${report.departmentId}
+            AND year = ${report.year}
+            AND quarter = ${Math.ceil(report.month / 3)}
+            AND status = 'approved'
+          RETURNING id
+        `);
+        if (reopenedApproval)
+          await tx.insert(auditEvents).values({
+            organizationId: actor.organizationId,
+            actorId: actor.id,
+            action: "department_quarter.reopened",
+            objectType: "department_quarter_approval",
+            objectId: reopenedApproval.id,
+            metadata: { reason: "hr_reopened_report", reportId: id },
+          });
+      }
       return { status: to, version: updated.version };
     });
     return NextResponse.json(result);
@@ -128,6 +170,11 @@ export async function POST(request: Request) {
     if (message === "ENTRY_WINDOW_CLOSED")
       return NextResponse.json(
         { error: "Период заполнения закрыт кадровой службой" },
+        { status: 409 },
+      );
+    if (message === "MANAGER_APPROVAL_REQUIRED")
+      return NextResponse.json(
+        { error: "Квартал ещё не согласован ответственным подразделения" },
         { status: 409 },
       );
     return NextResponse.json(

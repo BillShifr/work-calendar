@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ToggleControl } from "./FormControls";
+import { NumberControl, ToggleControl } from "./FormControls";
 import styles from "./JobTitleDirectory.module.css";
 
 type JobTitle = {
@@ -10,16 +10,22 @@ type JobTitle = {
   name: string;
   isActive: boolean;
   employeeCount: number;
+  irregularLeaveMaxDays: number;
 };
 
 export function JobTitleDirectory({ jobTitles }: { jobTitles: JobTitle[] }) {
   const router = useRouter();
   const [newName, setNewName] = useState("");
+  const [newMaxDays, setNewMaxDays] = useState("0");
   const [drafts, setDrafts] = useState(() =>
     Object.fromEntries(
       jobTitles.map((title) => [
         title.id,
-        { name: title.name, isActive: title.isActive },
+        {
+          name: title.name,
+          isActive: title.isActive,
+          irregularLeaveMaxDays: String(title.irregularLeaveMaxDays),
+        },
       ]),
     ),
   );
@@ -31,12 +37,16 @@ export function JobTitleDirectory({ jobTitles }: { jobTitles: JobTitle[] }) {
     const response = await fetch("/api/hr/job-titles", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ name: newName }),
+      body: JSON.stringify({
+        name: newName,
+        irregularLeaveMaxDays: Number(newMaxDays),
+      }),
     });
     const data = await response.json();
     setSavingId(null);
     if (!response.ok) return setMessage(data.error ?? "Не удалось создать");
     setNewName("");
+    setNewMaxDays("0");
     setMessage("Должность добавлена");
     router.refresh();
   }
@@ -46,7 +56,10 @@ export function JobTitleDirectory({ jobTitles }: { jobTitles: JobTitle[] }) {
     const response = await fetch(`/api/hr/job-titles/${title.id}`, {
       method: "PUT",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify(drafts[title.id]),
+      body: JSON.stringify({
+        ...drafts[title.id],
+        irregularLeaveMaxDays: Number(drafts[title.id].irregularLeaveMaxDays),
+      }),
     });
     const data = await response.json();
     setSavingId(null);
@@ -67,6 +80,16 @@ export function JobTitleDirectory({ jobTitles }: { jobTitles: JobTitle[] }) {
             value={newName}
             onChange={(event) => setNewName(event.target.value)}
             placeholder="Например, ведущий специалист"
+          />
+        </label>
+        <label>
+          Максимум дней
+          <NumberControl
+            label="Максимум дней для новой должности"
+            min={0}
+            max={30}
+            value={newMaxDays}
+            onChange={setNewMaxDays}
           />
         </label>
         <button
@@ -99,6 +122,24 @@ export function JobTitleDirectory({ jobTitles }: { jobTitles: JobTitle[] }) {
                   }
                 />
               </label>
+              <div className={styles.maxDays}>
+                <span>Максимум дней</span>
+                <NumberControl
+                  label={`Максимум дней: ${title.name}`}
+                  min={0}
+                  max={30}
+                  value={draft.irregularLeaveMaxDays}
+                  onChange={(value) =>
+                    setDrafts({
+                      ...drafts,
+                      [title.id]: {
+                        ...draft,
+                        irregularLeaveMaxDays: value,
+                      },
+                    })
+                  }
+                />
+              </div>
               <div className={styles.usage}>
                 <span>Сотрудников</span>
                 <strong>{title.employeeCount}</strong>

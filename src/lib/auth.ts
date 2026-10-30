@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { and, eq, gt, isNull } from "drizzle-orm";
 import { db } from "@/db/client";
-import { sessions, users } from "@/db/schema";
+import { departments, sessions, users } from "@/db/schema";
 
 const COOKIE_NAME = "tfoms_time_session";
 const SESSION_DAYS = 14;
@@ -75,4 +75,28 @@ export async function requireHr() {
   if (!(["hr", "hr_lead"] as string[]).includes(user.role))
     redirect("/overtime");
   return user;
+}
+
+export async function approverDepartmentIds(user: {
+  id: string;
+  organizationId: string;
+}) {
+  const rows = await db
+    .select({ id: departments.id })
+    .from(departments)
+    .where(
+      and(
+        eq(departments.organizationId, user.organizationId),
+        eq(departments.approverUserId, user.id),
+        eq(departments.isActive, true),
+      ),
+    );
+  return rows.map((row) => row.id);
+}
+
+export async function requireDepartmentApprover() {
+  const user = await requireUser();
+  const departmentIds = await approverDepartmentIds(user);
+  if (!departmentIds.length) redirect("/overtime");
+  return { ...user, departmentIds };
 }

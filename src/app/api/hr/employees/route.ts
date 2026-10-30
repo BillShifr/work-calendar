@@ -1,5 +1,5 @@
 import { hash } from "@node-rs/argon2";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/db/client";
@@ -24,7 +24,7 @@ const schema = z.object({
   temporaryPassword: z.string().min(12).max(200),
   departmentId: z.uuid(),
   jobTitleId: z.uuid(),
-  role: z.enum(["employee", "hr"]),
+  role: z.enum(["employee", "department_head", "hr"]),
   isCritical: z.boolean(),
   allowanceDays: z.number().int().min(0).max(366),
   year: z.number().int().min(2020).max(2100),
@@ -80,11 +80,12 @@ export async function POST(request: Request) {
           role: input.role,
         })
         .returning({ id: users.id });
+      const validFrom = new Date().toISOString().slice(0, 10);
       await tx.insert(departmentAssignments).values({
         userId: created.id,
         departmentId: department.id,
         jobTitleId: jobTitle.id,
-        validFrom: new Date().toISOString().slice(0, 10),
+        validFrom,
         jobTitle: jobTitle.name,
         isCritical: input.isCritical,
       });
@@ -94,6 +95,27 @@ export async function POST(request: Request) {
         year: input.year,
         allowanceDays: input.allowanceDays,
       });
+      const reopenedApprovals = await tx.execute<{ id: string }>(sql`
+        UPDATE department_quarter_approvals
+        SET status='reopened', approved_by=NULL, approved_at=NULL,
+          version=version + 1, updated_at=now()
+        WHERE organization_id=${actor.organizationId}
+          AND department_id=${department.id}
+          AND status='approved'
+          AND (make_date(year, quarter * 3, 1) + interval '1 month - 1 day')::date >= ${validFrom}
+        RETURNING id
+      `);
+      if (reopenedApprovals.length)
+        await tx.insert(auditEvents).values(
+          reopenedApprovals.map((approval) => ({
+            organizationId: actor.organizationId,
+            actorId: actor.id,
+            action: "department_quarter.reopened",
+            objectType: "department_quarter_approval",
+            objectId: approval.id,
+            metadata: { reason: "employee_added", userId: created.id },
+          })),
+        );
       await tx.insert(auditEvents).values({
         organizationId: actor.organizationId,
         actorId: actor.id,

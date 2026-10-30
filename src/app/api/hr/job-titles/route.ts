@@ -5,7 +5,10 @@ import { db } from "@/db/client";
 import { auditEvents, jobTitles } from "@/db/schema";
 import { requireHr } from "@/lib/auth";
 
-const schema = z.object({ name: z.string().trim().min(2).max(160) });
+const schema = z.object({
+  name: z.string().trim().min(2).max(160),
+  irregularLeaveMaxDays: z.number().int().min(0).max(30).default(0),
+});
 
 export async function POST(request: Request) {
   const actor = await requireHr();
@@ -33,6 +36,7 @@ export async function POST(request: Request) {
         .values({
           organizationId: actor.organizationId,
           name: parsed.data.name,
+          irregularLeaveMaxDays: parsed.data.irregularLeaveMaxDays,
         })
         .returning({ id: jobTitles.id });
       await tx.insert(auditEvents).values({
