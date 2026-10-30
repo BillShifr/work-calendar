@@ -18,14 +18,13 @@ flowchart LR
   HrHome --> OvertimeReview[Проверка времени]
   HrHome --> VacationReview[Проверка отпуска]
   HrHome --> Overlap[Пересечения отпусков]
-  HrHome --> Employees[Сотрудники]
-  HrHome --> Departments[Подразделения]
-  HrHome --> References[Справочники]
+  HrHome --> Workforce[Структура и штат]
+  Workforce --> Employees[Сотрудники]
+  Workforce --> Departments[Подразделения]
+  Workforce --> JobTitles[Должности]
   HrHome --> EntryWindows[Периоды заполнения]
   HrHome --> OvertimeSummary[Свод внеурочного времени]
   OvertimeSummary --> ExcelExport[XLSX по кадровому шаблону]
-  References --> JobTitles[Должности]
-
   EntryWindows --> VacationPlan
   EntryWindows --> OvertimeMonth
   Employees --> Departments

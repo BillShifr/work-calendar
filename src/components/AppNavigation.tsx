@@ -16,6 +16,11 @@ export function AppNavigation({
   canApprove: boolean;
 }) {
   const pathname = usePathname();
+  const workforcePaths = [
+    "/hr/employees",
+    "/hr/departments",
+    "/hr/reference-data",
+  ];
   const items = isHr
     ? [
         ...employeeItems,
@@ -23,9 +28,7 @@ export function AppNavigation({
         ...(canApprove ? [{ href: "/approvals", label: "Согласование" }] : []),
         { href: "/hr/reporting", label: "Свод" },
         { href: "/hr/periods", label: "Периоды" },
-        { href: "/hr/employees", label: "Сотрудники" },
-        { href: "/hr/departments", label: "Подразделения" },
-        { href: "/hr/reference-data", label: "Справочники" },
+        { href: "/hr/employees", label: "Структура и штат" },
       ]
     : canApprove
       ? [...employeeItems, { href: "/approvals", label: "Согласование" }]
@@ -35,11 +38,15 @@ export function AppNavigation({
     <nav className="nav" aria-label="Основная навигация">
       {items.map((item) => {
         const active =
-          item.href === "/hr"
-            ? pathname === item.href ||
-              pathname.startsWith("/hr/overtime/") ||
-              pathname.startsWith("/hr/vacations/")
-            : pathname === item.href || pathname.startsWith(`${item.href}/`);
+          item.href === "/hr/employees"
+            ? workforcePaths.some(
+                (path) => pathname === path || pathname.startsWith(`${path}/`),
+              )
+            : item.href === "/hr"
+              ? pathname === item.href ||
+                pathname.startsWith("/hr/overtime/") ||
+                pathname.startsWith("/hr/vacations/")
+              : pathname === item.href || pathname.startsWith(`${item.href}/`);
         return (
           <Link
             href={item.href}

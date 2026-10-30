@@ -233,14 +233,15 @@ test("employee and HR complete a bilateral vacation approval", async ({
 
   await page.getByRole("button", { name: "Выйти" }).click();
   await login(page, "hr", "CI-only-password-2026!");
-  await page.getByRole("link", { name: "Подразделения" }).click();
+  await page.getByRole("link", { name: "Структура и штат" }).click();
+  await page.getByRole("link", { name: "Подразделения", exact: true }).click();
   await page.getByLabel("Название").first().fill("Финансовое управление");
   await page.getByLabel("Штат", { exact: true }).fill("8");
   await page.getByRole("button", { name: "Создать" }).click();
   await expect(
     page.getByRole("heading", { name: "Финансовое управление", exact: true }),
   ).toBeVisible();
-  await page.getByRole("link", { name: "Справочники" }).click();
+  await page.getByRole("link", { name: "Должности", exact: true }).click();
   await page.getByLabel("Название должности").fill("Ведущий специалист");
   await Promise.all([
     page.waitForResponse(
@@ -362,6 +363,27 @@ test("HR screens use the shared readable UI system", async ({
   await expect(november).toContainText("Закрыт");
 
   await page.goto("/hr/departments");
+  const mainNavigation = page.getByRole("navigation", {
+    name: "Основная навигация",
+  });
+  await expect(
+    mainNavigation.getByRole("link", { name: "Структура и штат" }),
+  ).toHaveAttribute("aria-current", "page");
+  await expect(
+    mainNavigation.getByRole("link", { name: "Подразделения" }),
+  ).toHaveCount(0);
+  const workforceNavigation = page.getByRole("navigation", {
+    name: "Структура и штат",
+  });
+  await expect(
+    workforceNavigation.getByRole("link", { name: "Сотрудники" }),
+  ).toBeVisible();
+  await expect(
+    workforceNavigation.getByRole("link", { name: "Подразделения" }),
+  ).toHaveAttribute("aria-current", "page");
+  await expect(
+    workforceNavigation.getByRole("link", { name: "Должности" }),
+  ).toBeVisible();
   const headcountIncrease = page.getByRole("button", {
     name: "Увеличить: Штат",
     exact: true,
