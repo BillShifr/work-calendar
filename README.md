@@ -33,7 +33,7 @@ npm run dev -- --port 3080
 
 ## Production
 
-Production-релиз собирается в два immutable-образа по полному Git SHA: web и migrator. После merge в `main` CI проверяет код, миграции, browser E2E, контейнеры и deployment bundle, затем передаёт релиз self-hosted runner с меткой `ofoms-production`.
+Production-релиз собирается в два immutable-образа по полному Git SHA: web и migrator. После merge в `main` GitHub Actions проверяет код, миграции, browser E2E и контейнеры, публикует образы и сохраняет проверенный deployment bundle. Обновление production-сервера выполняется оператором вручную из этого bundle.
 
 Справочники production заполняются отдельно от локальных тестовых данных:
 
