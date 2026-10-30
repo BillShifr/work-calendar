@@ -5,6 +5,7 @@ import { daysInMonth } from "@/domain/overtime";
 import {
   normalizePeriod,
   periodDays,
+  totalPeriodDays,
   type DatePeriod,
 } from "@/domain/vacation";
 import styles from "./VacationMatrix.module.css";
@@ -29,6 +30,11 @@ const formatDate = (value: string) =>
   );
 const iso = (year: number, month: number, day: number) =>
   `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+const shiftDate = (value: string, days: number) => {
+  const date = new Date(`${value}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+};
 
 export function VacationMatrix({
   initial,
@@ -41,6 +47,7 @@ export function VacationMatrix({
     allowanceDays: number;
     status: string;
     periods: DatePeriod[];
+    entryWindowOpen?: boolean;
   };
   mode?: "employee" | "hr";
 }) {
@@ -54,11 +61,17 @@ export function VacationMatrix({
   const [status, setStatus] = useState(initial.status);
   const [reason, setReason] = useState("");
   const [editingResponse, setEditingResponse] = useState(false);
+  const [entryWindowOpen, setEntryWindowOpen] = useState(
+    initial.entryWindowOpen ?? true,
+  );
   const canEdit =
-    mode === "hr" ||
-    status === "draft" ||
-    (status === "hr_proposed" && editingResponse);
-  const total = periods.reduce((sum, period) => sum + periodDays(period), 0);
+    (mode === "hr" &&
+      ["submitted", "reopened", "hr_proposed"].includes(status)) ||
+    (mode === "employee" &&
+      entryWindowOpen &&
+      (["draft", "reopened"].includes(status) ||
+        (status === "hr_proposed" && editingResponse)));
+  const total = totalPeriodDays(periods);
   function periodFor(date: string) {
     return periods.find(
       (period) => period.startsOn <= date && period.endsOn >= date,
@@ -87,6 +100,14 @@ export function VacationMatrix({
       setStart(null);
       return;
     }
+    const nextTotal = total + periodDays(next);
+    if (nextTotal > initial.allowanceDays) {
+      setMessage(
+        `Нельзя добавить период: останется ${Math.max(0, initial.allowanceDays - total)} из ${initial.allowanceDays} дней.`,
+      );
+      setStart(null);
+      return;
+    }
     setPeriods((current) =>
       [...current, next].sort((a, b) => a.startsOn.localeCompare(b.startsOn)),
     );
@@ -102,6 +123,7 @@ export function VacationMatrix({
     setPeriods(data.periods);
     setPlanId(data.id);
     setStatus(data.status);
+    setEntryWindowOpen(data.entryWindowOpen);
     setStart(null);
     setMessage("");
   }
@@ -150,7 +172,7 @@ export function VacationMatrix({
     setVersion(data.version);
     setMessage("План отправлен кадровой службе");
   }
-  async function acceptHrProposal() {
+  async function approve() {
     setSaving(true);
     setMessage("Подтверждаем…");
     const response = await fetch("/api/workflow", {
@@ -173,159 +195,46 @@ export function VacationMatrix({
     setPeriods((current) =>
       current.map((period) => ({ ...period, status: "approved" })),
     );
-    setMessage("Предложение кадровика утверждено");
+    setMessage(
+      mode === "hr" ? "План утверждён" : "Предложение кадровика утверждено",
+    );
   }
   return (
-    <>
-      <div className={styles.layout}>
-        <section className={`card ${styles.matrixCard}`}>
-          <div className={styles.matrixToolbar}>
-            <div>
-              <p className="eyebrow">Годовая матрица</p>
-              <h2>{year} год</h2>
-            </div>
-            <div className={styles.yearButtons}>
-              <button
-                aria-label="Предыдущий год"
-                onClick={() => changeYear(-1)}
-              >
-                ←
-              </button>
-              <button aria-label="Следующий год" onClick={() => changeYear(1)}>
-                →
-              </button>
-            </div>
-          </div>
-          <div
-            className={styles.scroll}
-            tabIndex={0}
-            aria-label="Матрица отпускных дней; прокручивается горизонтально"
-          >
-            <div className={styles.matrix}>
-              <span />
-              <>
-                {Array.from({ length: 31 }, (_, index) => (
-                  <span className={styles.dayHead} key={index}>
-                    {index + 1}
-                  </span>
-                ))}
-              </>
-              {months.map((monthName, monthIndex) => (
-                <div style={{ display: "contents" }} key={monthName}>
-                  <span className={styles.month}>{monthName}</span>
-                  {Array.from({ length: 31 }, (_, index) => {
-                    const day = index + 1;
-                    const valid = day <= daysInMonth(year, monthIndex + 1);
-                    const date = iso(year, monthIndex + 1, day);
-                    const period = valid ? periodFor(date) : undefined;
-                    return (
-                      <button
-                        key={date}
-                        disabled={!valid || !canEdit}
-                        onClick={() => select(date)}
-                        aria-label={
-                          valid
-                            ? `${day} ${monthName.toLowerCase()}${period ? ", входит в период" : ""}`
-                            : undefined
-                        }
-                        className={[
-                          styles.day,
-                          !valid
-                            ? styles.invalid
-                            : !canEdit
-                              ? styles.readonly
-                              : "",
-                          period
-                            ? period.source === "hr"
-                              ? styles.hrRange
-                              : styles.range
-                            : "",
-                          period?.status === "approved" ? styles.approved : "",
-                          start === date ? styles.start : "",
-                        ].join(" ")}
-                      >
-                        {valid ? day : ""}
-                      </button>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-        <aside className={`card ${styles.panel}`} aria-live="polite">
-          <p className="eyebrow">План на {year}</p>
-          <h2>{start ? `Начало: ${formatDate(start)}` : "Выберите период"}</h2>
-          <p className={styles.panelText}>
-            {start
-              ? "Начальная ячейка уже отмечена тёмным контуром. Выберите последний день — можно раньше или позже."
-              : "Первое нажатие задаёт начало, второе — конец. Никаких всплывающих календарей."}
-          </p>
-          {mode === "hr" && (
-            <label className={styles.reason}>
-              Причина кадровой правки
-              <textarea
-                value={reason}
-                onChange={(event) => setReason(event.target.value)}
-                placeholder="Например: пересечение с отпуском дежурного специалиста"
-              />
-            </label>
-          )}
-          <div className={styles.legend}>
-            <span>
-              <i className={styles.dot} />
-              Ваш выбор
-            </span>
-            <span>
-              <i className={`${styles.dot} ${styles.dotHr}`} />
-              Предложение кадровика
-            </span>
-            <span>
-              <i className={`${styles.dot} ${styles.dotApproved}`} />
-              Утверждено
-            </span>
-          </div>
-          {periods.length ? (
-            <ul className={styles.periods}>
-              {periods.map((period) => (
-                <li className={styles.period} key={period.id}>
-                  <strong>
-                    {formatDate(period.startsOn)} — {formatDate(period.endsOn)}
-                  </strong>
-                  <small>
-                    {periodDays(period)} дней ·{" "}
-                    {period.source === "hr"
-                      ? "предложено кадровиком"
-                      : "ваш выбор"}
-                  </small>
-                  <button
-                    disabled={!canEdit}
-                    aria-label={`Удалить период ${formatDate(period.startsOn)} — ${formatDate(period.endsOn)}`}
-                    onClick={() => {
-                      setPeriods((current) =>
-                        current.filter((item) => item.id !== period.id),
-                      );
-                      setMessage("Период удалён и пока не сохранён.");
-                    }}
-                  >
-                    ×
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className={styles.empty}>Периодов пока нет</p>
-          )}
-          <p className={styles.total}>
-            <span>{total}</span> из {initial.allowanceDays} дней запланировано
-          </p>
-        </aside>
-      </div>
-      <section className={`card ${styles.saveRow}`}>
+    <section className={styles.workspace}>
+      {mode === "employee" && !entryWindowOpen ? (
+        <div className={styles.accessNotice} role="status">
+          Заполнение на {year} год закрыто кадровой службой
+        </div>
+      ) : null}
+      {mode === "employee" &&
+      entryWindowOpen &&
+      ["submitted", "approved"].includes(status) ? (
+        <div className={styles.accessNotice} role="status">
+          {status === "submitted"
+            ? "План отправлен кадровику и доступен только для просмотра"
+            : "Утверждённый план доступен только для просмотра"}
+        </div>
+      ) : null}
+      <div className={styles.commandBar} aria-label="Действия с планом">
+        <div className={styles.yearControl}>
+          <button aria-label="Предыдущий год" onClick={() => changeYear(-1)}>
+            ←
+          </button>
+          <strong>{year}</strong>
+          <button aria-label="Следующий год" onClick={() => changeYear(1)}>
+            →
+          </button>
+        </div>
+        <div
+          className={`${styles.total} ${total > initial.allowanceDays ? styles.totalExceeded : ""}`}
+        >
+          <strong>{total}</strong>
+          <span>из {initial.allowanceDays} дней</span>
+        </div>
         <span className={styles.message} role="status">
           {message}
         </span>
-        <div className="actions">
+        <div className={`actions ${styles.actions}`}>
           <button
             className="secondaryButton"
             disabled={!start}
@@ -333,28 +242,49 @@ export function VacationMatrix({
           >
             Отменить выбор
           </button>
-          <button
-            className="secondaryButton"
-            disabled={
-              saving ||
-              (mode === "employee" && status !== "draft" && !editingResponse) ||
-              (mode === "hr" && !reason.trim()) ||
-              total > initial.allowanceDays
-            }
-            onClick={save}
-          >
-            {mode === "hr"
-              ? "Предложить сотруднику"
-              : editingResponse
-                ? "Отправить свой вариант"
-                : "Сохранить черновик"}
-          </button>
-          {mode === "employee" && status === "draft" && (
+          {mode === "hr" && canEdit && (
+            <>
+              {status !== "hr_proposed" && (
+                <button
+                  className="secondaryButton"
+                  disabled={saving || total > initial.allowanceDays}
+                  onClick={approve}
+                >
+                  Утвердить без изменений
+                </button>
+              )}
+              <button
+                className="primaryButton"
+                disabled={
+                  saving || !reason.trim() || total > initial.allowanceDays
+                }
+                onClick={save}
+              >
+                Предложить изменения
+              </button>
+            </>
+          )}
+          {mode === "employee" &&
+            (["draft", "reopened"].includes(status) || editingResponse) && (
+              <button
+                className="secondaryButton"
+                disabled={
+                  saving || !entryWindowOpen || total > initial.allowanceDays
+                }
+                onClick={save}
+              >
+                {editingResponse
+                  ? "Отправить свой вариант"
+                  : "Сохранить черновик"}
+              </button>
+            )}
+          {mode === "employee" && ["draft", "reopened"].includes(status) && (
             <button
               className="primaryButton"
               disabled={
                 saving ||
-                status !== "draft" ||
+                !entryWindowOpen ||
+                !["draft", "reopened"].includes(status) ||
                 !periods.length ||
                 total > initial.allowanceDays
               }
@@ -369,6 +299,7 @@ export function VacationMatrix({
               <>
                 <button
                   className="secondaryButton"
+                  disabled={!entryWindowOpen}
                   onClick={() => {
                     setEditingResponse(true);
                     setMessage("Измените периоды и отправьте свой вариант.");
@@ -379,14 +310,162 @@ export function VacationMatrix({
                 <button
                   className="primaryButton"
                   disabled={saving}
-                  onClick={acceptHrProposal}
+                  onClick={approve}
                 >
                   Подтвердить правку
                 </button>
               </>
             )}
         </div>
-      </section>
-    </>
+      </div>
+
+      {mode === "hr" && canEdit && (
+        <label className={styles.reason}>
+          Причина изменений
+          <textarea
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            placeholder="Укажите причину изменения"
+          />
+        </label>
+      )}
+
+      <div className={styles.periodBar} aria-live="polite">
+        <div className={styles.selection}>
+          <strong>{start ? `Начало: ${formatDate(start)}` : "Периоды"}</strong>
+          {start && <span>Выберите дату окончания</span>}
+        </div>
+        {periods.length ? (
+          <ul className={styles.periods}>
+            {periods.map((period) => (
+              <li className={styles.period} key={period.id}>
+                <span>
+                  <strong>
+                    {formatDate(period.startsOn)} — {formatDate(period.endsOn)}
+                  </strong>
+                  <small>
+                    {period.source === "hr" ? "Правка HR" : "Ваш период"} ·{" "}
+                    {periodDays(period)} дн.
+                  </small>
+                </span>
+                <button
+                  disabled={!canEdit}
+                  aria-label={`Удалить период ${formatDate(period.startsOn)} — ${formatDate(period.endsOn)}`}
+                  onClick={() => {
+                    setPeriods((current) =>
+                      current.filter((item) => item.id !== period.id),
+                    );
+                    setMessage("Период удалён и пока не сохранён.");
+                  }}
+                >
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <span className={styles.empty}>Не выбраны</span>
+        )}
+        <div className={styles.legend} aria-label="Обозначения">
+          <span>
+            <i className={styles.dot} /> Выбор
+          </span>
+          <span>
+            <i className={`${styles.dot} ${styles.dotHr}`} /> HR
+          </span>
+          <span>
+            <i className={`${styles.dot} ${styles.dotApproved}`} /> Утверждено
+          </span>
+        </div>
+      </div>
+
+      <div
+        className={styles.scroll}
+        tabIndex={0}
+        aria-label="Матрица отпускных дней; прокручивается горизонтально"
+      >
+        <div className={styles.matrix}>
+          <span className={styles.corner} />
+          {Array.from({ length: 31 }, (_, index) => (
+            <span className={styles.dayHead} key={index}>
+              {index + 1}
+            </span>
+          ))}
+          {months.map((monthName, monthIndex) => (
+            <div style={{ display: "contents" }} key={monthName}>
+              <span className={styles.month}>{monthName}</span>
+              {Array.from({ length: 31 }, (_, index) => {
+                const day = index + 1;
+                const valid = day <= daysInMonth(year, monthIndex + 1);
+                const date = iso(year, monthIndex + 1, day);
+                const period = valid ? periodFor(date) : undefined;
+                const previousPeriod =
+                  valid && period ? periodFor(shiftDate(date, -1)) : undefined;
+                const segmentStart = Boolean(
+                  period && (period.startsOn === date || day === 1),
+                );
+                const segmentEnd = Boolean(
+                  period &&
+                  (period.endsOn === date ||
+                    day === daysInMonth(year, monthIndex + 1)),
+                );
+                const adjacentStart = Boolean(
+                  period &&
+                  period.startsOn === date &&
+                  previousPeriod &&
+                  previousPeriod.id !== period.id,
+                );
+                return (
+                  <button
+                    key={date}
+                    disabled={!valid || !canEdit}
+                    onClick={() => select(date)}
+                    aria-label={
+                      valid
+                        ? `${day} ${monthName.toLowerCase()}${period ? `, период ${formatDate(period.startsOn)} — ${formatDate(period.endsOn)}` : ""}`
+                        : undefined
+                    }
+                    className={[
+                      styles.day,
+                      !valid ? styles.invalid : !canEdit ? styles.readonly : "",
+                      period
+                        ? period.source === "hr"
+                          ? styles.hrRange
+                          : styles.range
+                        : "",
+                      period?.status === "approved" ? styles.approved : "",
+                      segmentStart ? styles.segmentStart : "",
+                      segmentEnd ? styles.segmentEnd : "",
+                      adjacentStart ? styles.adjacentStart : "",
+                      start === date ? styles.start : "",
+                    ].join(" ")}
+                  >
+                    {valid ? (
+                      <>
+                        <span className={styles.dayValue}>{day}</span>
+                        {period ? (
+                          <span
+                            className={styles.periodBracket}
+                            aria-hidden="true"
+                          />
+                        ) : null}
+                        {adjacentStart ? (
+                          <span
+                            className={styles.seamMark}
+                            aria-hidden="true"
+                          />
+                        ) : null}
+                      </>
+                    ) : (
+                      ""
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }

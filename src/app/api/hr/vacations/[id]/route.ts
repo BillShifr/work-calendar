@@ -9,7 +9,11 @@ import {
   vacationPeriods,
   vacationPlans,
 } from "@/db/schema";
-import { periodDays, periodsOverlap } from "@/domain/vacation";
+import {
+  assertVacationAllowance,
+  periodsOverlap,
+  totalPeriodDays,
+} from "@/domain/vacation";
 import { requireHr } from "@/lib/auth";
 
 const periodSchema = z.object({
@@ -57,12 +61,14 @@ export async function PUT(
         id: string;
         version: number;
         status: "submitted" | "reopened" | "hr_proposed";
+        allowanceDays: number;
       }>(
-        sql`SELECT id, version, status FROM vacation_plans WHERE id=${id} AND organization_id=${actor.organizationId} FOR UPDATE`,
+        sql`SELECT id, version, status, allowance_days AS "allowanceDays" FROM vacation_plans WHERE id=${id} AND organization_id=${actor.organizationId} FOR UPDATE`,
       );
       const plan = rows[0];
       if (!plan) throw new Error("NOT_FOUND");
       if (plan.version !== version) throw new Error("VERSION_CONFLICT");
+      assertVacationAllowance(periods, plan.allowanceDays);
       if (!["submitted", "reopened", "hr_proposed"].includes(plan.status))
         throw new Error("READ_ONLY");
       await tx.delete(vacationPeriods).where(eq(vacationPeriods.planId, id));
@@ -91,7 +97,7 @@ export async function PUT(
           ...period,
           source: "hr" as const,
         })),
-        totalDays: periods.reduce((sum, period) => sum + periodDays(period), 0),
+        totalDays: totalPeriodDays(periods),
       };
       await tx.insert(revisions).values({
         aggregateType: "vacation_plan",
@@ -132,9 +138,11 @@ export async function PUT(
         error:
           message === "VERSION_CONFLICT"
             ? "План изменился. Обновите страницу."
-            : message === "NOT_FOUND"
-              ? "План не найден"
-              : "План сейчас нельзя редактировать",
+            : message === "ALLOWANCE_EXCEEDED"
+              ? "Количество дней превышает доступный лимит"
+              : message === "NOT_FOUND"
+                ? "План не найден"
+                : "План сейчас нельзя редактировать",
       },
       { status: message === "NOT_FOUND" ? 404 : 409 },
     );

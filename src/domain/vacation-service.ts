@@ -6,7 +6,13 @@ import {
   vacationPeriods,
   vacationPlans,
 } from "@/db/schema";
-import { periodDays, periodsOverlap, type DatePeriod } from "./vacation";
+import {
+  assertVacationAllowance,
+  periodsOverlap,
+  totalPeriodDays,
+  type DatePeriod,
+} from "./vacation";
+import { isEntryWindowOpen } from "./entry-window-service";
 
 export async function getVacationPlan(
   user: { id: string; organizationId: string },
@@ -39,8 +45,14 @@ export async function getVacationPlan(
     .select()
     .from(vacationPeriods)
     .where(eq(vacationPeriods.planId, plan.id));
+  const entryWindowOpen = await isEntryWindowOpen(
+    user.organizationId,
+    "vacation",
+    year,
+  );
   return {
     ...plan,
+    entryWindowOpen,
     periods: periods.map((period) => ({
       id: period.id,
       startsOn: period.startsOn,
@@ -76,16 +88,22 @@ export async function saveVacationPlan(input: {
       throw new Error("PERIODS_OVERLAP");
   }
   return db.transaction(async (tx) => {
+    const [entryWindow] = await tx.execute<{ isOpen: boolean }>(
+      sql`SELECT is_open AS "isOpen" FROM entry_windows WHERE organization_id=${input.user.organizationId} AND kind='vacation' AND year=${input.year} AND month=0 FOR SHARE`,
+    );
+    if (!entryWindow?.isOpen) throw new Error("ENTRY_WINDOW_CLOSED");
     const rows = await tx.execute<{
       id: string;
       version: number;
       status: string;
+      allowanceDays: number;
     }>(
-      sql`SELECT id, version, status FROM vacation_plans WHERE user_id = ${input.user.id} AND year = ${input.year} FOR UPDATE`,
+      sql`SELECT id, version, status, allowance_days AS "allowanceDays" FROM vacation_plans WHERE user_id = ${input.user.id} AND year = ${input.year} FOR UPDATE`,
     );
     const locked = rows[0];
     if (!locked) throw new Error("PLAN_NOT_FOUND");
     if (locked.version !== input.version) throw new Error("VERSION_CONFLICT");
+    assertVacationAllowance(input.periods, locked.allowanceDays);
     if (
       !["draft", "reopened", "rejected", "withdrawn", "hr_proposed"].includes(
         locked.status,
@@ -122,10 +140,7 @@ export async function saveVacationPlan(input: {
       .where(eq(vacationPlans.id, locked.id));
     const snapshot = {
       periods: normalizedPeriods,
-      totalDays: input.periods.reduce(
-        (sum, period) => sum + periodDays(period),
-        0,
-      ),
+      totalDays: totalPeriodDays(input.periods),
     };
     await tx.insert(revisions).values({
       aggregateType: "vacation_plan",

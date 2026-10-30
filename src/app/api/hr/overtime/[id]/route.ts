@@ -10,6 +10,14 @@ import {
   revisions,
 } from "@/db/schema";
 import { requireHr } from "@/lib/auth";
+import { MAX_OVERTIME_MINUTES_PER_DAY } from "@/domain/overtime";
+
+const overtimeTotalSchema = z
+  .number()
+  .int()
+  .min(5)
+  .max(MAX_OVERTIME_MINUTES_PER_DAY)
+  .multipleOf(5);
 
 const bodySchema = z.object({
   year: z.number().int().min(2020).max(2100),
@@ -17,16 +25,7 @@ const bodySchema = z.object({
   version: z.number().int().positive(),
   zeroConfirmed: z.boolean(),
   reason: z.string().trim().min(3).max(1000),
-  entries: z.record(
-    z.iso.date(),
-    z.union([
-      z.literal(5),
-      z.literal(10),
-      z.literal(15),
-      z.literal(30),
-      z.literal(60),
-    ]),
-  ),
+  entries: z.record(z.iso.date(), overtimeTotalSchema),
 });
 
 export async function PUT(
@@ -57,7 +56,18 @@ export async function PUT(
         year: number;
         month: number;
       }>(
-        sql`SELECT id, version, status, year, month FROM overtime_reports WHERE id=${id} AND organization_id=${actor.organizationId} FOR UPDATE`,
+        sql`SELECT report.id, report.version, report.status, report.year, report.month
+          FROM overtime_reports report
+          WHERE report.id=${id} AND report.organization_id=${actor.organizationId}
+            AND EXISTS (
+              SELECT 1 FROM department_quarter_approvals approval
+              WHERE approval.organization_id = ${actor.organizationId}
+                AND approval.department_id = report.department_id
+                AND approval.year = report.year
+                AND approval.quarter = CEIL(report.month / 3.0)::int
+                AND approval.status = 'approved'
+            )
+          FOR UPDATE`,
       );
       if (!report) throw new Error("NOT_FOUND");
       if (report.year !== year || report.month !== month)

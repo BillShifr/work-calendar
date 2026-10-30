@@ -21,14 +21,7 @@ export default async function VacationsPage() {
   return (
     <AppShell>
       <header className="pageHeader">
-        <div>
-          <p className="eyebrow">Личный кабинет</p>
-          <h1>Планирование отпусков</h1>
-          <p className="lead">
-            Весь год перед глазами. Начальная дата подсвечивается сразу, готовые
-            периоды остаются рядом с матрицей.
-          </p>
-        </div>
+        <h1>Отпуска</h1>
         <span className="statusPill">
           {statusLabels[plan.status]} · {plan.allowanceDays} дней
         </span>

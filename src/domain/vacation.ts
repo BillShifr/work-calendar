@@ -29,3 +29,17 @@ export function periodDays(
   const end = Date.parse(`${period.endsOn}T00:00:00Z`);
   return Math.round((end - start) / 86_400_000) + 1;
 }
+
+export function totalPeriodDays(
+  periods: Array<Pick<DatePeriod, "startsOn" | "endsOn">>,
+): number {
+  return periods.reduce((sum, period) => sum + periodDays(period), 0);
+}
+
+export function assertVacationAllowance(
+  periods: Array<Pick<DatePeriod, "startsOn" | "endsOn">>,
+  allowanceDays: number,
+): void {
+  if (totalPeriodDays(periods) > allowanceDays)
+    throw new Error("ALLOWANCE_EXCEEDED");
+}

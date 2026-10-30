@@ -1,9 +1,11 @@
 import Link from "next/link";
-import { requireUser } from "@/lib/auth";
+import { approverDepartmentIds, requireUser } from "@/lib/auth";
+import { AppNavigation } from "./AppNavigation";
 
 export async function AppShell({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
   const isHr = user.role === "hr" || user.role === "hr_lead";
+  const canApprove = (await approverDepartmentIds(user)).length > 0;
   return (
     <div className="shell">
       <header className="topbar">
@@ -13,15 +15,15 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
           </span>
           <span>TFOMS Time</span>
         </Link>
-        <nav className="nav" aria-label="Основная навигация">
-          <Link href="/overtime">Внеурочное время</Link>
-          <Link href="/vacations">Отпуска</Link>
-          {isHr && <Link href="/hr">Кабинет кадровика</Link>}
-        </nav>
+        <AppNavigation isHr={isHr} canApprove={canApprove} />
         <div className="userBox">
           <span>
             <strong>{user.fullName}</strong>
-            {user.role === "employee" ? "Сотрудник" : "Кадровая служба"}
+            {isHr
+              ? "Кадровая служба"
+              : canApprove
+                ? "Руководитель подразделения"
+                : "Сотрудник"}
           </span>
           <form action="/api/auth/logout" method="post">
             <button className="plainButton" type="submit">

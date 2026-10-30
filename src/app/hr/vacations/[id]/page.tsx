@@ -49,15 +49,18 @@ export default async function HrVacationPage({
     <AppShell>
       <header className="pageHeader">
         <div>
-          <p className="eyebrow">Кадровая правка · {plan.year}</p>
+          <p className="eyebrow">Проверка отпуска · {plan.year}</p>
           <h1>{plan.fullName}</h1>
-          <p className="lead">
-            Измените периоды прямо в матрице и обязательно объясните причину.
-            Сотрудник увидит предложение янтарным цветом и должен его
-            подтвердить.
-          </p>
         </div>
-        <span className="statusPill">Версия {plan.version}</span>
+        <span className="statusPill">
+          {plan.status === "submitted"
+            ? "Требуется решение"
+            : plan.status === "hr_proposed"
+              ? "Ожидает сотрудника"
+              : plan.status === "approved"
+                ? "Утверждено"
+                : "На редактировании"}
+        </span>
       </header>
       <VacationMatrix initial={{ ...plan, periods }} mode="hr" />
     </AppShell>

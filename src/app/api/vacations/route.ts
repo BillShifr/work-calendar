@@ -38,6 +38,8 @@ export async function PUT(request: Request) {
       PERIOD_OUTSIDE_YEAR: "Период должен находиться внутри выбранного года.",
       PLAN_READ_ONLY:
         "Отправленный план нельзя изменить без повторного открытия.",
+      ALLOWANCE_EXCEEDED: "Количество дней превышает доступный лимит.",
+      ENTRY_WINDOW_CLOSED: "Кадровая служба закрыла заполнение этого года.",
     };
     if (known[message])
       return NextResponse.json({ error: known[message] }, { status: 409 });

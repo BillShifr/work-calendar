@@ -1,13 +1,15 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import {
   approvalEvents,
   auditEvents,
+  departmentAssignments,
   overtimeEntries,
   overtimeReports,
   revisions,
 } from "@/db/schema";
-import { isOvertimeMinutes } from "./overtime";
+import { isOvertimeTotal } from "./overtime";
+import { isEntryWindowOpen } from "./entry-window-service";
 
 export async function getOvertimeReport(
   user: { id: string; organizationId: string },
@@ -26,11 +28,22 @@ export async function getOvertimeReport(
     )
     .limit(1);
   if (!report) {
+    const [assignment] = await db
+      .select({ departmentId: departmentAssignments.departmentId })
+      .from(departmentAssignments)
+      .where(
+        and(
+          eq(departmentAssignments.userId, user.id),
+          isNull(departmentAssignments.validTo),
+        ),
+      )
+      .limit(1);
     const [created] = await db
       .insert(overtimeReports)
       .values({
         organizationId: user.organizationId,
         userId: user.id,
+        departmentId: assignment?.departmentId,
         year,
         month,
       })
@@ -60,8 +73,15 @@ export async function getOvertimeReport(
     .select()
     .from(overtimeEntries)
     .where(eq(overtimeEntries.reportId, report.id));
+  const entryWindowOpen = await isEntryWindowOpen(
+    user.organizationId,
+    "overtime",
+    year,
+    month,
+  );
   return {
     ...report,
+    entryWindowOpen,
     entries: Object.fromEntries(
       entries.map((entry) => [entry.workDate, entry.minutes]),
     ),
@@ -83,12 +103,17 @@ export async function saveOvertimeReport(input: {
   zeroConfirmed: boolean;
 }) {
   return db.transaction(async (tx) => {
+    const [entryWindow] = await tx.execute<{ isOpen: boolean }>(
+      sql`SELECT is_open AS "isOpen" FROM entry_windows WHERE organization_id=${input.user.organizationId} AND kind='overtime' AND year=${input.year} AND month=${input.month} FOR SHARE`,
+    );
+    if (!entryWindow?.isOpen) throw new Error("ENTRY_WINDOW_CLOSED");
     const [locked] = await tx.execute<{
       id: string;
       version: number;
       status: string;
+      departmentId: string | null;
     }>(
-      sql`SELECT id, version, status FROM overtime_reports WHERE user_id = ${input.user.id} AND year = ${input.year} AND month = ${input.month} FOR UPDATE`,
+      sql`SELECT id, version, status, department_id AS "departmentId" FROM overtime_reports WHERE user_id = ${input.user.id} AND year = ${input.year} AND month = ${input.month} FOR UPDATE`,
     );
     if (!locked) throw new Error("REPORT_NOT_FOUND");
     if (locked.version !== input.version) throw new Error("VERSION_CONFLICT");
@@ -99,7 +124,7 @@ export async function saveOvertimeReport(input: {
     )
       throw new Error("REPORT_READ_ONLY");
     const validEntries = Object.entries(input.entries).filter(([, minutes]) =>
-      isOvertimeMinutes(minutes),
+      isOvertimeTotal(minutes),
     );
     await tx
       .delete(overtimeEntries)
@@ -151,6 +176,31 @@ export async function saveOvertimeReport(input: {
       metadata: { version: nextVersion },
     });
     if (locked.status === "hr_proposed") {
+      if (locked.departmentId) {
+        const [reopenedApproval] = await tx.execute<{ id: string }>(sql`
+          UPDATE department_quarter_approvals
+          SET status = 'reopened', approved_by = NULL, approved_at = NULL,
+            version = version + 1, updated_at = now()
+          WHERE organization_id = ${input.user.organizationId}
+            AND department_id = ${locked.departmentId}
+            AND year = ${input.year}
+            AND quarter = ${Math.ceil(input.month / 3)}
+            AND status = 'approved'
+          RETURNING id
+        `);
+        if (reopenedApproval)
+          await tx.insert(auditEvents).values({
+            organizationId: input.user.organizationId,
+            actorId: input.user.id,
+            action: "department_quarter.reopened",
+            objectType: "department_quarter_approval",
+            objectId: reopenedApproval.id,
+            metadata: {
+              reason: "employee_counter_proposal",
+              reportId: locked.id,
+            },
+          });
+      }
       await tx.insert(approvalEvents).values({
         aggregateType: "overtime_report",
         aggregateId: locked.id,

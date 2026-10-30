@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { OvertimeCalendar } from "@/components/OvertimeCalendar";
@@ -13,7 +13,7 @@ import { requireHr } from "@/lib/auth";
 import styles from "./review.module.css";
 
 const statusLabels: Record<string, string> = {
-  submitted: "Ожидает проверки",
+  submitted: "Требуется решение",
   hr_proposed: "Ожидает сотрудника",
   reopened: "Открыто повторно",
   approved: "Утверждено",
@@ -42,6 +42,14 @@ export default async function HrOvertimePage({
       and(
         eq(overtimeReports.id, id),
         eq(overtimeReports.organizationId, actor.organizationId),
+        sql`EXISTS (
+          SELECT 1 FROM department_quarter_approvals approval
+          WHERE approval.organization_id = ${actor.organizationId}
+            AND approval.department_id = ${overtimeReports.departmentId}
+            AND approval.year = ${overtimeReports.year}
+            AND approval.quarter = CEIL(${overtimeReports.month} / 3.0)::int
+            AND approval.status = 'approved'
+        )`,
       ),
     )
     .limit(1);
@@ -83,24 +91,18 @@ export default async function HrOvertimePage({
       <header className="pageHeader">
         <div>
           <p className="eyebrow">
-            Кадровая проверка · {String(report.month).padStart(2, "0")}.
+            Проверка времени · {String(report.month).padStart(2, "0")}.
             {report.year}
           </p>
           <h1>{report.fullName}</h1>
-          <p className="lead">
-            Уточните отдельные дни прямо в крупном календаре и объясните
-            причину. Сотрудник увидит изменённые значения янтарным цветом.
-          </p>
         </div>
         <span className="statusPill">
-          {statusLabels[report.status] ?? report.status} · версия{" "}
-          {report.version}
+          {statusLabels[report.status] ?? report.status}
         </span>
       </header>
       <OvertimeCalendar initial={initial} mode="hr" />
       <section className={`card ${styles.history}`}>
         <div>
-          <p className="eyebrow">Прозрачное согласование</p>
           <h2>История решений</h2>
         </div>
         {history.length ? (

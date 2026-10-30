@@ -1,7 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { daysInMonth, OVERTIME_MINUTES } from "@/domain/overtime";
+import {
+  addOvertimeMinutes,
+  daysInMonth,
+  MAX_OVERTIME_MINUTES_PER_DAY,
+  OVERTIME_MINUTES,
+} from "@/domain/overtime";
+import { ToggleControl } from "./FormControls";
 import styles from "./OvertimeCalendar.module.css";
 
 const months = [
@@ -22,6 +28,7 @@ const weekdays = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
 const iso = (year: number, month: number, day: number) =>
   `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 type Source = "employee" | "hr";
+type Mode = Source | "review";
 type InitialReport = {
   id: string;
   year: number;
@@ -31,6 +38,7 @@ type InitialReport = {
   sources?: Record<string, Source>;
   zeroConfirmed: boolean;
   status: string;
+  entryWindowOpen?: boolean;
 };
 
 export function OvertimeCalendar({
@@ -38,7 +46,7 @@ export function OvertimeCalendar({
   mode = "employee",
 }: {
   initial: InitialReport;
-  mode?: Source;
+  mode?: Mode;
 }) {
   const [period, setPeriod] = useState({
     year: initial.year,
@@ -57,11 +65,16 @@ export function OvertimeCalendar({
   const [status, setStatus] = useState(initial.status);
   const [reason, setReason] = useState("");
   const [editingResponse, setEditingResponse] = useState(false);
+  const [entryWindowOpen, setEntryWindowOpen] = useState(
+    initial.entryWindowOpen ?? true,
+  );
   const canEdit =
     (mode === "hr" &&
       ["submitted", "reopened", "hr_proposed"].includes(status)) ||
-    status === "draft" ||
-    (mode === "employee" && status === "hr_proposed" && editingResponse);
+    (mode === "employee" &&
+      entryWindowOpen &&
+      (["draft", "reopened"].includes(status) ||
+        (status === "hr_proposed" && editingResponse)));
   const today = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Yekaterinburg",
     year: "numeric",
@@ -94,13 +107,17 @@ export function OvertimeCalendar({
     setVersion(data.version);
     setReportId(data.id);
     setStatus(data.status);
+    setEntryWindowOpen(data.entryWindowOpen);
     setZeroConfirmed(data.zeroConfirmed);
     setSelected(null);
     setMessage("");
   }
   function chooseMinutes(minutes: number) {
     if (!selected || !canEdit) return;
-    setEntries((current) => ({ ...current, [selected]: minutes }));
+    setEntries((current) => ({
+      ...current,
+      [selected]: addOvertimeMinutes(current[selected] ?? 0, minutes),
+    }));
     setSources((current) => ({ ...current, [selected]: mode }));
     setZeroConfirmed(false);
     setMessage("Изменение пока не сохранено");
@@ -186,8 +203,10 @@ export function OvertimeCalendar({
     setVersion(data.version);
     setMessage(
       to === "approved"
-        ? "Предложение кадровика утверждено"
-        : "Отправлено кадровой службе",
+        ? mode === "hr"
+          ? "Отчёт утверждён"
+          : "Предложение кадровика утверждено"
+        : "Отправлено на согласование",
     );
   }
   async function saveAndSubmit() {
@@ -195,199 +214,87 @@ export function OvertimeCalendar({
   }
 
   return (
-    <>
+    <section className={styles.workspace}>
+      {mode === "employee" && !entryWindowOpen ? (
+        <div className={styles.accessNotice} role="status">
+          Заполнение этого месяца закрыто кадровой службой
+        </div>
+      ) : null}
+      {mode === "employee" &&
+      entryWindowOpen &&
+      ["submitted", "approved"].includes(status) ? (
+        <div className={styles.accessNotice} role="status">
+          {status === "submitted"
+            ? "Отчёт отправлен на согласование и доступен только для просмотра"
+            : "Утверждённый отчёт доступен только для просмотра"}
+        </div>
+      ) : null}
       {mode === "employee" && status === "hr_proposed" && (
         <div className={styles.proposalNotice} role="status">
           <strong>Кадровая служба предложила корректировку</strong>
-          <span>
-            Янтарные ячейки изменены кадровиком. Подтвердите их или отправьте
-            свой вариант.
-          </span>
         </div>
       )}
-      <div className={styles.layout}>
-        <section
-          className={`card ${styles.calendar}`}
-          aria-label="Календарь внеурочного времени"
-        >
-          <div className={styles.calendarTop}>
-            <div>
-              <p className="eyebrow">Отчётный месяц</p>
-              <h2>
-                {months[period.month - 1]} {period.year}
-              </h2>
-            </div>
-            {mode === "employee" && (
-              <div className={styles.monthNav}>
-                <button
-                  onClick={() => changeMonth(-1)}
-                  aria-label="Предыдущий месяц"
-                >
-                  ←
-                </button>
-                <button
-                  onClick={() => changeMonth(1)}
-                  aria-label="Следующий месяц"
-                >
-                  →
-                </button>
-              </div>
-            )}
-          </div>
-          <div className={styles.weekdays} aria-hidden="true">
-            {weekdays.map((day) => (
-              <span key={day}>{day}</span>
-            ))}
-          </div>
-          <div className={styles.grid}>
-            {cells.map((day, index) =>
-              day === null ? (
-                <span className={styles.empty} key={`e-${index}`} />
-              ) : (
-                (() => {
-                  const date = iso(period.year, period.month, day);
-                  const weekday = (offset + day - 1) % 7;
-                  const future = date > today;
-                  return (
-                    <button
-                      data-calendar-day={day}
-                      key={date}
-                      className={[
-                        styles.day,
-                        weekday >= 5 ? styles.weekend : "",
-                        selected === date ? styles.selected : "",
-                        entries[date]
-                          ? sources[date] === "hr"
-                            ? styles.hrFilled
-                            : styles.filled
-                          : "",
-                        status === "approved" && entries[date]
-                          ? styles.approved
-                          : "",
-                        !canEdit ? styles.readonly : "",
-                      ].join(" ")}
-                      disabled={future || !canEdit}
-                      aria-pressed={selected === date}
-                      aria-label={`${day} ${months[period.month - 1]}, ${entries[date] ? `${entries[date]} минут` : "не заполнено"}${future ? ", будущая дата" : ""}`}
-                      onKeyDown={(event) => onDayKey(event, day)}
-                      onClick={() => setSelected(date)}
-                    >
-                      <span className={styles.dayNumber}>{day}</span>
-                      {entries[date] && (
-                        <span className={styles.minutes}>
-                          {entries[date]} мин
-                        </span>
-                      )}
-                    </button>
-                  );
-                })()
-              ),
-            )}
-          </div>
-        </section>
-        <aside className={`card ${styles.editor}`} aria-live="polite">
-          <p className="eyebrow">Быстрое действие</p>
-          <h2>
-            {selected
-              ? `${Number(selected.slice(-2))} ${months[period.month - 1].toLowerCase()}`
-              : canEdit
-                ? "Выберите день"
-                : "Режим просмотра"}
-          </h2>
-          <p className={styles.editorHint}>
-            {canEdit
-              ? selected
-                ? "Сколько времени было отработано сверх нормы?"
-                : "Нажмите крупную ячейку дня. Доступны и будни, и выходные."
-              : "Отчёт уже отправлен. Все значения сохранены в истории изменений."}
-          </p>
-          <div className={styles.minuteButtons}>
-            {OVERTIME_MINUTES.map((minutes) => (
-              <button
-                key={minutes}
-                disabled={!selected || !canEdit}
-                className={
-                  selected && entries[selected] === minutes ? styles.active : ""
-                }
-                onClick={() => chooseMinutes(minutes)}
-              >
-                {minutes === 60 ? "1 час" : `${minutes} мин`}
-              </button>
-            ))}
-          </div>
-          <button
-            className={styles.clear}
-            disabled={!selected || !entries[selected] || !canEdit}
-            onClick={clearSelected}
-          >
-            Очистить этот день
-          </button>
-          {mode === "hr" && (
-            <label className={styles.reason}>
-              Причина кадровой правки
-              <textarea
-                value={reason}
-                onChange={(event) => setReason(event.target.value)}
-                placeholder="Например: уточнение по табелю подразделения"
-              />
-            </label>
-          )}
-          <div className={styles.legend}>
-            <span>
-              <i className={styles.dot} />
-              Сотрудник
-            </span>
-            <span>
-              <i className={`${styles.dot} ${styles.dotHr}`} />
-              Кадровая правка
-            </span>
-            <span>
-              <i className={`${styles.dot} ${styles.dotApproved}`} />
-              Утверждено
-            </span>
-          </div>
-          <div className={styles.summary}>
-            <strong>
-              {Math.floor(total / 60)} ч {total % 60} мин
-            </strong>
-            <span>Итого за месяц · {Object.keys(entries).length} дней</span>
-          </div>
-        </aside>
-      </div>
-      <section className={`card ${styles.saveRow}`}>
-        <label className={styles.zero}>
-          <input
-            type="checkbox"
-            checked={zeroConfirmed}
-            disabled={Object.keys(entries).length > 0 || !canEdit}
-            onChange={(event) => setZeroConfirmed(event.target.checked)}
-          />
-          В этом месяце внеурочного времени не было
-        </label>
-        <div className="actions">
-          <span className={styles.message} role="status">
-            {message}
-          </span>
-          {mode === "hr" && (
+      <div className={styles.commandBar} aria-label="Действия с отчётом">
+        <div className={styles.monthControl}>
+          {mode === "employee" && (
             <button
-              className="primaryButton"
-              disabled={
-                saving ||
-                !canEdit ||
-                !reason.trim() ||
-                (!Object.keys(entries).length && !zeroConfirmed)
-              }
-              onClick={save}
+              onClick={() => changeMonth(-1)}
+              aria-label="Предыдущий месяц"
             >
-              Предложить сотруднику
+              ←
             </button>
           )}
-          {mode === "employee" && status === "draft" && (
+          <strong>
+            {months[period.month - 1]} {period.year}
+          </strong>
+          {mode === "employee" && (
+            <button onClick={() => changeMonth(1)} aria-label="Следующий месяц">
+              →
+            </button>
+          )}
+        </div>
+        <div className={styles.summary}>
+          <strong>
+            {Math.floor(total / 60)} ч {total % 60} мин
+          </strong>
+          <span>{Object.keys(entries).length} дней</span>
+        </div>
+        <span className={styles.message} role="status">
+          {message}
+        </span>
+        <div className={`actions ${styles.actions}`}>
+          {mode === "hr" && canEdit && (
+            <>
+              {status !== "hr_proposed" && (
+                <button
+                  className="secondaryButton"
+                  disabled={saving}
+                  onClick={() => transition("approved")}
+                >
+                  Утвердить без изменений
+                </button>
+              )}
+              <button
+                className="primaryButton"
+                disabled={
+                  saving ||
+                  !reason.trim() ||
+                  (!Object.keys(entries).length && !zeroConfirmed)
+                }
+                onClick={save}
+              >
+                Предложить изменения
+              </button>
+            </>
+          )}
+          {mode === "employee" && ["draft", "reopened"].includes(status) && (
             <>
               <button
                 className="secondaryButton"
                 disabled={
-                  saving || (!Object.keys(entries).length && !zeroConfirmed)
+                  saving ||
+                  !entryWindowOpen ||
+                  (!Object.keys(entries).length && !zeroConfirmed)
                 }
                 onClick={save}
               >
@@ -396,11 +303,13 @@ export function OvertimeCalendar({
               <button
                 className="primaryButton"
                 disabled={
-                  saving || (!Object.keys(entries).length && !zeroConfirmed)
+                  saving ||
+                  !entryWindowOpen ||
+                  (!Object.keys(entries).length && !zeroConfirmed)
                 }
                 onClick={saveAndSubmit}
               >
-                Отправить кадровику
+                Отправить на согласование
               </button>
             </>
           )}
@@ -410,7 +319,7 @@ export function OvertimeCalendar({
               <>
                 <button
                   className="secondaryButton"
-                  disabled={saving}
+                  disabled={saving || !entryWindowOpen}
                   onClick={() => setEditingResponse(true)}
                 >
                   Изменить снова
@@ -430,7 +339,9 @@ export function OvertimeCalendar({
               <button
                 className="primaryButton"
                 disabled={
-                  saving || (!Object.keys(entries).length && !zeroConfirmed)
+                  saving ||
+                  !entryWindowOpen ||
+                  (!Object.keys(entries).length && !zeroConfirmed)
                 }
                 onClick={save}
               >
@@ -438,7 +349,134 @@ export function OvertimeCalendar({
               </button>
             )}
         </div>
-      </section>
-    </>
+      </div>
+
+      <div className={styles.editor} aria-live="polite">
+        <div className={styles.selectedDate}>
+          <span>{canEdit ? "Выбранный день" : "Просмотр"}</span>
+          <strong>
+            {selected
+              ? `${Number(selected.slice(-2))} ${months[period.month - 1].toLowerCase()}`
+              : "—"}
+          </strong>
+          {selected && entries[selected] ? (
+            <span className={styles.selectedTotal}>
+              Сейчас: {entries[selected]} мин
+            </span>
+          ) : null}
+        </div>
+        <div className={styles.minuteButtons}>
+          {OVERTIME_MINUTES.map((minutes) => (
+            <button
+              key={minutes}
+              disabled={
+                !selected ||
+                !canEdit ||
+                (entries[selected] ?? 0) + minutes >
+                  MAX_OVERTIME_MINUTES_PER_DAY
+              }
+              aria-label={`Добавить ${minutes === 60 ? "1 час" : `${minutes} минут`}`}
+              onClick={() => chooseMinutes(minutes)}
+            >
+              +{minutes === 60 ? "1 час" : `${minutes} мин`}
+            </button>
+          ))}
+        </div>
+        <button
+          className={styles.clear}
+          disabled={!selected || !entries[selected] || !canEdit}
+          onClick={clearSelected}
+        >
+          Очистить
+        </button>
+        <div className={styles.zero}>
+          <ToggleControl
+            label="Внеурочного времени не было"
+            checked={zeroConfirmed}
+            disabled={Object.keys(entries).length > 0 || !canEdit}
+            onChange={setZeroConfirmed}
+          />
+        </div>
+      </div>
+
+      {mode === "hr" && canEdit && (
+        <label className={styles.reason}>
+          Причина изменений
+          <textarea
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            placeholder="Укажите причину изменения"
+          />
+        </label>
+      )}
+
+      <div className={styles.legend} aria-label="Обозначения">
+        <span>
+          <i className={styles.dot} /> Сотрудник
+        </span>
+        <span>
+          <i className={`${styles.dot} ${styles.dotHr}`} /> HR
+        </span>
+        <span>
+          <i className={`${styles.dot} ${styles.dotApproved}`} /> Утверждено
+        </span>
+      </div>
+
+      <div
+        className={styles.calendar}
+        aria-label="Календарь внеурочного времени"
+      >
+        <div className={styles.weekdays} aria-hidden="true">
+          {weekdays.map((day) => (
+            <span key={day}>{day}</span>
+          ))}
+        </div>
+        <div className={styles.grid}>
+          {cells.map((day, index) =>
+            day === null ? (
+              <span className={styles.empty} key={`e-${index}`} />
+            ) : (
+              (() => {
+                const date = iso(period.year, period.month, day);
+                const weekday = (offset + day - 1) % 7;
+                const future = date > today;
+                return (
+                  <button
+                    data-calendar-day={day}
+                    key={date}
+                    className={[
+                      styles.day,
+                      weekday >= 5 ? styles.weekend : "",
+                      selected === date ? styles.selected : "",
+                      entries[date]
+                        ? sources[date] === "hr"
+                          ? styles.hrFilled
+                          : styles.filled
+                        : "",
+                      status === "approved" && entries[date]
+                        ? styles.approved
+                        : "",
+                      !canEdit ? styles.readonly : "",
+                    ].join(" ")}
+                    disabled={future || !canEdit}
+                    aria-pressed={selected === date}
+                    aria-label={`${day} ${months[period.month - 1]}, ${entries[date] ? `${entries[date]} минут` : "не заполнено"}${future ? ", будущая дата" : ""}`}
+                    onKeyDown={(event) => onDayKey(event, day)}
+                    onClick={() => setSelected(date)}
+                  >
+                    <span className={styles.dayNumber}>{day}</span>
+                    {entries[date] && (
+                      <span className={styles.minutes}>
+                        {entries[date]} мин
+                      </span>
+                    )}
+                  </button>
+                );
+              })()
+            ),
+          )}
+        </div>
+      </div>
+    </section>
   );
 }

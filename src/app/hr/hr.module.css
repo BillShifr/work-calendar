@@ -1,34 +1,38 @@
 .metrics {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 14px;
-  margin-bottom: 20px;
+  gap: 1px;
+  margin-bottom: 24px;
+  border: 1px solid var(--border-strong);
+  background: var(--border);
 }
 .metric {
   padding: 20px;
+  border: 0;
+  border-radius: 0;
 }
 .metric span {
   display: block;
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 750;
 }
 .metric strong {
   display: block;
   margin-top: 10px;
-  font-size: 34px;
+  font-size: 28px;
   letter-spacing: -0.04em;
 }
 .metric em {
-  color: var(--conflict);
+  color: var(--text-muted);
   font-style: normal;
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 800;
 }
 .dashboard {
   display: grid;
   grid-template-columns: minmax(0, 1.5fr) minmax(310px, 0.7fr);
-  gap: 20px;
+  gap: 24px;
 }
 .section {
   padding: 24px;
@@ -50,13 +54,17 @@
   flex-wrap: wrap;
 }
 .filter {
-  min-height: 40px;
-  padding: 0 13px;
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-height-compact);
+  padding: 0 16px;
   border: 1px solid var(--border);
-  border-radius: 11px;
+  border-radius: var(--radius-small);
   background: white;
   color: var(--text-muted);
   font-weight: 700;
+  font-size: var(--text-sm);
+  text-decoration: none;
 }
 .filterActive {
   border-color: var(--primary);
@@ -65,17 +73,19 @@
 }
 .queue {
   display: grid;
-  gap: 10px;
+  gap: 0;
+  border: 1px solid var(--border);
 }
 .item {
   display: grid;
-  grid-template-columns: minmax(160px, 1fr) minmax(170px, 0.8fr) auto;
-  gap: 14px;
+  grid-template-columns: minmax(160px, 0.8fr) minmax(240px, 1fr) auto;
+  gap: 20px;
   align-items: center;
-  min-height: 76px;
-  padding: 13px 15px;
-  border: 1px solid var(--border);
-  border-radius: 14px;
+  min-height: 88px;
+  padding: 16px 18px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
   background: white;
 }
 .person strong,
@@ -85,41 +95,36 @@
 .person span,
 .detail {
   color: var(--text-muted);
-  font-size: 13px;
-}
-.state {
-  display: inline-flex;
-  align-items: center;
-  min-height: 32px;
-  padding: 0 10px;
-  border-radius: 999px;
-  background: var(--hr-soft);
-  color: var(--hr);
-  font-size: 12px;
-  font-weight: 850;
-}
-.stateGreen {
-  background: var(--approved-soft);
-  color: var(--approved);
+  font-size: var(--text-sm);
 }
 .open {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 42px;
-  padding: 0 14px;
-  border: 1px solid var(--border);
-  border-radius: 11px;
-  background: white;
+  min-height: var(--control-height);
+  padding: 0 18px;
+  border: 1px solid var(--primary);
+  border-radius: var(--radius-small);
+  background: var(--primary);
+  color: white;
   cursor: pointer;
   font-weight: 750;
   text-decoration: none;
 }
+.emptyQueue {
+  margin: 0;
+  padding: 28px 16px;
+  color: var(--text-muted);
+}
 .overlap {
   padding: 16px;
   border: 1px solid var(--conflict);
-  border-radius: 15px;
+  border-radius: var(--radius-small);
   background: var(--conflict-soft);
+}
+.overlapList {
+  display: grid;
+  gap: 12px;
 }
 .overlapHead {
   display: flex;
@@ -133,8 +138,19 @@
 .overlap p {
   margin: 10px 0 0;
   color: #6f3c3c;
-  font-size: 14px;
+  font-size: var(--text-base);
   line-height: 1.5;
+}
+.overlap h3 {
+  margin: 12px 0 0;
+  font-size: var(--text-lg);
+}
+.overlap small {
+  display: block;
+  margin-top: 8px;
+  color: #6f3c3c;
+  line-height: 1.4;
+  font-size: var(--text-xs);
 }
 .calendarStrip {
   display: grid;
@@ -145,11 +161,41 @@
 .calendarStrip span {
   display: grid;
   place-items: center;
-  min-height: 44px;
-  border-radius: 9px;
+  min-height: var(--control-height);
+  border-radius: var(--radius-small);
   background: var(--surface-muted);
-  font-size: 12px;
+  padding: 4px;
+  font-size: var(--text-xs);
   font-weight: 800;
+}
+.noOverlap {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+  padding: 22px;
+  border: 1px solid #a8ccb0;
+  border-radius: var(--radius-small);
+  background: var(--approved-soft);
+}
+.noOverlap > span {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-small);
+  background: var(--approved);
+  color: white;
+  font-size: 20px;
+  font-weight: 900;
+}
+.noOverlap strong {
+  color: var(--approved);
+}
+.noOverlap p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  line-height: 1.5;
 }
 .calendarStrip .risk {
   background: var(--conflict);
@@ -158,7 +204,7 @@
 .note {
   margin-top: 14px;
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: var(--text-sm);
   line-height: 1.5;
 }
 @media (max-width: 1050px) {

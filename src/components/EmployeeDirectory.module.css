@@ -1,0 +1,228 @@
+.workspace {
+  display: grid;
+  gap: 22px;
+}
+.commandBar {
+  display: flex;
+  align-items: end;
+  gap: 32px;
+  padding: 20px 24px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+}
+.commandBar > button {
+  margin-left: auto;
+}
+.yearControl,
+.bulkAllowance {
+  display: grid;
+  gap: 8px;
+}
+.yearControl > span,
+.bulkAllowance > label,
+.allowanceField > label,
+.toggleField > span {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: 750;
+}
+.yearControl > div {
+  display: grid;
+  grid-template-columns: 52px 84px 52px;
+  min-height: var(--control-height);
+  border: 1px solid var(--border-strong);
+}
+.yearControl a,
+.yearControl strong {
+  display: grid;
+  place-items: center;
+  text-decoration: none;
+}
+.yearControl a {
+  color: var(--primary);
+  font-size: 22px;
+  font-weight: 850;
+}
+.yearControl a:hover {
+  background: var(--primary-soft);
+}
+.bulkAllowance {
+  grid-template-columns: 200px auto;
+}
+.bulkAllowance > label {
+  grid-column: 1 / -1;
+}
+.create {
+  padding: 28px;
+  border: 1px solid var(--primary);
+  background: var(--surface);
+}
+.sectionHeading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+}
+.sectionHeading h2 {
+  margin: 0;
+  font-size: 24px;
+}
+.sectionHeading p {
+  margin: 6px 0 0;
+  color: var(--text-muted);
+}
+.sectionHeading > span {
+  color: var(--primary);
+  font-weight: 750;
+}
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(220px, 1fr));
+  gap: 22px 24px;
+  margin-top: 24px;
+}
+.formGrid > label,
+.allowanceField,
+.toggleField {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: 750;
+}
+.formGrid input {
+  width: 100%;
+  min-height: var(--control-height);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-small);
+  padding: 0 14px;
+  background: var(--surface);
+  color: var(--text);
+}
+.roleChoice {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.roleChoice legend {
+  margin-bottom: 8px;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: 750;
+}
+.roleChoice > div {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: var(--control-height);
+  border: 1px solid var(--border-strong);
+}
+.roleChoice button {
+  border: 0;
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-weight: 750;
+  font-size: var(--text-base);
+}
+.roleChoice button + button {
+  border-left: 1px solid var(--border-strong);
+}
+.roleChoice button[aria-pressed="true"] {
+  background: var(--primary-soft);
+  color: var(--primary-strong);
+}
+.toggleField {
+  min-height: var(--control-height);
+}
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+.list {
+  display: grid;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+}
+.employee {
+  border-bottom: 1px solid var(--border);
+}
+.employee:last-child {
+  border-bottom: 0;
+}
+.employeeSummary {
+  display: grid;
+  grid-template-columns:
+    minmax(200px, 1fr) minmax(240px, 1.1fr)
+    130px 110px auto;
+  gap: 24px;
+  align-items: center;
+  min-height: 96px;
+  padding: 18px 20px;
+}
+.identity,
+.assignment,
+.allowanceSummary {
+  display: grid;
+  gap: 4px;
+}
+.identity span,
+.assignment span,
+.allowanceSummary span {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.allowanceSummary strong {
+  font-size: 20px;
+}
+.active,
+.inactive {
+  font-size: var(--text-sm);
+  font-weight: 800;
+}
+.active {
+  color: var(--approved);
+}
+.inactive {
+  color: var(--text-muted);
+}
+.editPanel {
+  padding: 4px 18px 20px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-subtle);
+}
+@media (max-width: 1080px) {
+  .commandBar {
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+  .commandBar > button {
+    margin-left: 0;
+  }
+  .formGrid {
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
+  }
+  .employeeSummary {
+    grid-template-columns: 1fr 1fr auto;
+  }
+}
+@media (max-width: 700px) {
+  .commandBar,
+  .formActions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .bulkAllowance,
+  .formGrid,
+  .employeeSummary {
+    grid-template-columns: 1fr;
+  }
+  .employeeSummary {
+    gap: 12px;
+  }
+}
