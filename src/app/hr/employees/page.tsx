@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { AppShell } from "@/components/AppShell";
 import { EmployeeDirectory } from "@/components/EmployeeDirectory";
+import { WorkforceNavigation } from "@/components/WorkforceNavigation";
 import { db } from "@/db/client";
 import { requireHr } from "@/lib/auth";
 
@@ -57,6 +58,7 @@ export default async function EmployeesPage({
   ]);
   return (
     <AppShell>
+      <WorkforceNavigation />
       <header className="pageHeader">
         <h1>Сотрудники</h1>
         <span className="statusPill">

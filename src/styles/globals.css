@@ -160,6 +160,30 @@ a {
   margin: 0 auto;
   padding: clamp(24px, 2.6vw, 40px);
 }
+.sectionTabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border-strong);
+}
+.sectionTabs a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-height);
+  padding: 0 20px;
+  border-bottom: 3px solid transparent;
+  color: var(--text-muted);
+  font-weight: 750;
+  text-decoration: none;
+}
+.sectionTabs a:hover {
+  background: var(--surface-muted);
+  color: var(--text);
+}
+.sectionTabs a[aria-current="page"] {
+  border-bottom-color: var(--primary);
+  color: var(--primary-strong);
+}
 .pageHeader {
   display: flex;
   justify-content: space-between;
@@ -301,6 +325,14 @@ h1 {
   }
   .main {
     padding: 24px 16px 48px;
+  }
+  .sectionTabs {
+    overflow-x: auto;
+  }
+  .sectionTabs a {
+    flex: 1 0 auto;
+    justify-content: center;
+    padding: 0 16px;
   }
   .pageHeader {
     align-items: flex-start;
