@@ -10,7 +10,7 @@ ENV NEXT_TELEMETRY_DISABLED=1 \
     DATABASE_URL=postgres://build:build@127.0.0.1:5432/build
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .
-RUN npm run build
+RUN mkdir -p public && npm run build
 
 FROM dependencies AS migrator
 ARG VCS_REF=development
