@@ -24,6 +24,13 @@ describe.skipIf(!sql)("database constraints", () => {
   });
   it("seeds the production directory idempotently", async () => {
     await seedReferenceData(sql!);
+    const [{ departments: afterFirstSeed }] = await sql!`
+      SELECT COUNT(*)::int AS departments
+      FROM departments
+      WHERE organization_id=(
+        SELECT id FROM organizations WHERE name='ТФОМС Югры' ORDER BY created_at LIMIT 1
+      )
+    `;
     await seedReferenceData(sql!);
     const [organization] =
       await sql!`SELECT id FROM organizations WHERE name='ТФОМС Югры' ORDER BY created_at LIMIT 1`;
@@ -31,14 +38,14 @@ describe.skipIf(!sql)("database constraints", () => {
       SELECT COUNT(*)::int AS departments
       FROM departments
       WHERE organization_id=${organization.id}
-        AND name <> 'Информационные технологии'
     `;
     const [{ titles }] = await sql!`
       SELECT COUNT(*)::int AS titles
       FROM job_titles
       WHERE organization_id=${organization.id}
     `;
-    expect(departments).toBe(31);
+    expect(departments).toBe(afterFirstSeed);
+    expect(departments).toBeGreaterThanOrEqual(31);
     expect(titles).toBeGreaterThanOrEqual(21);
   });
   it("keeps accumulated overtime totals on the five-minute grid", async () => {
