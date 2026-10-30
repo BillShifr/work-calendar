@@ -8,6 +8,7 @@ import styles from "./DepartmentRuleEditor.module.css";
 type Department = {
   id: string;
   name: string;
+  displayName: string;
   headcount: number;
   isActive: boolean;
   assignedCount: number;
@@ -171,7 +172,7 @@ export function DepartmentRuleEditor({
             <option value="">Нет</option>
             {departments.map((department) => (
               <option value={department.id} key={department.id}>
-                {department.name}
+                {department.displayName}
               </option>
             ))}
           </SelectControl>
@@ -276,7 +277,7 @@ export function DepartmentRuleEditor({
                     .filter((item) => item.id !== department.id)
                     .map((item) => (
                       <option value={item.id} key={item.id}>
-                        {item.name}
+                        {item.displayName}
                       </option>
                     ))}
                 </SelectControl>

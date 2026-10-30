@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { AppShell } from "@/components/AppShell";
 import { EmployeeDirectory } from "@/components/EmployeeDirectory";
+import { WorkforceNavigation } from "@/components/WorkforceNavigation";
 import { db } from "@/db/client";
 import { requireHr } from "@/lib/auth";
 
@@ -46,8 +47,8 @@ export default async function EmployeesPage({
       WHERE employee.organization_id = ${actor.organizationId}
       ORDER BY employee.is_active DESC, employee.full_name
     `),
-    db.execute<{ id: string; name: string }>(sql`
-      SELECT id::text AS id, name FROM departments
+    db.execute<{ id: string; name: string; parentId: string | null }>(sql`
+      SELECT id::text AS id, name, parent_id::text AS "parentId" FROM departments
       WHERE organization_id = ${actor.organizationId} AND is_active = true ORDER BY name
     `),
     db.execute<{ id: string; name: string }>(sql`
@@ -55,8 +56,31 @@ export default async function EmployeesPage({
       WHERE organization_id = ${actor.organizationId} AND is_active = true ORDER BY name
     `),
   ]);
+  const departmentsById = new Map(
+    departments.map((department) => [department.id, department]),
+  );
+  const departmentPath = (departmentId: string) => {
+    const parts: string[] = [];
+    const visited = new Set<string>();
+    let current = departmentsById.get(departmentId);
+    while (current && !visited.has(current.id)) {
+      visited.add(current.id);
+      parts.unshift(current.name);
+      current = current.parentId
+        ? departmentsById.get(current.parentId)
+        : undefined;
+    }
+    return parts.join(" / ");
+  };
+  const departmentOptions = departments
+    .map((department) => ({
+      id: department.id,
+      name: departmentPath(department.id),
+    }))
+    .sort((left, right) => left.name.localeCompare(right.name, "ru"));
   return (
     <AppShell>
+      <WorkforceNavigation />
       <header className="pageHeader">
         <h1>Сотрудники</h1>
         <span className="statusPill">
@@ -67,9 +91,12 @@ export default async function EmployeesPage({
         key={employees.map((employee) => employee.id).join(":")}
         employees={employees.map((employee) => ({
           ...employee,
+          departmentName: employee.departmentId
+            ? departmentPath(employee.departmentId)
+            : null,
           allowanceDays: employee.allowanceDays ?? 28,
         }))}
-        departments={departments}
+        departments={departmentOptions}
         jobTitles={jobTitles}
         year={year}
       />

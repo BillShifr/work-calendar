@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { AppShell } from "@/components/AppShell";
 import { JobTitleDirectory } from "@/components/JobTitleDirectory";
+import { WorkforceNavigation } from "@/components/WorkforceNavigation";
 import { db } from "@/db/client";
 import { requireHr } from "@/lib/auth";
 
@@ -25,8 +26,9 @@ export default async function ReferenceDataPage() {
   `);
   return (
     <AppShell>
+      <WorkforceNavigation />
       <header className="pageHeader">
-        <h1>Справочники</h1>
+        <h1>Должности</h1>
         <span className="statusPill">{jobTitles.length} должностей</span>
       </header>
       <JobTitleDirectory

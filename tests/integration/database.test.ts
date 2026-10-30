@@ -1,5 +1,6 @@
 import { afterAll, describe, expect, it } from "vitest";
 import postgres from "postgres";
+import { seedReferenceData } from "../../scripts/lib/seed-reference-data";
 
 const databaseUrl = process.env.DATABASE_URL ?? process.env.TEST_DATABASE_URL;
 const sql = databaseUrl ? postgres(databaseUrl, { max: 1 }) : null;
@@ -20,6 +21,32 @@ describe.skipIf(!sql)("database constraints", () => {
     const rows =
       await sql!`SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_name='entry_windows'`;
     expect(rows).toEqual([{ table_name: "entry_windows" }]);
+  });
+  it("seeds the production directory idempotently", async () => {
+    await seedReferenceData(sql!);
+    const [{ departments: afterFirstSeed }] = await sql!`
+      SELECT COUNT(*)::int AS departments
+      FROM departments
+      WHERE organization_id=(
+        SELECT id FROM organizations WHERE name='ТФОМС Югры' ORDER BY created_at LIMIT 1
+      )
+    `;
+    await seedReferenceData(sql!);
+    const [organization] =
+      await sql!`SELECT id FROM organizations WHERE name='ТФОМС Югры' ORDER BY created_at LIMIT 1`;
+    const [{ departments }] = await sql!`
+      SELECT COUNT(*)::int AS departments
+      FROM departments
+      WHERE organization_id=${organization.id}
+    `;
+    const [{ titles }] = await sql!`
+      SELECT COUNT(*)::int AS titles
+      FROM job_titles
+      WHERE organization_id=${organization.id}
+    `;
+    expect(departments).toBe(afterFirstSeed);
+    expect(departments).toBeGreaterThanOrEqual(31);
+    expect(titles).toBeGreaterThanOrEqual(21);
   });
   it("keeps accumulated overtime totals on the five-minute grid", async () => {
     const checks =
