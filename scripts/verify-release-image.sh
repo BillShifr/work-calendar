@@ -5,8 +5,8 @@ script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 . "$script_dir/lib/container-engine.sh"
 
 expected_revision=${1:?Usage: verify-release-image.sh REVISION}
-app_image="${APP_IMAGE_REPOSITORY:-tfoms-time}:$expected_revision"
-migrator_image="${MIGRATOR_IMAGE_REPOSITORY:-tfoms-time-migrator}:$expected_revision"
+app_image="${APP_IMAGE_REPOSITORY:-hr}:$expected_revision"
+migrator_image="${MIGRATOR_IMAGE_REPOSITORY:-hr-migrator}:$expected_revision"
 
 for image in "$app_image" "$migrator_image"; do
   actual_revision=$(container_engine image inspect \

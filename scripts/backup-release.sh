@@ -7,7 +7,7 @@ script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 . "$script_dir/lib/serialized-operation.sh"
 
 backup_root=${1:?Usage: backup-release.sh BACKUP_ROOT}
-lock_file=${BACKUP_RESTORE_LOCK_FILE:-/tmp/tfoms-time-backup-restore.lock}
+lock_file=${BACKUP_RESTORE_LOCK_FILE:-/tmp/hr-backup-restore.lock}
 timestamp=$(date -u +%Y%m%dT%H%M%SZ)
 backup_dir=$backup_root/$timestamp
 staging_dir=$backup_dir.partial.$$

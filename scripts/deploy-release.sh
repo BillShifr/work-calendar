@@ -14,8 +14,8 @@ case "$pull_release" in true|false) ;; *) exit 1 ;; esac
 compose config >/dev/null
 
 if [ "$pull_release" = true ]; then
-  container_engine pull "${APP_IMAGE_REPOSITORY:-tfoms-time}:$expected_revision"
-  container_engine pull "${MIGRATOR_IMAGE_REPOSITORY:-tfoms-time-migrator}:$expected_revision"
+  container_engine pull "${APP_IMAGE_REPOSITORY:-hr}:$expected_revision"
+  container_engine pull "${MIGRATOR_IMAGE_REPOSITORY:-hr-migrator}:$expected_revision"
   container_engine pull postgres:18.1-alpine
 fi
 sh "$script_dir/verify-release-image.sh" "$expected_revision"

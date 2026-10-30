@@ -1,16 +1,16 @@
 [Unit]
-Description=TFOMS Time containers
+Description=HR containers
 Wants=network-online.target
 After=network-online.target
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-WorkingDirectory=%h/apps/tfoms-time
+WorkingDirectory=%h/apps/hr
 Environment=CONTAINER_ENGINE=podman
 Environment=DEPLOY_PULL=false
-EnvironmentFile=%h/apps/tfoms-time/.env
-ExecStart=/bin/sh %h/apps/tfoms-time/scripts/deploy-release.sh
+EnvironmentFile=%h/apps/hr/.env
+ExecStart=/bin/sh %h/apps/hr/scripts/deploy-release.sh
 ExecStop=/usr/bin/podman compose stop app
 TimeoutStartSec=900
 TimeoutStopSec=120

@@ -117,7 +117,7 @@ export async function buildOvertimeSummaryWorkbook(
   );
 
   const workbook = new ExcelJS.Workbook();
-  workbook.creator = "TFOMS Time";
+  workbook.creator = "HR";
   workbook.created = new Date();
   workbook.modified = new Date();
   workbook.calcProperties.fullCalcOnLoad = true;

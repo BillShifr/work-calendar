@@ -1,12 +1,12 @@
-# Эксплуатация TFOMS Time
+# Эксплуатация HR
 
 ## Контур
 
-- приложение: `time.tfoms` → Nginx → `127.0.0.1:3080`;
+- приложение: `hr.tfoms` → Nginx → `127.0.0.1:3080`;
 - runtime: rootless Podman Compose под отдельным системным пользователем;
-- каталог: `$HOME/apps/tfoms-time`;
-- данные PostgreSQL: отдельный named volume `tfoms-time_postgres-data`;
-- образы: локальные `tfoms-time:<git-sha>` и `tfoms-time-migrator:<git-sha>`;
+- каталог: `$HOME/apps/hr`;
+- данные PostgreSQL: отдельный named volume `hr_postgres-data`;
+- образы: локальные `hr:<git-sha>` и `hr-migrator:<git-sha>`;
 - релиз: GitHub Actions проверяет сборку → оператор вручную обновляет checkout → Podman собирает тот же commit на production-хосте.
 
 Тег `latest` не используется. Запущенная версия всегда определяется полным Git SHA из `VCS_REF`.
@@ -16,16 +16,16 @@
 1. Создать отдельного непривилегированного пользователя и каталоги:
 
    ```sh
-   mkdir -m 700 -p "$HOME/apps" "$HOME/backups/tfoms-time-auto"
-   git clone https://github.com/BillShifr/work-calendar.git "$HOME/apps/tfoms-time"
-   cd "$HOME/apps/tfoms-time"
+   mkdir -m 700 -p "$HOME/apps" "$HOME/backups/hr-auto"
+   git clone https://github.com/BillShifr/work-calendar.git "$HOME/apps/hr"
+   cd "$HOME/apps/hr"
    git switch main
    ```
 
 2. Установить rootless Podman, `podman compose`, `flock`, `curl`, `git`, `python3` и `sha256sum`.
-3. Скопировать `.env.production.example` в `$HOME/apps/tfoms-time/.env`, установить права `600` и заменить все `REPLACE_*` значения. Пароль БД должен быть уникальным и длинным: `POSTGRES_PASSWORD` хранит его как есть, а в `CONTAINER_DATABASE_URL` тот же пароль указывается в URL-кодированном виде.
-4. Установить `deploy/systemd/tfoms-time.service` как user unit и включить linger для сервисного пользователя.
-5. Установить Nginx-конфигурацию `deploy/nginx/time.tfoms.conf`, подключить внутренний TLS-сертификат и только после успешного smoke-test добавить DNS-запись `time.tfoms`.
+3. Скопировать `.env.production.example` в `$HOME/apps/hr/.env`, установить права `600` и заменить все `REPLACE_*` значения. Пароль БД должен быть уникальным и длинным: `POSTGRES_PASSWORD` хранит его как есть, а в `CONTAINER_DATABASE_URL` тот же пароль указывается в URL-кодированном виде.
+4. Установить `deploy/systemd/hr.service` как user unit и включить linger для сервисного пользователя.
+5. Установить Nginx-конфигурацию `deploy/nginx/hr.tfoms.conf`, подключить внутренний TLS-сертификат и только после успешного smoke-test добавить DNS-запись `hr.tfoms`.
 
 После успешного bootstrap `INITIAL_ADMIN_PASSWORD` удаляется из `.env`: повторный bootstrap при существующих пользователях не выполняется. Обязательная смена пароля при первом входе пока не реализована и отдельно зафиксирована в продуктовых висяках, поэтому начальный пароль должен сразу соответствовать боевой политике длины и случайности.
 
@@ -48,7 +48,7 @@ GitHub Actions не хранит production-секреты, не подключ�
 2. На production-хосте выполнить одну команду из чистого checkout:
 
    ```sh
-   cd "$HOME/apps/tfoms-time"
+   cd "$HOME/apps/hr"
    CONTAINER_ENGINE=podman sh scripts/update-production.sh
    ```
 
@@ -61,7 +61,7 @@ GitHub Actions не хранит production-секреты, не подключ�
 Backup создаётся online в custom-format PostgreSQL и не останавливает приложение:
 
 ```sh
-CONTAINER_ENGINE=podman sh scripts/backup-release.sh "$HOME/backups/tfoms-time-auto"
+CONTAINER_ENGINE=podman sh scripts/backup-release.sh "$HOME/backups/hr-auto"
 ```
 
 Каждый каталог содержит `database.dump`, `MANIFEST` и `SHA256SUMS`. Скрипт проверяет архив через `pg_restore --list`, использует advisory lock и публикует backup атомарно только после завершения всех проверок.
@@ -83,7 +83,7 @@ RESTORE_CONFIRM=replace-current-state \
 ## Проверка после DNS
 
 ```sh
-curl --fail --resolve time.tfoms:443:SERVER_IP https://time.tfoms/api/health
+curl --fail --resolve hr.tfoms:443:SERVER_IP https://hr.tfoms/api/health
 ```
 
 Дополнительно проверяются вход кадровика, «Структура и штат», сохранение одной безопасной тестовой операции, аудит события и XLSX-выгрузка. Успешный `/api/health` сам по себе не подтверждает пользовательский сценарий.

@@ -65,7 +65,7 @@ CONTAINER_ENGINE=podman \
 test -f "$fixture/merged"
 grep -F "podman compose build migrate app" "$fixture/calls" >/dev/null
 grep -F "verify-release-image.sh VCS_REF=$new_revision $new_revision" "$fixture/calls" >/dev/null
-grep -F "backup-release.sh VCS_REF=$old_revision $fixture/home/backups/tfoms-time-auto" "$fixture/calls" >/dev/null
+grep -F "backup-release.sh VCS_REF=$old_revision $fixture/home/backups/hr-auto" "$fixture/calls" >/dev/null
 grep -F "deploy-release.sh VCS_REF=$new_revision" "$fixture/calls" >/dev/null
 
 if grep -q 'DOCKERHUB' .github/workflows/ci.yml; then

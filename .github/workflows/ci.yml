@@ -20,15 +20,15 @@ jobs:
       postgres:
         image: postgres:18.1-alpine
         env:
-          POSTGRES_DB: tfoms_time_test
-          POSTGRES_USER: tfoms_time
-          POSTGRES_PASSWORD: tfoms_time
+          POSTGRES_DB: hr_test
+          POSTGRES_USER: hr
+          POSTGRES_PASSWORD: hr
         ports: ["5432:5432"]
         options: >-
-          --health-cmd "pg_isready -U tfoms_time -d tfoms_time_test"
+          --health-cmd "pg_isready -U hr -d hr_test"
           --health-interval 5s --health-timeout 3s --health-retries 20
     env:
-      DATABASE_URL: postgres://tfoms_time:tfoms_time@127.0.0.1:5432/tfoms_time_test
+      DATABASE_URL: postgres://hr:hr@127.0.0.1:5432/hr_test
       SESSION_COOKIE_SECURE: "false"
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -54,7 +54,7 @@ jobs:
         run: docker compose config --quiet
         env:
           POSTGRES_PASSWORD: ci-only-database-password
-          CONTAINER_DATABASE_URL: postgres://tfoms_time:ci-only-database-password@db:5432/tfoms_time
+          CONTAINER_DATABASE_URL: postgres://hr:ci-only-database-password@db:5432/hr
           VCS_REF: ${{ github.sha }}
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
@@ -75,7 +75,7 @@ jobs:
           load: true
           push: false
           build-args: VCS_REF=${{ github.sha }}
-          tags: tfoms-time:${{ github.sha }}
+          tags: hr:${{ github.sha }}
       - name: Build migrator image
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
@@ -84,7 +84,7 @@ jobs:
           load: true
           push: false
           build-args: VCS_REF=${{ github.sha }}
-          tags: tfoms-time-migrator:${{ github.sha }}
+          tags: hr-migrator:${{ github.sha }}
       - name: Verify release images
         env:
           CONTAINER_ENGINE: docker
