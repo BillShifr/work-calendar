@@ -4,7 +4,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./tests/e2e",
-  outputDir: join(tmpdir(), "tfoms-time-playwright"),
+  outputDir: join(tmpdir(), "hr-playwright"),
   fullyParallel: false,
   workers: 1,
   retries: process.env.CI ? 1 : 0,

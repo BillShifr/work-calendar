@@ -12,7 +12,7 @@ export default async function LoginPage({
   return (
     <main className={styles.page}>
       <section className={styles.intro}>
-        <div className={styles.logo}>TFOMS Time</div>
+        <div className={styles.logo}>HR</div>
         <div>
           <h1>Учёт рабочего времени</h1>
           <p>Внеурочное время и планирование отпусков</p>

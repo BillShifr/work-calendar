@@ -13,7 +13,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
           <span className="brandMark" aria-hidden="true">
             T
           </span>
-          <span>TFOMS Time</span>
+          <span>HR</span>
         </Link>
         <AppNavigation isHr={isHr} canApprove={canApprove} />
         <div className="userBox">

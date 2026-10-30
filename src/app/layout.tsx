@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "@/styles/globals.css";
 
 export const metadata: Metadata = {
-  title: { default: "TFOMS Time", template: "%s · TFOMS Time" },
+  title: { default: "HR", template: "%s · HR" },
   description: "Учёт внеурочного времени и планирование отпусков ТФОМС",
 };
 

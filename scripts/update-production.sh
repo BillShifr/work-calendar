@@ -23,7 +23,7 @@ deploy_branch=${DEPLOY_BRANCH:-main}
 remote_name=${DEPLOY_REMOTE:-origin}
 repository=${GITHUB_REPOSITORY:-BillShifr/work-calendar}
 workflow_name=${CI_WORKFLOW_NAME:-CI}
-backup_root=${BACKUP_ROOT:-"$HOME/backups/tfoms-time-auto"}
+backup_root=${BACKUP_ROOT:-"$HOME/backups/hr-auto"}
 
 current_branch=$(git symbolic-ref --quiet --short HEAD || true)
 [ "$current_branch" = "$deploy_branch" ] || \

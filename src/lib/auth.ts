@@ -5,7 +5,7 @@ import { and, eq, gt, isNull } from "drizzle-orm";
 import { db } from "@/db/client";
 import { departments, sessions, users } from "@/db/schema";
 
-const COOKIE_NAME = "tfoms_time_session";
+const COOKIE_NAME = "hr_session";
 const SESSION_DAYS = 14;
 
 function tokenHash(token: string): string {
