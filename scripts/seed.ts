@@ -1,5 +1,6 @@
 import { hash } from "@node-rs/argon2";
 import postgres from "postgres";
+import { seedReferenceData } from "./lib/seed-reference-data";
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error("DATABASE_URL is required");
@@ -8,14 +9,20 @@ const password = process.env.INITIAL_ADMIN_PASSWORD ?? "Tfoms-Time-2026!";
 const employeePassword =
   process.env.INITIAL_EMPLOYEE_PASSWORD ?? "Employee-2026!";
 
-const [organization] =
-  await sql`INSERT INTO organizations(name) VALUES ('ТФОМС') ON CONFLICT DO NOTHING RETURNING id`;
-const [existingOrganization] = organization
-  ? [organization]
-  : await sql`SELECT id FROM organizations ORDER BY created_at LIMIT 1`;
-const orgId = existingOrganization.id;
-const [department] =
-  await sql`INSERT INTO departments(organization_id,name,headcount) VALUES (${orgId},'Информационные технологии',12) ON CONFLICT(organization_id,name) DO UPDATE SET headcount=EXCLUDED.headcount RETURNING id`;
+const { organizationId: orgId } = await seedReferenceData(sql);
+let [department] = await sql`
+  SELECT id FROM departments
+  WHERE organization_id=${orgId}
+    AND parent_id IS NULL
+    AND name='Информационные технологии'
+  LIMIT 1
+`;
+if (department)
+  [department] =
+    await sql`UPDATE departments SET headcount=12, is_active=true, updated_at=now() WHERE id=${department.id} RETURNING id`;
+else
+  [department] =
+    await sql`INSERT INTO departments(organization_id,name,headcount) VALUES (${orgId},'Информационные технологии',12) RETURNING id`;
 const [hrJobTitle] =
   await sql`INSERT INTO job_titles(organization_id,name) VALUES (${orgId},'Начальник отдела кадров') ON CONFLICT(organization_id,name) DO UPDATE SET is_active=true RETURNING id`;
 const [employeeJobTitle] =

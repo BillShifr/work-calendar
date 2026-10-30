@@ -5,7 +5,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-tfoms_time}
       POSTGRES_USER: ${POSTGRES_USER:-tfoms_time}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tfoms_time}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
     ports: ["127.0.0.1:${POSTGRES_PORT:-5434}:5432"]
     volumes: [postgres-data:/var/lib/postgresql/data]
     healthcheck:
@@ -17,20 +17,42 @@ services:
     security_opt: ["no-new-privileges:true"]
     networks: [tfoms-time]
   migrate:
-    build: { context: ., target: migrator }
+    image: ${MIGRATOR_IMAGE_REPOSITORY:-docker.io/billshifr/tfoms-time-migrator}:${VCS_REF:-local}
+    build:
+      context: .
+      target: migrator
+      args: { VCS_REF: "${VCS_REF:-local}" }
     command: ["npm", "run", "db:migrate"]
     environment:
       {
-        DATABASE_URL: "postgres://${POSTGRES_USER:-tfoms_time}:${POSTGRES_PASSWORD:-tfoms_time}@db:5432/${POSTGRES_DB:-tfoms_time}",
+        DATABASE_URL: "${CONTAINER_DATABASE_URL:?CONTAINER_DATABASE_URL is required}",
+        INITIAL_ADMIN_LOGIN: "${INITIAL_ADMIN_LOGIN:-}",
+        INITIAL_ADMIN_NAME: "${INITIAL_ADMIN_NAME:-}",
+        INITIAL_ADMIN_PASSWORD: "${INITIAL_ADMIN_PASSWORD:-}",
       }
     depends_on: { db: { condition: service_healthy } }
     profiles: ["ops"]
     networks: [tfoms-time]
-  app:
-    build: .
+  db-tools:
+    image: postgres:18.1-alpine
     environment:
-      DATABASE_URL: "postgres://${POSTGRES_USER:-tfoms_time}:${POSTGRES_PASSWORD:-tfoms_time}@db:5432/${POSTGRES_DB:-tfoms_time}"
-      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
+      PGHOST: db
+      PGDATABASE: ${POSTGRES_DB:-tfoms_time}
+      PGUSER: ${POSTGRES_USER:-tfoms_time}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    depends_on: { db: { condition: service_healthy } }
+    profiles: ["ops"]
+    networks: [tfoms-time]
+  app:
+    image: ${APP_IMAGE_REPOSITORY:-docker.io/billshifr/tfoms-time}:${VCS_REF:-local}
+    build:
+      context: .
+      target: runtime
+      args: { VCS_REF: "${VCS_REF:-local}" }
+    environment:
+      DATABASE_URL: "${CONTAINER_DATABASE_URL:?CONTAINER_DATABASE_URL is required}"
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
+      APP_ORIGIN: ${APP_ORIGIN:-https://time.tfoms}
     ports: ["127.0.0.1:${APP_PORT:-3080}:3000"]
     depends_on: { db: { condition: service_healthy } }
     healthcheck:

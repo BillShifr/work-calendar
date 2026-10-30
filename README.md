@@ -27,6 +27,22 @@ npm run db:seed
 npm run dev -- --port 3080
 ```
 
-Seed создаёт `employee / Employee-2026!`; пароль `hr` берётся из `INITIAL_ADMIN_PASSWORD` и должен быть сменён сразу после первого входа.
+Локальный seed создаёт только тестовые учётные записи `employee` и `hr`; он не используется в production. Пароль `hr` берётся из `INITIAL_ADMIN_PASSWORD`.
 
 Проверки: `npm run verify`, затем с отдельной тестовой БД `npm run test:integration` и `npm run test:e2e`.
+
+## Production
+
+Production-релиз собирается в два immutable-образа по полному Git SHA: web и migrator. После merge в `main` CI проверяет код, миграции, browser E2E, контейнеры и deployment bundle, затем передаёт релиз self-hosted runner с меткой `ofoms-production`.
+
+Справочники production заполняются отдельно от локальных тестовых данных:
+
+```sh
+npm run db:migrate
+npm run db:seed:reference
+npm run db:bootstrap-admin
+```
+
+`db:seed:reference` идемпотентно синхронизирует структуру подразделений и должности из утверждённого кадрового XLSX. `db:bootstrap-admin` создаёт первого кадрового администратора только в пустой организации и никогда не меняет пароль существующего пользователя.
+
+Порядок подготовки хоста, секретов, TLS, backup и восстановления описан в [`docs/OPERATIONS.md`](docs/OPERATIONS.md).

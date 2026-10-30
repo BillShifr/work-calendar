@@ -12,6 +12,7 @@ import {
   uuid,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 export const roleEnum = pgEnum("role", [
   "employee",
@@ -70,7 +71,12 @@ export const departments = pgTable(
     ...auditColumns,
   },
   (table) => [
-    uniqueIndex("departments_org_name_uq").on(table.organizationId, table.name),
+    uniqueIndex("departments_org_root_name_uq")
+      .on(table.organizationId, table.name)
+      .where(sql`${table.parentId} IS NULL`),
+    uniqueIndex("departments_org_parent_name_uq")
+      .on(table.organizationId, table.parentId, table.name)
+      .where(sql`${table.parentId} IS NOT NULL`),
   ],
 );
 

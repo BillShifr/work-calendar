@@ -42,10 +42,30 @@ export default async function HrDepartmentsPage() {
       ORDER BY full_name
     `),
   ]);
-  const departments = rows.map((row) => ({
-    ...row,
-    updatedAt: new Date(row.updatedAt).toISOString(),
-  }));
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  const pathFor = (row: DepartmentRow) => {
+    const parts = [row.name];
+    const visited = new Set([row.id]);
+    let parentId = row.parentId;
+    while (parentId) {
+      if (visited.has(parentId)) break;
+      visited.add(parentId);
+      const parent = byId.get(parentId);
+      if (!parent) break;
+      parts.unshift(parent.name);
+      parentId = parent.parentId;
+    }
+    return parts.join(" / ");
+  };
+  const departments = rows
+    .map((row) => ({
+      ...row,
+      displayName: pathFor(row),
+      updatedAt: new Date(row.updatedAt).toISOString(),
+    }))
+    .sort((left, right) =>
+      left.displayName.localeCompare(right.displayName, "ru"),
+    );
   return (
     <AppShell>
       <WorkforceNavigation />
@@ -56,7 +76,9 @@ export default async function HrDepartmentsPage() {
         </span>
       </header>
       <DepartmentRuleEditor
-        key={departments.map((department) => department.id).join(":")}
+        key={departments
+          .map((department) => `${department.id}:${department.updatedAt}`)
+          .join(":")}
         departments={departments}
         employees={employees}
       />
