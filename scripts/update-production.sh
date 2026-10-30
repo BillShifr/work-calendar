@@ -80,7 +80,7 @@ test "$(git rev-parse HEAD)" = "$target_revision" || fail "checkout did not reac
 
 export VCS_REF=$target_revision
 compose config >/dev/null
-compose build migrate app
+compose --profile ops build migrate app
 sh "$script_dir/verify-release-image.sh" "$target_revision"
 
 # Start only PostgreSQL for an online backup. The existing application remains
