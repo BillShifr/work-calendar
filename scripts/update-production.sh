@@ -83,9 +83,10 @@ compose config >/dev/null
 compose --profile ops build migrate app
 sh "$script_dir/verify-release-image.sh" "$target_revision"
 
-# Start only PostgreSQL for an online backup. The existing application remains
-# running on its previous image until all preflight checks and the backup pass.
-compose up -d --no-recreate db
+# Start only PostgreSQL for an online backup. Older podman-compose releases do
+# not implement --no-recreate correctly, so reuse the exact Compose service by
+# its project/service labels instead of asking the provider to recreate it.
+ensure_compose_service_running "${COMPOSE_PROJECT_NAME:-hr}" db
 attempt=0
 until compose --profile ops run --rm --no-deps -T db-tools pg_isready >/dev/null 2>&1; do
   attempt=$((attempt + 1))
