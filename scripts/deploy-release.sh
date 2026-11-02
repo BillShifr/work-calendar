@@ -38,9 +38,9 @@ done
 # Migrations and reference data run before replacing the current web process.
 # Every production migration must therefore remain backward-compatible with
 # the currently running application revision.
-compose --profile ops run --rm --no-deps migrate npm run db:migrate
-compose --profile ops run --rm --no-deps migrate npm run db:seed:reference
-compose --profile ops run --rm --no-deps migrate npm run db:bootstrap-admin
+compose --profile ops run --rm --no-deps -T migrate npm run db:migrate
+compose --profile ops run --rm --no-deps -T migrate npm run db:seed:reference
+compose --profile ops run --rm --no-deps -T migrate npm run db:bootstrap-admin
 compose up -d --no-build app
 
 app_port=${APP_PORT:-3080}

@@ -51,7 +51,8 @@ jobs:
       - name: Manual production deployment contracts
         run: |
           for test_script in tests/deploy/*.test.sh; do
-            sh "$test_script"
+            echo "Running $test_script"
+            sh "$test_script" || exit 1
           done
       - name: Compose configuration
         run: docker compose config --quiet

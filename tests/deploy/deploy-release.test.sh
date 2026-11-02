@@ -45,5 +45,7 @@ DEPLOY_PULL=false \
 
 grep -F "podman compose up -d --no-recreate db" "$fixture/calls" >/dev/null
 grep -F "podman compose --profile ops run --rm --no-deps -T migrate npm run db:migrate" "$fixture/calls" >/dev/null
+grep -F "podman compose --profile ops run --rm --no-deps -T migrate npm run db:seed:reference" "$fixture/calls" >/dev/null
+grep -F "podman compose --profile ops run --rm --no-deps -T migrate npm run db:bootstrap-admin" "$fixture/calls" >/dev/null
 grep -F "podman compose up -d --no-build app" "$fixture/calls" >/dev/null
 grep -F "VCS_REF=$revision" "$fixture/project/.env" >/dev/null
