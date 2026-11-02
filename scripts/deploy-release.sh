@@ -20,10 +20,10 @@ if [ "$pull_release" = true ]; then
 fi
 sh "$script_dir/verify-release-image.sh" "$expected_revision"
 
-# The database is deliberately reused across releases. podman-compose may try to
-# recreate an already running container and then collide with its deterministic
-# service name unless recreation is disabled explicitly.
-compose up -d --no-recreate db
+# The database is deliberately reused across releases. Older podman-compose
+# releases accept --no-recreate but still try to create a duplicate container,
+# so resolve and start the exact Compose service by labels instead.
+ensure_compose_service_running "${COMPOSE_PROJECT_NAME:-hr}" db
 attempt=0
 until compose --profile ops run --rm --no-deps -T db-tools pg_isready >/dev/null 2>&1; do
   attempt=$((attempt + 1))
@@ -41,7 +41,10 @@ done
 compose --profile ops run --rm --no-deps -T migrate npm run db:migrate
 compose --profile ops run --rm --no-deps -T migrate npm run db:seed:reference
 compose --profile ops run --rm --no-deps -T migrate npm run db:bootstrap-admin
-compose up -d --no-build app
+# The web container is stateless and must use the newly verified image. Replace
+# only the exact app service after migrations; --no-deps prevents legacy
+# podman-compose from touching the already running database dependency.
+replace_compose_service "${COMPOSE_PROJECT_NAME:-hr}" app --no-build
 
 app_port=${APP_PORT:-3080}
 attempt=0

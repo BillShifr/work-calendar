@@ -39,13 +39,17 @@ cat > "$fixture/bin/podman" <<'SH'
 set -eu
 printf 'podman %s\n' "$*" >> "$TEST_STATE/calls"
 case "$*" in
-  "compose up -d db")
-    echo "existing database container would be recreated" >&2
-    exit 125
-    ;;
   "compose build migrate app")
     echo "profiled service migrate is unavailable without --profile ops" >&2
     exit 1
+    ;;
+  "ps --all --filter label=com.docker.compose.project=hr --filter label=com.docker.compose.service=db --format {{.ID}}")
+    printf 'existing-db-id\n'
+    ;;
+  "inspect --format {{.State.Status}} existing-db-id") printf 'running\n' ;;
+  "compose up -d db")
+    echo "existing database container would be recreated" >&2
+    exit 125
     ;;
   *"to_regclass('public.schema_migrations')"*) printf 't\n' ;;
 esac
@@ -72,7 +76,12 @@ CONTAINER_ENGINE=podman \
 
 test -f "$fixture/merged"
 grep -F "podman compose --profile ops build migrate app" "$fixture/calls" >/dev/null
-grep -F "podman compose up -d --no-recreate db" "$fixture/calls" >/dev/null
+grep -F "podman ps --all --filter label=com.docker.compose.project=hr --filter label=com.docker.compose.service=db --format {{.ID}}" "$fixture/calls" >/dev/null
+grep -F "podman inspect --format {{.State.Status}} existing-db-id" "$fixture/calls" >/dev/null
+if grep -F "podman compose up -d db" "$fixture/calls" >/dev/null; then
+  echo "existing database service must not be recreated" >&2
+  exit 1
+fi
 grep -F "verify-release-image.sh VCS_REF=$new_revision $new_revision" "$fixture/calls" >/dev/null
 grep -F "backup-release.sh VCS_REF=$old_revision $fixture/home/backups/hr-auto" "$fixture/calls" >/dev/null
 grep -F "deploy-release.sh VCS_REF=$new_revision" "$fixture/calls" >/dev/null

@@ -15,6 +15,13 @@ cat > "$fixture/bin/podman" <<'SH'
 set -eu
 printf 'podman %s\n' "$*" >> "$TEST_STATE/calls"
 case "$*" in
+  "ps --all --filter label=com.docker.compose.project=hr --filter label=com.docker.compose.service=db --format {{.ID}}")
+    printf 'existing-db-id\n'
+    ;;
+  "inspect --format {{.State.Status}} existing-db-id") printf 'running\n' ;;
+  "ps --all --filter label=com.docker.compose.project=hr --filter label=com.docker.compose.service=app --format {{.ID}}")
+    printf 'existing-app-id\n'
+    ;;
   "compose up -d db")
     echo 'existing database container would be recreated' >&2
     exit 125
@@ -43,9 +50,15 @@ VCS_REF="$revision" \
 DEPLOY_PULL=false \
   sh "$fixture/project/scripts/deploy-release.sh"
 
-grep -F "podman compose up -d --no-recreate db" "$fixture/calls" >/dev/null
+grep -F "podman inspect --format {{.State.Status}} existing-db-id" "$fixture/calls" >/dev/null
+if grep -F "podman compose up -d db" "$fixture/calls" >/dev/null; then
+  echo "existing database service must not be recreated" >&2
+  exit 1
+fi
 grep -F "podman compose --profile ops run --rm --no-deps -T migrate npm run db:migrate" "$fixture/calls" >/dev/null
 grep -F "podman compose --profile ops run --rm --no-deps -T migrate npm run db:seed:reference" "$fixture/calls" >/dev/null
 grep -F "podman compose --profile ops run --rm --no-deps -T migrate npm run db:bootstrap-admin" "$fixture/calls" >/dev/null
-grep -F "podman compose up -d --no-build app" "$fixture/calls" >/dev/null
+grep -F "podman stop existing-app-id" "$fixture/calls" >/dev/null
+grep -F "podman rm existing-app-id" "$fixture/calls" >/dev/null
+grep -F "podman compose up -d --no-deps --no-build app" "$fixture/calls" >/dev/null
 grep -F "VCS_REF=$revision" "$fixture/project/.env" >/dev/null
