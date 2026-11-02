@@ -85,7 +85,7 @@ sh "$script_dir/verify-release-image.sh" "$target_revision"
 
 # Start only PostgreSQL for an online backup. The existing application remains
 # running on its previous image until all preflight checks and the backup pass.
-compose up -d db
+compose up -d --no-recreate db
 attempt=0
 until compose --profile ops run --rm --no-deps -T db-tools pg_isready >/dev/null 2>&1; do
   attempt=$((attempt + 1))

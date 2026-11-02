@@ -21,6 +21,51 @@ async function setEntryWindow(
   expect(response.ok()).toBe(true);
 }
 
+const overtimeMonths = [
+  "Январь",
+  "Февраль",
+  "Март",
+  "Апрель",
+  "Май",
+  "Июнь",
+  "Июль",
+  "Август",
+  "Сентябрь",
+  "Октябрь",
+  "Ноябрь",
+  "Декабрь",
+];
+
+async function goToOvertimePeriod(page: Page, year: number, month: number) {
+  const periodLabel = page
+    .getByLabel("Действия с отчётом")
+    .locator("strong")
+    .first();
+
+  for (let attempt = 0; attempt < 48; attempt += 1) {
+    const currentLabel = (await periodLabel.textContent())?.trim() ?? "";
+    const match = /^(\S+)\s+(\d{4})$/.exec(currentLabel);
+    const currentMonth = match ? overtimeMonths.indexOf(match[1]) + 1 : 0;
+    const currentYear = match ? Number(match[2]) : 0;
+    expect(
+      currentMonth,
+      `Не удалось распознать период: ${currentLabel}`,
+    ).toBeGreaterThan(0);
+
+    const delta = (year - currentYear) * 12 + month - currentMonth;
+    if (delta === 0) return;
+
+    await page
+      .getByRole("button", {
+        name: delta < 0 ? "Предыдущий месяц" : "Следующий месяц",
+      })
+      .click();
+    await expect(periodLabel).not.toHaveText(currentLabel);
+  }
+
+  throw new Error(`Не удалось открыть период ${month}.${year}`);
+}
+
 test("employee and HR complete a bilateral vacation approval", async ({
   page,
 }, testInfo) => {
@@ -37,6 +82,7 @@ test("employee and HR complete a bilateral vacation approval", async ({
   await expect(
     page.getByRole("heading", { name: "Внеурочное время" }),
   ).toBeVisible();
+  await goToOvertimePeriod(page, 2026, 10);
   const availableDay = page
     .locator('button[aria-label*="не заполнено"]:not([disabled])')
     .first();
@@ -217,6 +263,7 @@ test("employee and HR complete a bilateral vacation approval", async ({
 
   await page.getByRole("button", { name: "Выйти" }).click();
   await login(page, "employee", "Employee-2026!");
+  await goToOvertimePeriod(page, 2026, 10);
   await expect(
     page.getByText("Кадровая служба предложила корректировку"),
   ).toBeVisible();
@@ -290,7 +337,20 @@ test("employee and HR complete a bilateral vacation approval", async ({
   const reopenedQuarter = page
     .locator("article")
     .filter({ hasText: "4 квартал" });
-  await expect(reopenedQuarter).toContainText("6 из 9 отчётов");
+  const [assignmentYear, assignmentMonth] = new Date()
+    .toISOString()
+    .slice(0, 7)
+    .split("-")
+    .map(Number);
+  const assignedQuarterMonths =
+    assignmentYear < 2026
+      ? 3
+      : assignmentYear === 2026
+        ? Math.max(0, 13 - Math.max(10, assignmentMonth))
+        : 0;
+  await expect(reopenedQuarter).toContainText(
+    `6 из ${6 + assignedQuarterMonths} отчётов`,
+  );
   await expect(
     reopenedQuarter.getByRole("button", { name: "Согласовано" }),
   ).toBeDisabled();
@@ -307,7 +367,7 @@ test("monthly overtime calendar remains usable on mobile", async ({
   await expect(
     page.getByRole("heading", { name: "Внеурочное время" }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Предыдущий месяц" }).click();
+  await goToOvertimePeriod(page, 2026, 9);
   const day = page.locator('button[data-calendar-day="1"]');
   await expect(day).toBeVisible();
   await expect
