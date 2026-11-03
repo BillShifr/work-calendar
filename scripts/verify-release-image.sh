@@ -15,6 +15,11 @@ for image in "$app_image" "$migrator_image"; do
   test "$actual_revision" = "$expected_revision"
 done
 
+runtime_hostname=$(container_engine image inspect \
+  --format '{{range .Config.Env}}{{println .}}{{end}}' "$app_image" |
+  sed -n 's/^HOSTNAME=//p')
+test "$runtime_hostname" = 0.0.0.0
+
 container_engine run --rm --network none --read-only --tmpfs /tmp:size=64m \
   --cap-drop ALL --security-opt no-new-privileges "$app_image" sh -c '
     test ! -e /app/.git
