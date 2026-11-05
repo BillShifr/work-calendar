@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { and, eq, gt, isNull } from "drizzle-orm";
 import { db } from "@/db/client";
 import { departments, sessions, users } from "@/db/schema";
+import { sessionCookieSecure } from "@/lib/origin";
 
 const COOKIE_NAME = "hr_session";
 const SESSION_DAYS = 14;
@@ -22,7 +23,7 @@ export async function createSession(userId: string): Promise<void> {
   store.set(COOKIE_NAME, token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.SESSION_COOKIE_SECURE === "true",
+    secure: sessionCookieSecure(process.env.APP_ORIGIN),
     expires: expiresAt,
     path: "/",
   });

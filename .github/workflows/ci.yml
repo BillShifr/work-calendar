@@ -29,7 +29,7 @@ jobs:
           --health-interval 5s --health-timeout 3s --health-retries 20
     env:
       DATABASE_URL: postgres://hr:hr@127.0.0.1:5432/hr_test
-      SESSION_COOKIE_SECURE: "false"
+      APP_ORIGIN: http://127.0.0.1:3081
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
