@@ -39,10 +39,6 @@ cat > "$fixture/bin/podman" <<'SH'
 set -eu
 printf 'podman %s\n' "$*" >> "$TEST_STATE/calls"
 case "$*" in
-  "compose build migrate app")
-    echo "profiled service migrate is unavailable without --profile ops" >&2
-    exit 1
-    ;;
   "ps --all --filter label=com.docker.compose.project=hr --filter label=com.docker.compose.service=db --format {{.ID}}")
     printf 'existing-db-id\n'
     ;;
@@ -75,7 +71,15 @@ CONTAINER_ENGINE=podman \
   sh "$fixture/project/scripts/update-production.sh"
 
 test -f "$fixture/merged"
-grep -F "podman compose --profile ops build migrate app" "$fixture/calls" >/dev/null
+expected_builds=$(printf '%s\n%s\n' \
+  "podman build --target migrator --build-arg VCS_REF=$new_revision --tag hr-migrator:$new_revision ." \
+  "podman build --target runtime --build-arg VCS_REF=$new_revision --tag hr:$new_revision .")
+actual_builds=$(grep '^podman build ' "$fixture/calls")
+test "$actual_builds" = "$expected_builds"
+if grep -F "podman compose --profile ops build migrate app" "$fixture/calls" >/dev/null; then
+  echo "release images must not be built concurrently through podman-compose" >&2
+  exit 1
+fi
 grep -F "podman ps --all --filter label=com.docker.compose.project=hr --filter label=com.docker.compose.service=db --format {{.ID}}" "$fixture/calls" >/dev/null
 grep -F "podman inspect --format {{.State.Status}} existing-db-id" "$fixture/calls" >/dev/null
 if grep -F "podman compose up -d db" "$fixture/calls" >/dev/null; then

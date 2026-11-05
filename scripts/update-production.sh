@@ -80,7 +80,20 @@ test "$(git rev-parse HEAD)" = "$target_revision" || fail "checkout did not reac
 
 export VCS_REF=$target_revision
 compose config >/dev/null
-compose --profile ops build migrate app
+# Build each release target in its own engine invocation. Older podman-compose
+# providers can build targets from the same Dockerfile concurrently and leave a
+# newly tagged migrator pointing at a cached image from the previous revision.
+# Direct, serialized builds match the CI contract and make each tag unambiguous.
+container_engine build \
+  --target migrator \
+  --build-arg "VCS_REF=$target_revision" \
+  --tag "${MIGRATOR_IMAGE_REPOSITORY:-hr-migrator}:$target_revision" \
+  .
+container_engine build \
+  --target runtime \
+  --build-arg "VCS_REF=$target_revision" \
+  --tag "${APP_IMAGE_REPOSITORY:-hr}:$target_revision" \
+  .
 sh "$script_dir/verify-release-image.sh" "$target_revision"
 
 # Start only PostgreSQL for an online backup. Older podman-compose releases do
