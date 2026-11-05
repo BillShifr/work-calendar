@@ -16,7 +16,7 @@ run_serialized_operation() {
 
   status=0
   TFOMS_SERIALIZED_OPERATION_TOKEN=$token \
-    flock --close --nonblock --conflict-exit-code 200 "$lock_file" "$@" || status=$?
+    flock --close --nonblock --conflict-exit-code 200 "$lock_file" sh "$@" || status=$?
   if [ "$status" -eq 200 ]; then
     echo >&2 "Another backup or restore operation is already running"
     exit 1
