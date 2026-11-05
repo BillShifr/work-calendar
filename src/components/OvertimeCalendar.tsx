@@ -2,12 +2,26 @@
 
 import { useMemo, useState } from "react";
 import {
+  ChevronLeft,
+  ChevronRight,
+  Clock3,
+  Eraser,
+  Save,
+  Send,
+} from "lucide-react";
+import {
   addOvertimeMinutes,
   daysInMonth,
   MAX_OVERTIME_MINUTES_PER_DAY,
   OVERTIME_MINUTES,
 } from "@/domain/overtime";
-import { ToggleControl } from "./FormControls";
+import {
+  ActionButton,
+  IconButton,
+  SubmissionFlight,
+  ToggleControl,
+  type FlightState,
+} from "./FormControls";
 import styles from "./OvertimeCalendar.module.css";
 
 const months = [
@@ -68,6 +82,7 @@ export function OvertimeCalendar({
   const [entryWindowOpen, setEntryWindowOpen] = useState(
     initial.entryWindowOpen ?? true,
   );
+  const [flight, setFlight] = useState<FlightState>(null);
   const canEdit =
     (mode === "hr" &&
       ["submitted", "reopened", "hr_proposed"].includes(status)) ||
@@ -208,6 +223,14 @@ export function OvertimeCalendar({
           : "Предложение кадровика утверждено"
         : "Отправлено на согласование",
     );
+    if (to === "submitted") {
+      const button = document.querySelector<HTMLElement>(
+        "[data-overtime-submit]",
+      );
+      const box = button?.getBoundingClientRect();
+      if (box)
+        setFlight({ id: Date.now(), x: box.left + box.width / 2, y: box.top });
+    }
   }
   async function saveAndSubmit() {
     if (await save()) await transition("submitted");
@@ -237,20 +260,21 @@ export function OvertimeCalendar({
       <div className={styles.commandBar} aria-label="Действия с отчётом">
         <div className={styles.monthControl}>
           {mode === "employee" && (
-            <button
+            <IconButton
+              icon={ChevronLeft}
+              label="Предыдущий месяц"
               onClick={() => changeMonth(-1)}
-              aria-label="Предыдущий месяц"
-            >
-              ←
-            </button>
+            />
           )}
           <strong>
             {months[period.month - 1]} {period.year}
           </strong>
           {mode === "employee" && (
-            <button onClick={() => changeMonth(1)} aria-label="Следующий месяц">
-              →
-            </button>
+            <IconButton
+              icon={ChevronRight}
+              label="Следующий месяц"
+              onClick={() => changeMonth(1)}
+            />
           )}
         </div>
         <div className={styles.summary}>
@@ -289,19 +313,21 @@ export function OvertimeCalendar({
           )}
           {mode === "employee" && ["draft", "reopened"].includes(status) && (
             <>
-              <button
-                className="secondaryButton"
+              <ActionButton
                 disabled={
                   saving ||
                   !entryWindowOpen ||
                   (!Object.keys(entries).length && !zeroConfirmed)
                 }
                 onClick={save}
+                icon={Save}
               >
                 Сохранить черновик
-              </button>
-              <button
-                className="primaryButton"
+              </ActionButton>
+              <ActionButton
+                data-overtime-submit
+                variant="primary"
+                icon={Send}
                 disabled={
                   saving ||
                   !entryWindowOpen ||
@@ -310,7 +336,7 @@ export function OvertimeCalendar({
                 onClick={saveAndSubmit}
               >
                 Отправить на согласование
-              </button>
+              </ActionButton>
             </>
           )}
           {mode === "employee" &&
@@ -353,7 +379,10 @@ export function OvertimeCalendar({
 
       <div className={styles.editor} aria-live="polite">
         <div className={styles.selectedDate}>
-          <span>{canEdit ? "Выбранный день" : "Просмотр"}</span>
+          <span>
+            <Clock3 aria-hidden="true" size={17} />{" "}
+            {canEdit ? "Выбранный день" : "Просмотр"}
+          </span>
           <strong>
             {selected
               ? `${Number(selected.slice(-2))} ${months[period.month - 1].toLowerCase()}`
@@ -376,19 +405,22 @@ export function OvertimeCalendar({
                   MAX_OVERTIME_MINUTES_PER_DAY
               }
               aria-label={`Добавить ${minutes === 60 ? "1 час" : `${minutes} минут`}`}
+              title="Можно нажать несколько раз"
               onClick={() => chooseMinutes(minutes)}
             >
-              +{minutes === 60 ? "1 час" : `${minutes} мин`}
+              <span>+</span>
+              {minutes === 60 ? "1 час" : `${minutes} мин`}
             </button>
           ))}
         </div>
-        <button
-          className={styles.clear}
+        <ActionButton
+          variant="quiet"
+          icon={Eraser}
           disabled={!selected || !entries[selected] || !canEdit}
           onClick={clearSelected}
         >
           Очистить
-        </button>
+        </ActionButton>
         <div className={styles.zero}>
           <ToggleControl
             label="Внеурочного времени не было"
@@ -412,10 +444,10 @@ export function OvertimeCalendar({
 
       <div className={styles.legend} aria-label="Обозначения">
         <span>
-          <i className={styles.dot} /> Сотрудник
+          <i className={styles.dot} /> Внесено сотрудником
         </span>
         <span>
-          <i className={`${styles.dot} ${styles.dotHr}`} /> HR
+          <i className={`${styles.dot} ${styles.dotHr}`} /> Правка кадровика
         </span>
         <span>
           <i className={`${styles.dot} ${styles.dotApproved}`} /> Утверждено
@@ -477,6 +509,7 @@ export function OvertimeCalendar({
           )}
         </div>
       </div>
+      <SubmissionFlight flight={flight} onComplete={() => setFlight(null)} />
     </section>
   );
 }

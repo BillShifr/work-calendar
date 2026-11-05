@@ -5,8 +5,8 @@
 .commandBar {
   display: flex;
   align-items: end;
-  gap: 32px;
-  padding: 20px 24px;
+  gap: 20px;
+  padding: 16px 18px;
   border: 1px solid var(--border-strong);
   background: var(--surface);
 }
@@ -40,8 +40,6 @@
 }
 .yearControl a {
   color: var(--primary);
-  font-size: 22px;
-  font-weight: 850;
 }
 .yearControl a:hover {
   background: var(--primary-soft);
@@ -101,37 +99,15 @@
   color: var(--text);
 }
 .roleChoice {
+  display: grid;
+  align-content: start;
+  gap: 8px;
   min-width: 0;
-  margin: 0;
-  padding: 0;
-  border: 0;
 }
-.roleChoice legend {
-  margin-bottom: 8px;
+.roleChoice > span {
   color: var(--text-muted);
   font-size: var(--text-sm);
   font-weight: 750;
-}
-.roleChoice > div {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  min-height: var(--control-height);
-  border: 1px solid var(--border-strong);
-}
-.roleChoice button {
-  border: 0;
-  background: var(--surface);
-  color: var(--text-muted);
-  cursor: pointer;
-  font-weight: 750;
-  font-size: var(--text-base);
-}
-.roleChoice button + button {
-  border-left: 1px solid var(--border-strong);
-}
-.roleChoice button[aria-pressed="true"] {
-  background: var(--primary-soft);
-  color: var(--primary-strong);
 }
 .toggleField {
   min-height: var(--control-height);
@@ -149,8 +125,16 @@
   border: 1px solid var(--border-strong);
   background: var(--surface);
 }
+.filters {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) minmax(240px, 0.7fr) auto;
+  align-items: center;
+  gap: 10px;
+}
 .employee {
   border-bottom: 1px solid var(--border);
+  content-visibility: auto;
+  contain-intrinsic-size: 76px;
 }
 .employee:last-child {
   border-bottom: 0;
@@ -162,8 +146,8 @@
     130px 110px auto;
   gap: 24px;
   align-items: center;
-  min-height: 96px;
-  padding: 18px 20px;
+  min-height: 76px;
+  padding: 12px 16px;
 }
 .identity,
 .assignment,
@@ -210,6 +194,12 @@
   .employeeSummary {
     grid-template-columns: 1fr 1fr auto;
   }
+  .filters {
+    grid-template-columns: 1fr 1fr;
+  }
+  .filters > :last-child {
+    grid-column: 1 / -1;
+  }
 }
 @media (max-width: 700px) {
   .commandBar,
@@ -219,8 +209,12 @@
   }
   .bulkAllowance,
   .formGrid,
-  .employeeSummary {
+  .employeeSummary,
+  .filters {
     grid-template-columns: 1fr;
+  }
+  .filters > :last-child {
+    grid-column: auto;
   }
   .employeeSummary {
     gap: 12px;

@@ -1,8 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useDeferredValue, useState } from "react";
 import { useRouter } from "next/navigation";
-import { NumberControl, SelectControl, ToggleControl } from "./FormControls";
+import { Building2, Pencil, Plus, Save, X } from "lucide-react";
+import {
+  ActionButton,
+  NumberControl,
+  SearchControl,
+  SelectControl,
+  ToggleControl,
+} from "./FormControls";
 import styles from "./DepartmentRuleEditor.module.css";
 
 type Department = {
@@ -44,6 +51,9 @@ export function DepartmentRuleEditor({
   const [savingId, setSavingId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Record<string, string>>({});
   const [creating, setCreating] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
   const [newDepartment, setNewDepartment] = useState({
     name: "",
     headcount: "",
@@ -51,6 +61,13 @@ export function DepartmentRuleEditor({
     headUserId: "",
     approverUserId: "",
   });
+  const deferredQuery = useDeferredValue(query);
+  const normalizedQuery = deferredQuery.trim().toLocaleLowerCase("ru");
+  const visibleDepartments = departments.filter((department) =>
+    `${department.displayName} ${department.assignedCount}`
+      .toLocaleLowerCase("ru")
+      .includes(normalizedQuery),
+  );
 
   function change(
     id: string,
@@ -128,232 +145,273 @@ export function DepartmentRuleEditor({
       approverUserId: "",
     });
     setMessages((current) => ({ ...current, create: "Подразделение создано" }));
+    setShowCreate(false);
     router.refresh();
   }
 
   return (
     <div className={styles.list}>
-      <section className={styles.create}>
-        <h2>Новое подразделение</h2>
-        <label>
-          Название
-          <input
-            value={newDepartment.name}
-            onChange={(event) =>
-              setNewDepartment({ ...newDepartment, name: event.target.value })
-            }
-          />
-        </label>
-        <label>
-          Штат
-          <NumberControl
-            label="Штат"
-            value={newDepartment.headcount}
-            onChange={(value) =>
-              setNewDepartment({
-                ...newDepartment,
-                headcount: value,
-              })
-            }
-          />
-        </label>
-        <label>
-          Вышестоящее подразделение
-          <SelectControl
-            label="Вышестоящее подразделение"
-            value={newDepartment.parentId}
-            onChange={(event) =>
-              setNewDepartment({
-                ...newDepartment,
-                parentId: event.target.value,
-              })
-            }
-          >
-            <option value="">Нет</option>
-            {departments.map((department) => (
-              <option value={department.id} key={department.id}>
-                {department.displayName}
-              </option>
-            ))}
-          </SelectControl>
-        </label>
-        <label>
-          Руководитель
-          <SelectControl
-            label="Руководитель нового подразделения"
-            value={newDepartment.headUserId}
-            onChange={(event) => {
-              const headUserId = event.target.value;
-              setNewDepartment({
-                ...newDepartment,
-                headUserId,
-                approverUserId: newDepartment.approverUserId || headUserId,
-              });
-            }}
-          >
-            <option value="">Не назначен</option>
-            {employees.map((employee) => (
-              <option value={employee.id} key={employee.id}>
-                {employee.fullName}
-              </option>
-            ))}
-          </SelectControl>
-        </label>
-        <label>
-          Согласующий
-          <SelectControl
-            label="Согласующий нового подразделения"
-            value={newDepartment.approverUserId}
-            onChange={(event) =>
-              setNewDepartment({
-                ...newDepartment,
-                approverUserId: event.target.value,
-              })
-            }
-          >
-            <option value="">Руководитель подразделения</option>
-            {employees.map((employee) => (
-              <option value={employee.id} key={employee.id}>
-                {employee.fullName}
-              </option>
-            ))}
-          </SelectControl>
-        </label>
-        <button
-          className="primaryButton"
-          disabled={creating || !newDepartment.name || !newDepartment.headcount}
-          onClick={createDepartment}
+      <div className={styles.toolbar}>
+        <SearchControl
+          value={query}
+          onChange={setQuery}
+          placeholder="Поиск подразделения"
+        />
+        <span>
+          {visibleDepartments.length} из {departments.length}
+        </span>
+        <ActionButton
+          variant="primary"
+          icon={Plus}
+          onClick={() => setShowCreate((value) => !value)}
         >
-          Создать
-        </button>
-        <span role="status">{messages.create}</span>
-      </section>
+          {showCreate ? "Закрыть форму" : "Добавить подразделение"}
+        </ActionButton>
+      </div>
+      {showCreate ? (
+        <section className={styles.create}>
+          <h2>Новое подразделение</h2>
+          <label>
+            Название
+            <input
+              value={newDepartment.name}
+              onChange={(event) =>
+                setNewDepartment({ ...newDepartment, name: event.target.value })
+              }
+            />
+          </label>
+          <label>
+            Штат
+            <NumberControl
+              label="Штат"
+              value={newDepartment.headcount}
+              onChange={(value) =>
+                setNewDepartment({
+                  ...newDepartment,
+                  headcount: value,
+                })
+              }
+            />
+          </label>
+          <label>
+            Вышестоящее подразделение
+            <SelectControl
+              label="Вышестоящее подразделение"
+              value={newDepartment.parentId}
+              onChange={(event) =>
+                setNewDepartment({
+                  ...newDepartment,
+                  parentId: event.target.value,
+                })
+              }
+            >
+              <option value="">Нет</option>
+              {departments.map((department) => (
+                <option value={department.id} key={department.id}>
+                  {department.displayName}
+                </option>
+              ))}
+            </SelectControl>
+          </label>
+          <label>
+            Руководитель
+            <SelectControl
+              label="Руководитель нового подразделения"
+              value={newDepartment.headUserId}
+              onChange={(event) => {
+                const headUserId = event.target.value;
+                setNewDepartment({
+                  ...newDepartment,
+                  headUserId,
+                  approverUserId: newDepartment.approverUserId || headUserId,
+                });
+              }}
+            >
+              <option value="">Не назначен</option>
+              {employees.map((employee) => (
+                <option value={employee.id} key={employee.id}>
+                  {employee.fullName}
+                </option>
+              ))}
+            </SelectControl>
+          </label>
+          <label>
+            Согласующий
+            <SelectControl
+              label="Согласующий нового подразделения"
+              value={newDepartment.approverUserId}
+              onChange={(event) =>
+                setNewDepartment({
+                  ...newDepartment,
+                  approverUserId: event.target.value,
+                })
+              }
+            >
+              <option value="">Руководитель подразделения</option>
+              {employees.map((employee) => (
+                <option value={employee.id} key={employee.id}>
+                  {employee.fullName}
+                </option>
+              ))}
+            </SelectControl>
+          </label>
+          <ActionButton
+            variant="primary"
+            icon={Plus}
+            disabled={
+              creating || !newDepartment.name || !newDepartment.headcount
+            }
+            onClick={createDepartment}
+          >
+            Создать
+          </ActionButton>
+          <span role="status">{messages.create}</span>
+        </section>
+      ) : null}
 
-      {departments.map((department) => {
+      {visibleDepartments.map((department) => {
         const draft = drafts[department.id];
+        const editing = editingId === department.id;
         return (
           <article className={`card ${styles.department}`} key={department.id}>
             <div className={styles.heading}>
+              <Building2 aria-hidden="true" size={21} />
               <div>
-                <p className="eyebrow">
-                  {draft.isActive ? "Активно" : "Отключено"} ·{" "}
-                  {department.assignedCount} сотрудников
-                </p>
                 <h2>{draft.name}</h2>
+                <p>
+                  {department.displayName} · {department.assignedCount}{" "}
+                  сотрудников · штат {draft.headcount}
+                </p>
               </div>
               <span role="status">{messages[department.id]}</span>
-            </div>
-            <div className={styles.fields}>
-              <label>
-                Название
-                <input
-                  value={draft.name}
-                  onChange={(event) =>
-                    change(department.id, "name", event.target.value)
-                  }
-                />
-              </label>
-              <label>
-                Штатная численность
-                <NumberControl
-                  label={`Штатная численность: ${department.name}`}
-                  value={draft.headcount}
-                  onChange={(value) =>
-                    change(department.id, "headcount", value)
-                  }
-                />
-              </label>
-              <label>
-                Вышестоящее подразделение
-                <SelectControl
-                  label={`Вышестоящее подразделение: ${department.name}`}
-                  value={draft.parentId}
-                  onChange={(event) =>
-                    change(department.id, "parentId", event.target.value)
-                  }
-                >
-                  <option value="">Нет</option>
-                  {departments
-                    .filter((item) => item.id !== department.id)
-                    .map((item) => (
-                      <option value={item.id} key={item.id}>
-                        {item.displayName}
-                      </option>
-                    ))}
-                </SelectControl>
-              </label>
-              <label>
-                Руководитель
-                <SelectControl
-                  label={`Руководитель: ${department.name}`}
-                  value={draft.headUserId}
-                  onChange={(event) => {
-                    const headUserId = event.target.value;
-                    setDrafts((current) => ({
-                      ...current,
-                      [department.id]: {
-                        ...current[department.id],
-                        headUserId,
-                        approverUserId:
-                          current[department.id].approverUserId || headUserId,
-                      },
-                    }));
-                  }}
-                >
-                  <option value="">Не назначен</option>
-                  {employees.map((employee) => (
-                    <option value={employee.id} key={employee.id}>
-                      {employee.fullName}
-                    </option>
-                  ))}
-                </SelectControl>
-              </label>
-              <label>
-                Согласующий
-                <SelectControl
-                  label={`Согласующий: ${department.name}`}
-                  value={draft.approverUserId}
-                  onChange={(event) =>
-                    change(department.id, "approverUserId", event.target.value)
-                  }
-                >
-                  <option value="">Руководитель подразделения</option>
-                  {employees.map((employee) => (
-                    <option value={employee.id} key={employee.id}>
-                      {employee.fullName}
-                    </option>
-                  ))}
-                </SelectControl>
-              </label>
-            </div>
-            <div className={styles.footer}>
-              <div className={styles.active}>
-                <ToggleControl
-                  label="Подразделение активно"
-                  checked={draft.isActive}
-                  onChange={(checked) => {
-                    setDrafts((current) => ({
-                      ...current,
-                      [department.id]: {
-                        ...current[department.id],
-                        isActive: checked,
-                      },
-                    }));
-                    setMessages((current) => ({
-                      ...current,
-                      [department.id]: "Есть несохранённые изменения",
-                    }));
-                  }}
-                />
-              </div>
-              <button
-                className="primaryButton"
-                disabled={savingId === department.id || !draft.headcount}
-                onClick={() => save(department)}
+              <ActionButton
+                icon={editing ? X : Pencil}
+                onClick={() => setEditingId(editing ? null : department.id)}
               >
-                Сохранить
-              </button>
+                {editing ? "Закрыть" : "Редактировать"}
+              </ActionButton>
             </div>
+            {editing ? (
+              <>
+                <div className={styles.fields}>
+                  <label>
+                    Название
+                    <input
+                      value={draft.name}
+                      onChange={(event) =>
+                        change(department.id, "name", event.target.value)
+                      }
+                    />
+                  </label>
+                  <label>
+                    Штатная численность
+                    <NumberControl
+                      label={`Штатная численность: ${department.name}`}
+                      value={draft.headcount}
+                      onChange={(value) =>
+                        change(department.id, "headcount", value)
+                      }
+                    />
+                  </label>
+                  <label>
+                    Вышестоящее подразделение
+                    <SelectControl
+                      label={`Вышестоящее подразделение: ${department.name}`}
+                      value={draft.parentId}
+                      onChange={(event) =>
+                        change(department.id, "parentId", event.target.value)
+                      }
+                    >
+                      <option value="">Нет</option>
+                      {departments
+                        .filter((item) => item.id !== department.id)
+                        .map((item) => (
+                          <option value={item.id} key={item.id}>
+                            {item.displayName}
+                          </option>
+                        ))}
+                    </SelectControl>
+                  </label>
+                  <label>
+                    Руководитель
+                    <SelectControl
+                      label={`Руководитель: ${department.name}`}
+                      value={draft.headUserId}
+                      onChange={(event) => {
+                        const headUserId = event.target.value;
+                        setDrafts((current) => ({
+                          ...current,
+                          [department.id]: {
+                            ...current[department.id],
+                            headUserId,
+                            approverUserId:
+                              current[department.id].approverUserId ||
+                              headUserId,
+                          },
+                        }));
+                      }}
+                    >
+                      <option value="">Не назначен</option>
+                      {employees.map((employee) => (
+                        <option value={employee.id} key={employee.id}>
+                          {employee.fullName}
+                        </option>
+                      ))}
+                    </SelectControl>
+                  </label>
+                  <label>
+                    Согласующий
+                    <SelectControl
+                      label={`Согласующий: ${department.name}`}
+                      value={draft.approverUserId}
+                      onChange={(event) =>
+                        change(
+                          department.id,
+                          "approverUserId",
+                          event.target.value,
+                        )
+                      }
+                    >
+                      <option value="">Руководитель подразделения</option>
+                      {employees.map((employee) => (
+                        <option value={employee.id} key={employee.id}>
+                          {employee.fullName}
+                        </option>
+                      ))}
+                    </SelectControl>
+                  </label>
+                </div>
+                <div className={styles.footer}>
+                  <div className={styles.active}>
+                    <ToggleControl
+                      label="Подразделение активно"
+                      checked={draft.isActive}
+                      onChange={(checked) => {
+                        setDrafts((current) => ({
+                          ...current,
+                          [department.id]: {
+                            ...current[department.id],
+                            isActive: checked,
+                          },
+                        }));
+                        setMessages((current) => ({
+                          ...current,
+                          [department.id]: "Есть несохранённые изменения",
+                        }));
+                      }}
+                    />
+                  </div>
+                  <ActionButton
+                    variant="primary"
+                    icon={Save}
+                    disabled={savingId === department.id || !draft.headcount}
+                    onClick={() => save(department)}
+                  >
+                    Сохранить
+                  </ActionButton>
+                </div>
+              </>
+            ) : null}
           </article>
         );
       })}

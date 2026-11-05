@@ -1,25 +1,43 @@
 :root {
-  --canvas: #f3f5f6;
+  --canvas: #f4f6f7;
   --surface: #ffffff;
-  --surface-subtle: #f7f8f9;
-  --surface-muted: #eceff1;
-  --weekend: #f3f5f7;
-  --text: #202a33;
-  --text-muted: #66727d;
-  --text-faint: #a5adb5;
-  --border: #dce1e5;
-  --border-strong: #c7ced4;
-  --primary: #226b98;
-  --primary-strong: #164d70;
-  --primary-soft: #dceef8;
-  --hr: #7351a3;
-  --hr-soft: #eee7f7;
-  --approved: #2f7b59;
-  --approved-soft: #e0f2e9;
-  --conflict: #985252;
-  --conflict-soft: #f5eaea;
-  --focus: #245f88;
-  --radius: 6px;
+  --surface-subtle: #f8f9fa;
+  --surface-muted: #edf1f3;
+  --weekend: #f2f5f6;
+  --text: #17242d;
+  --text-muted: #5f6e78;
+  --text-faint: #95a1aa;
+  --border: #dbe2e6;
+  --border-strong: #c5d0d6;
+  --action: #176b87;
+  --action-hover: #10566f;
+  --action-strong: #104e65;
+  --action-soft: #e2f1f5;
+  --action-border: #9bc6d3;
+  --employee: #176b87;
+  --employee-soft: #e2f1f5;
+  --hr: #6b56a5;
+  --hr-soft: #eeeaf8;
+  --success: #237553;
+  --success-soft: #e5f3ec;
+  --success-border: #a8d0bb;
+  --warning: #91620b;
+  --warning-soft: #fff3d8;
+  --warning-border: #e7c777;
+  --danger: #a04040;
+  --danger-soft: #f9eaea;
+  --danger-border: #dfa9a9;
+  --primary: var(--action);
+  --primary-strong: var(--action-strong);
+  --primary-soft: var(--action-soft);
+  --approved: var(--success);
+  --approved-soft: var(--success-soft);
+  --conflict: var(--danger);
+  --conflict-soft: var(--danger-soft);
+  --focus: var(--action);
+  --focus-ring: rgb(23 107 135 / 18%);
+  --shadow-raised: 0 12px 32px rgb(24 42 52 / 14%);
+  --radius: 5px;
   --radius-small: 4px;
   --text-xs: 14px;
   --text-sm: 15px;
@@ -27,11 +45,12 @@
   --text-lg: 18px;
   --control-height: 52px;
   --control-height-compact: 48px;
-  --space-1: 8px;
-  --space-2: 12px;
-  --space-3: 16px;
-  --space-4: 24px;
-  --space-5: 32px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
   color-scheme: light;
 }
 
@@ -46,7 +65,7 @@ body {
   background: var(--canvas);
   color: var(--text);
   font-family:
-    Inter,
+    "Golos Text Variable",
     ui-sans-serif,
     system-ui,
     -apple-system,
@@ -89,8 +108,8 @@ a {
   display: flex;
   align-items: center;
   gap: 20px;
-  min-height: 72px;
-  padding: 10px clamp(18px, 2.4vw, 36px);
+  min-height: 64px;
+  padding: 8px clamp(16px, 2vw, 32px);
   background: rgba(255, 255, 255, 0.97);
   border-bottom: 1px solid var(--border);
 }
@@ -106,8 +125,8 @@ a {
 .brandMark {
   display: grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
+  width: 38px;
+  height: 38px;
   border-radius: var(--radius-small);
   color: white;
   background: var(--primary);
@@ -121,7 +140,7 @@ a {
   min-height: var(--control-height-compact);
   display: inline-flex;
   align-items: center;
-  padding: 0 16px;
+  padding: 0 14px;
   border-radius: var(--radius-small);
   text-decoration: none;
   color: var(--text-muted);
@@ -156,9 +175,9 @@ a {
   cursor: pointer;
 }
 .main {
-  width: min(1680px, 100%);
+  width: min(1880px, 100%);
   margin: 0 auto;
-  padding: clamp(24px, 2.6vw, 40px);
+  padding: clamp(18px, 2vw, 32px);
 }
 .sectionTabs {
   display: flex;
@@ -201,7 +220,7 @@ a {
 }
 h1 {
   margin: 0;
-  font-size: clamp(30px, 3vw, 40px);
+  font-size: clamp(28px, 2.5vw, 38px);
   line-height: 1.15;
   letter-spacing: -0.025em;
 }
@@ -223,7 +242,7 @@ h1 {
   align-items: center;
   gap: 8px;
   padding: 0 14px;
-  border: 1px solid color-mix(in srgb, var(--primary) 28%, transparent);
+  border: 1px solid var(--action-border);
   border-radius: var(--radius-small);
   background: var(--primary-soft);
   color: var(--primary);
@@ -235,14 +254,14 @@ h1 {
   padding: 0 20px;
   border: 0;
   border-radius: var(--radius-small);
-  background: var(--primary);
+  background: var(--action);
   color: white;
   font-weight: 800;
   font-size: var(--text-base);
   cursor: pointer;
 }
 .primaryButton:hover {
-  background: var(--primary-strong);
+  background: var(--action-hover);
 }
 .primaryButton:disabled {
   cursor: not-allowed;
@@ -258,6 +277,22 @@ h1 {
   font-weight: 750;
   font-size: var(--text-base);
   cursor: pointer;
+}
+.primaryButton,
+.secondaryButton,
+.plainButton,
+.nav a,
+.sectionTabs a {
+  transition:
+    color 140ms ease,
+    background 140ms ease,
+    border-color 140ms ease,
+    transform 100ms ease;
+}
+.primaryButton:active:not(:disabled),
+.secondaryButton:active:not(:disabled),
+.plainButton:active:not(:disabled) {
+  transform: scale(0.98);
 }
 .dangerButton {
   color: var(--conflict);
@@ -337,6 +372,17 @@ h1 {
   .pageHeader {
     align-items: flex-start;
     flex-direction: column;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
 

@@ -145,9 +145,7 @@ test("employee and HR complete a bilateral vacation approval", async ({
   await expect(overLimitResponse.json()).resolves.toMatchObject({
     error: "Количество дней превышает доступный лимит.",
   });
-  const vacationMatrix = page.getByLabel(
-    "Матрица отпускных дней; прокручивается горизонтально",
-  );
+  const vacationMatrix = page.getByLabel("Матрица отпускных дней");
   await expect
     .poll(() =>
       vacationMatrix.evaluate(
@@ -177,6 +175,7 @@ test("employee and HR complete a bilateral vacation approval", async ({
   );
   await expect(page.getByText("5", { exact: true }).first()).toBeVisible();
   await expect(page.getByText("из 28 дней", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Отменить выбор" }).click();
   await page.getByRole("button", { name: "Сохранить черновик" }).click();
   await page.getByRole("button", { name: "Отправить кадровику" }).click();
   await expect(
@@ -272,7 +271,7 @@ test("employee and HR complete a bilateral vacation approval", async ({
     page.getByText("Предложение кадровика утверждено", { exact: true }),
   ).toBeVisible();
   await page.getByRole("link", { name: "Отпуска" }).click();
-  await expect(page.getByText(/Правка HR/)).toBeVisible();
+  await expect(page.getByText(/Правка кадровика/)).toBeVisible();
   await page.getByRole("button", { name: "Подтвердить правку" }).click();
   await expect(
     page.getByText("Предложение кадровика утверждено", { exact: true }),
@@ -282,6 +281,7 @@ test("employee and HR complete a bilateral vacation approval", async ({
   await login(page, "hr", "CI-only-password-2026!");
   await page.getByRole("link", { name: "Структура и штат" }).click();
   await page.getByRole("link", { name: "Подразделения", exact: true }).click();
+  await page.getByRole("button", { name: "Добавить подразделение" }).click();
   await page.getByLabel("Название").first().fill("Финансовое управление");
   await page.getByLabel("Штат", { exact: true }).fill("8");
   await page.getByRole("button", { name: "Создать" }).click();
@@ -289,6 +289,7 @@ test("employee and HR complete a bilateral vacation approval", async ({
     page.getByRole("heading", { name: "Финансовое управление", exact: true }),
   ).toBeVisible();
   await page.getByRole("link", { name: "Должности", exact: true }).click();
+  await page.getByRole("button", { name: "Добавить должность" }).click();
   await page.getByLabel("Название должности").fill("Специалист E2E");
   await Promise.all([
     page.waitForResponse(
@@ -298,7 +299,7 @@ test("employee and HR complete a bilateral vacation approval", async ({
     ),
     page.getByRole("button", { name: "Добавить должность" }).click(),
   ]);
-  await expect(page.locator('input[value="Специалист E2E"]')).toBeVisible();
+  await expect(page.getByText("Специалист E2E", { exact: true })).toBeVisible();
   await page.waitForLoadState("networkidle");
   await page.getByRole("link", { name: "Сотрудники" }).click();
   await page.getByRole("button", { name: "Добавить сотрудника" }).click();
@@ -318,14 +319,16 @@ test("employee and HR complete a bilateral vacation approval", async ({
     )
     .toBeGreaterThanOrEqual(44);
   await page.getByLabel("ФИО").first().fill("Мария Тестова");
-  await page.getByLabel("Логин").fill("maria.test");
+  await page.getByLabel("Логин", { exact: true }).fill("maria.test");
   await page.getByLabel("Временный пароль").fill("Employee-Test-2026!");
+  await page.getByLabel("Подразделение нового сотрудника").click();
   await page
-    .getByLabel("Подразделение нового сотрудника")
-    .selectOption({ label: "Информационные технологии" });
+    .getByRole("option", { name: "Информационные технологии", exact: true })
+    .click();
+  await page.getByLabel("Должность нового сотрудника").click();
   await page
-    .getByLabel("Должность нового сотрудника")
-    .selectOption({ label: "Специалист E2E" });
+    .getByRole("option", { name: "Специалист E2E", exact: true })
+    .click();
   await page.getByRole("button", { name: "Создать сотрудника" }).click();
   await expect(
     page.getByText("Мария Тестова", { exact: true }).first(),
@@ -447,6 +450,7 @@ test("HR screens use the shared readable UI system", async ({
   await expect(
     workforceNavigation.getByRole("link", { name: "Должности" }),
   ).toBeVisible();
+  await page.getByRole("button", { name: "Добавить подразделение" }).click();
   const headcountIncrease = page.getByRole("button", {
     name: "Увеличить: Штат",
     exact: true,
@@ -466,6 +470,7 @@ test("HR screens use the shared readable UI system", async ({
     .toBeGreaterThanOrEqual(16);
 
   await page.goto("/hr/reference-data");
+  await page.getByRole("button", { name: "Редактировать" }).first().click();
   const availabilitySwitch = page
     .getByRole("switch", { name: "Доступна для назначения" })
     .first();

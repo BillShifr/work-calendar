@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import "@fontsource-variable/golos-text";
 import "@/styles/globals.css";
 
 export const metadata: Metadata = {
