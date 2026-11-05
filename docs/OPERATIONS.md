@@ -2,7 +2,7 @@
 
 ## Контур
 
-- приложение: `hr.tfoms` → Nginx → `127.0.0.1:3080`;
+- приложение: `http://hr.tfoms` → Nginx:80 → `127.0.0.1:3080`;
 - runtime: rootless Podman Compose под отдельным системным пользователем;
 - каталог: `$HOME/apps/hr`;
 - данные PostgreSQL: отдельный named volume `hr_postgres-data`;
@@ -31,9 +31,13 @@
 2. Установить rootless Podman, `podman compose`, `flock`, `curl`, `git`, `python3` и `sha256sum`.
 3. Скопировать `.env.production.example` в `$HOME/apps/hr/.env`, установить права `600` и заменить все `REPLACE_*` значения. Пароль БД должен быть уникальным и длинным: `POSTGRES_PASSWORD` хранит его как есть, а в `CONTAINER_DATABASE_URL` тот же пароль указывается в URL-кодированном виде.
 4. Установить `deploy/systemd/hr.service` как user unit и включить linger для сервисного пользователя.
-5. Установить Nginx-конфигурацию `deploy/nginx/hr.tfoms.conf`, подключить внутренний TLS-сертификат и только после успешного smoke-test добавить DNS-запись `hr.tfoms`.
+5. Установить Nginx-конфигурацию `deploy/nginx/hr.tfoms.conf` и добавить внутреннюю DNS-запись `hr.tfoms`. Контур работает только в доверенной локальной сети по HTTP; при публикации за её пределами сначала обязателен переход на HTTPS.
 
 После успешного bootstrap `INITIAL_ADMIN_PASSWORD` удаляется из `.env`: повторный bootstrap при существующих пользователях не выполняется. Обязательная смена пароля при первом входе пока не реализована и отдельно зафиксирована в продуктовых висяках, поэтому начальный пароль должен сразу соответствовать боевой политике длины и случайности.
+
+HTTP-origin `http://hr.tfoms` зафиксирован в `compose.yml`; устаревшие строки
+`APP_ORIGIN` и `SESSION_COOKIE_SECURE` в существующем `.env` не передаются приложению
+и могут быть удалены при очередном регламентном обслуживании.
 
 ## Сброс пароля из консоли
 
@@ -109,7 +113,7 @@ RESTORE_CONFIRM=replace-current-state \
 ## Проверка после DNS
 
 ```sh
-curl --fail --resolve hr.tfoms:443:SERVER_IP https://hr.tfoms/api/health
+curl --fail --resolve hr.tfoms:80:SERVER_IP http://hr.tfoms/api/health
 ```
 
 Дополнительно проверяются вход кадровика, «Структура и штат», сохранение одной безопасной тестовой операции, аудит события и XLSX-выгрузка. Успешный `/api/health` сам по себе не подтверждает пользовательский сценарий.

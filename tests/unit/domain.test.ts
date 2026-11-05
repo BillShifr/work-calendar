@@ -17,6 +17,7 @@ import {
   totalPeriodDays,
 } from "@/domain/vacation";
 import { canTransition } from "@/domain/workflow";
+import { sessionCookieSecure } from "@/lib/origin";
 
 describe("domain rules", () => {
   it("accumulates overtime steps and validates the resulting daily total", () => {
@@ -104,5 +105,13 @@ describe("domain rules", () => {
       criticalAbsent: true,
       employeeNames: ["Алексей", "Мария", "Олег"],
     });
+  });
+  it("derives the session cookie security flag from the application origin", () => {
+    expect(sessionCookieSecure("http://hr.tfoms")).toBe(false);
+    expect(sessionCookieSecure("https://hr.tfoms")).toBe(true);
+    expect(sessionCookieSecure(undefined)).toBe(false);
+    expect(() => sessionCookieSecure("ftp://hr.tfoms")).toThrow(
+      "APP_ORIGIN must use http or https",
+    );
   });
 });

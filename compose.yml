@@ -51,8 +51,7 @@ services:
       args: { VCS_REF: "${VCS_REF:-local}" }
     environment:
       DATABASE_URL: "${CONTAINER_DATABASE_URL:?CONTAINER_DATABASE_URL is required}"
-      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
-      APP_ORIGIN: ${APP_ORIGIN:-https://hr.tfoms}
+      APP_ORIGIN: http://hr.tfoms
     ports: ["127.0.0.1:${APP_PORT:-3080}:3000"]
     depends_on: { db: { condition: service_healthy } }
     healthcheck:
