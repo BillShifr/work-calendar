@@ -1,9 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useDeferredValue, useState } from "react";
 import { useRouter } from "next/navigation";
-import { NumberControl } from "./FormControls";
+import { ChevronLeft, ChevronRight, Download, Save } from "lucide-react";
+import {
+  ActionButton,
+  NumberControl,
+  SearchControl,
+  SelectControl,
+} from "./FormControls";
 import styles from "./IrregularLeaveSettings.module.css";
 
 type Employee = {
@@ -33,6 +39,8 @@ export function IrregularLeaveSettings({
   const [bulkMax, setBulkMax] = useState("");
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [department, setDepartment] = useState("");
   const [drafts, setDrafts] = useState(() =>
     Object.fromEntries(
       employees.map((employee) => [
@@ -47,6 +55,21 @@ export function IrregularLeaveSettings({
   );
 
   const toNullable = (value: string) => (value === "" ? null : Number(value));
+  const departments = Array.from(
+    new Set(
+      employees.map((employee) => employee.departmentName).filter(Boolean),
+    ),
+  ).sort((left, right) => String(left).localeCompare(String(right), "ru"));
+  const deferredQuery = useDeferredValue(query);
+  const normalizedQuery = deferredQuery.trim().toLocaleLowerCase("ru");
+  const visibleEmployees = employees.filter(
+    (employee) =>
+      (!department || employee.departmentName === department) &&
+      (!normalizedQuery ||
+        `${employee.fullName} ${employee.departmentName ?? ""} ${employee.jobTitle ?? ""}`
+          .toLocaleLowerCase("ru")
+          .includes(normalizedQuery)),
+  );
 
   async function saveEmployee(employeeId: string) {
     setSaving(employeeId);
@@ -105,14 +128,14 @@ export function IrregularLeaveSettings({
             aria-label={`Открыть ${year - 1} год`}
             href={`?year=${year - 1}`}
           >
-            ←
+            <ChevronLeft aria-hidden="true" size={20} />
           </Link>
           <strong>{year}</strong>
           <Link
             aria-label={`Открыть ${year + 1} год`}
             href={`?year=${year + 1}`}
           >
-            →
+            <ChevronRight aria-hidden="true" size={20} />
           </Link>
         </div>
         <div className={styles.bulk}>
@@ -124,18 +147,18 @@ export function IrregularLeaveSettings({
             value={bulkMax}
             onChange={setBulkMax}
           />
-          <button
-            className="secondaryButton"
+          <ActionButton
             disabled={saving === "bulk" || bulkMax === ""}
             onClick={applyBulkMax}
           >
             Применить
-          </button>
+          </ActionButton>
         </div>
         <a
-          className="primaryButton"
+          className={styles.export}
           href={`/api/hr/export/overtime?year=${year}`}
         >
+          <Download aria-hidden="true" size={19} />
           Выгрузить Excel
         </a>
       </section>
@@ -144,13 +167,46 @@ export function IrregularLeaveSettings({
       </span>
 
       <section className={styles.approvals} aria-label="Согласование кварталов">
-        {approvals.map((item) => (
-          <article key={item.departmentName}>
-            <span>{item.departmentName}</span>
-            <strong>{item.approvedQuarters} из 4 кварталов</strong>
-          </article>
-        ))}
+        <div className={styles.approvalHeading}>
+          <strong>Готовность подразделений</strong>
+          <span>
+            {approvals.filter((item) => item.approvedQuarters === 4).length} из{" "}
+            {approvals.length} завершили год
+          </span>
+        </div>
+        <div className={styles.approvalRows}>
+          {approvals.map((item) => (
+            <div key={item.departmentName}>
+              <span>{item.departmentName}</span>
+              <i aria-label={`${item.approvedQuarters} из 4 кварталов`}>
+                <b style={{ width: `${item.approvedQuarters * 25}%` }} />
+              </i>
+              <strong>{item.approvedQuarters}/4</strong>
+            </div>
+          ))}
+        </div>
       </section>
+
+      <div className={styles.filters}>
+        <SearchControl
+          value={query}
+          onChange={setQuery}
+          placeholder="Сотрудник, должность или подразделение"
+        />
+        <SelectControl
+          label="Фильтр по подразделению"
+          value={department}
+          onChange={(event) => setDepartment(event.target.value)}
+        >
+          <option value="">Все подразделения</option>
+          {departments.map((item) => (
+            <option value={String(item)} key={String(item)}>
+              {item}
+            </option>
+          ))}
+        </SelectControl>
+        <span>Показано: {visibleEmployees.length}</span>
+      </div>
 
       <section className={styles.table} aria-label="Параметры сотрудников">
         <div className={styles.tableHead}>
@@ -161,7 +217,7 @@ export function IrregularLeaveSettings({
           <span>Предложение на {year + 1}</span>
           <span />
         </div>
-        {employees.map((employee) => {
+        {visibleEmployees.map((employee) => {
           const draft = drafts[employee.id];
           return (
             <article className={styles.row} key={employee.id}>
@@ -214,16 +270,21 @@ export function IrregularLeaveSettings({
                   })
                 }
               />
-              <button
-                className="secondaryButton"
+              <ActionButton
+                icon={Save}
                 disabled={saving === employee.id}
                 onClick={() => saveEmployee(employee.id)}
               >
                 Сохранить
-              </button>
+              </ActionButton>
             </article>
           );
         })}
+        {!visibleEmployees.length ? (
+          <p className={styles.empty}>
+            По заданным условиям сотрудники не найдены.
+          </p>
+        ) : null}
       </section>
     </div>
   );

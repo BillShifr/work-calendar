@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Check, ChevronLeft, ChevronRight } from "lucide-react";
+import { ActionButton } from "./FormControls";
 import styles from "./DepartmentApprovalDashboard.module.css";
 
 type Department = {
@@ -55,11 +57,11 @@ export function DepartmentApprovalDashboard({
     <div className={styles.workspace}>
       <div className={styles.yearBar}>
         <Link aria-label={`Открыть ${year - 1} год`} href={`?year=${year - 1}`}>
-          ←
+          <ChevronLeft aria-hidden="true" size={20} />
         </Link>
         <strong>{year}</strong>
         <Link aria-label={`Открыть ${year + 1} год`} href={`?year=${year + 1}`}>
-          →
+          <ChevronRight aria-hidden="true" size={20} />
         </Link>
         <span role="status">{message}</span>
       </div>
@@ -108,8 +110,9 @@ export function DepartmentApprovalDashboard({
                     ))}
                   </div>
                   {quarter.status !== "approved" ? (
-                    <button
-                      className="primaryButton"
+                    <ActionButton
+                      variant="primary"
+                      icon={Check}
                       disabled={
                         !complete ||
                         saving === `${department.id}:${quarter.quarter}`
@@ -117,7 +120,7 @@ export function DepartmentApprovalDashboard({
                       onClick={() => approve(department.id, quarter.quarter)}
                     >
                       Согласовано
-                    </button>
+                    </ActionButton>
                   ) : null}
                 </article>
               );

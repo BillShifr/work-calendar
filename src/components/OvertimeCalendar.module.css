@@ -42,13 +42,7 @@
   font-size: var(--text-lg);
 }
 .monthControl button {
-  width: var(--control-height);
-  height: var(--control-height);
-  border: 0;
-  background: transparent;
-  color: var(--text);
-  cursor: pointer;
-  font-size: 19px;
+  border-radius: 0;
 }
 .monthControl button:hover {
   background: var(--surface-muted);
@@ -74,10 +68,14 @@
   margin-left: auto;
 }
 .editor {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(160px, 0.55fr) minmax(420px, 1.8fr) auto minmax(
+      250px,
+      0.9fr
+    );
   align-items: center;
-  gap: 16px;
-  padding: 16px;
+  gap: 12px;
+  padding: 14px 16px;
   border-bottom: 1px solid var(--border);
   background: var(--surface-subtle);
 }
@@ -86,6 +84,9 @@
   min-width: 138px;
 }
 .selectedDate span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   color: var(--text-muted);
   font-size: var(--text-xs);
 }
@@ -99,23 +100,33 @@
 }
 .minuteButtons {
   display: grid;
-  grid-template-columns: repeat(5, minmax(76px, 1fr));
-  gap: 1px;
-  border: 1px solid var(--border);
-  background: var(--border);
+  grid-template-columns: repeat(5, minmax(70px, 1fr));
+  gap: 6px;
+  border: 0;
+  background: transparent;
 }
 .minuteButtons button {
   min-height: var(--control-height);
-  border: 0;
-  background: white;
+  border: 1px solid var(--action-border);
+  border-radius: var(--radius-small);
+  background: var(--action-soft);
   color: var(--text);
   cursor: pointer;
-  font-weight: 700;
+  font-weight: 750;
   font-size: var(--text-base);
+}
+.minuteButtons button span {
+  margin-right: 2px;
+  color: var(--action);
+  font-size: 18px;
 }
 .minuteButtons button:hover:not(:disabled),
 .minuteButtons button:active:not(:disabled) {
-  background: var(--primary);
+  border-color: var(--action);
+  background: var(--action);
+  color: white;
+}
+.minuteButtons button:hover:not(:disabled) span {
   color: white;
 }
 .minuteButtons button:focus {
@@ -128,27 +139,11 @@
   cursor: not-allowed;
   color: var(--text-faint);
 }
-.clear {
-  min-height: var(--control-height);
-  padding: 0 16px;
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  font-weight: 650;
-}
-.clear:hover:not(:disabled) {
-  color: var(--conflict);
-  background: var(--conflict-soft);
-}
-.clear:disabled {
-  opacity: 0.45;
-}
 .zero {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-left: auto;
+  justify-self: end;
   color: var(--text-muted);
   white-space: nowrap;
   font-size: var(--text-sm);
@@ -178,15 +173,22 @@
 .legend {
   display: flex;
   justify-content: flex-end;
-  gap: 18px;
-  padding: 12px 16px 0;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 16px 2px;
   color: var(--text-muted);
   font-size: var(--text-xs);
 }
 .legend span {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 7px;
+  min-height: 30px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 650;
 }
 .dot {
   width: 10px;
@@ -203,7 +205,7 @@
   background: var(--approved-soft);
 }
 .calendar {
-  padding: 8px 14px 16px;
+  padding: 8px 14px 14px;
 }
 .weekdays,
 .grid {
@@ -231,7 +233,7 @@
 }
 .day {
   position: relative;
-  min-height: 92px;
+  min-height: clamp(66px, 8.2vh, 92px);
   padding: 10px;
   border: 0;
   background: white;
@@ -283,7 +285,7 @@
   font-weight: 750;
 }
 .empty {
-  min-height: 92px;
+  min-height: clamp(66px, 8.2vh, 92px);
   background: var(--surface-subtle);
 }
 @media (max-width: 1050px) {
@@ -296,7 +298,16 @@
     flex-basis: 100%;
   }
   .editor .zero {
-    margin-left: 0;
+    justify-self: start;
+  }
+  .editor {
+    grid-template-columns: 160px 1fr;
+  }
+  .minuteButtons {
+    grid-column: 2;
+  }
+  .zero {
+    grid-column: 1 / -1;
   }
 }
 @media (max-width: 760px) {
@@ -323,6 +334,9 @@
   .selectedDate {
     width: 100%;
   }
+  .editor {
+    display: flex;
+  }
   .minuteButtons {
     width: 100%;
     grid-template-columns: repeat(3, 1fr);
@@ -335,7 +349,6 @@
   }
   .legend {
     justify-content: flex-start;
-    overflow-x: auto;
   }
   .calendar {
     padding-inline: 8px;

@@ -1,8 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useDeferredValue, useState } from "react";
 import { useRouter } from "next/navigation";
-import { NumberControl, ToggleControl } from "./FormControls";
+import { Pencil, Plus, Save, X } from "lucide-react";
+import {
+  ActionButton,
+  NumberControl,
+  SearchControl,
+  ToggleControl,
+} from "./FormControls";
 import styles from "./JobTitleDirectory.module.css";
 
 type JobTitle = {
@@ -31,6 +37,14 @@ export function JobTitleDirectory({ jobTitles }: { jobTitles: JobTitle[] }) {
   );
   const [message, setMessage] = useState("");
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const deferredQuery = useDeferredValue(query);
+  const normalizedQuery = deferredQuery.trim().toLocaleLowerCase("ru");
+  const visibleTitles = jobTitles.filter((title) =>
+    title.name.toLocaleLowerCase("ru").includes(normalizedQuery),
+  );
 
   async function createJobTitle() {
     setSavingId("new");
@@ -48,6 +62,7 @@ export function JobTitleDirectory({ jobTitles }: { jobTitles: JobTitle[] }) {
     setNewName("");
     setNewMaxDays("0");
     setMessage("Должность добавлена");
+    setShowCreate(false);
     router.refresh();
   }
 
@@ -70,97 +85,150 @@ export function JobTitleDirectory({ jobTitles }: { jobTitles: JobTitle[] }) {
 
   return (
     <div className={styles.workspace}>
-      <section className={styles.create} aria-labelledby="new-job-title">
-        <div>
-          <h2 id="new-job-title">Новая должность</h2>
-        </div>
-        <label>
-          Название должности
-          <input
-            value={newName}
-            onChange={(event) => setNewName(event.target.value)}
-            placeholder="Например, ведущий специалист"
-          />
-        </label>
-        <label>
-          Максимум дней
-          <NumberControl
-            label="Максимум дней для новой должности"
-            min={0}
-            max={30}
-            value={newMaxDays}
-            onChange={setNewMaxDays}
-          />
-        </label>
-        <button
-          className="primaryButton"
-          disabled={savingId === "new" || newName.trim().length < 2}
-          onClick={createJobTitle}
+      <div className={styles.toolbar}>
+        <SearchControl
+          value={query}
+          onChange={setQuery}
+          placeholder="Поиск должности"
+        />
+        <span>
+          {visibleTitles.length} из {jobTitles.length}
+        </span>
+        <ActionButton
+          variant="primary"
+          icon={Plus}
+          onClick={() => setShowCreate((value) => !value)}
         >
-          Добавить должность
-        </button>
-      </section>
+          {showCreate ? "Закрыть форму" : "Добавить должность"}
+        </ActionButton>
+      </div>
+      {showCreate ? (
+        <section className={styles.create} aria-labelledby="new-job-title">
+          <div>
+            <h2 id="new-job-title">Новая должность</h2>
+          </div>
+          <label>
+            Название должности
+            <input
+              value={newName}
+              onChange={(event) => setNewName(event.target.value)}
+              placeholder="Например, ведущий специалист"
+            />
+          </label>
+          <label>
+            Максимум дней
+            <NumberControl
+              label="Максимум дней для новой должности"
+              min={0}
+              max={30}
+              value={newMaxDays}
+              onChange={setNewMaxDays}
+            />
+          </label>
+          <ActionButton
+            variant="primary"
+            icon={Plus}
+            disabled={savingId === "new" || newName.trim().length < 2}
+            onClick={createJobTitle}
+          >
+            Добавить должность
+          </ActionButton>
+        </section>
+      ) : null}
 
       <div className={styles.heading}>
         <h2>Должности</h2>
         <span role="status">{message}</span>
       </div>
       <section className={styles.list} aria-label="Справочник должностей">
-        {jobTitles.map((title) => {
+        {visibleTitles.map((title) => {
           const draft = drafts[title.id];
+          const editing = editingId === title.id;
           return (
             <article className={styles.row} key={title.id}>
-              <label>
-                Название
-                <input
-                  value={draft.name}
-                  onChange={(event) =>
-                    setDrafts({
-                      ...drafts,
-                      [title.id]: { ...draft, name: event.target.value },
-                    })
-                  }
-                />
-              </label>
-              <div className={styles.maxDays}>
-                <span>Максимум дней</span>
-                <NumberControl
-                  label={`Максимум дней: ${title.name}`}
-                  min={0}
-                  max={30}
-                  value={draft.irregularLeaveMaxDays}
-                  onChange={(value) =>
-                    setDrafts({
-                      ...drafts,
-                      [title.id]: {
-                        ...draft,
-                        irregularLeaveMaxDays: value,
-                      },
-                    })
-                  }
-                />
-              </div>
-              <div className={styles.usage}>
-                <span>Сотрудников</span>
-                <strong>{title.employeeCount}</strong>
-              </div>
-              <ToggleControl
-                label="Доступна для назначения"
-                checked={draft.isActive}
-                onChange={(isActive) =>
-                  setDrafts({
-                    ...drafts,
-                    [title.id]: { ...draft, isActive },
-                  })
-                }
-              />
-              <button
-                className="secondaryButton"
-                disabled={savingId === title.id}
-                onClick={() => saveJobTitle(title)}
-              >
-                Сохранить
-              </button>
+              {!editing ? (
+                <>
+                  <div className={styles.summary}>
+                    <strong>{title.name}</strong>
+                    <span>
+                      {title.employeeCount} сотрудников · максимум{" "}
+                      {title.irregularLeaveMaxDays} дней
+                    </span>
+                  </div>
+                  <span
+                    className={title.isActive ? styles.active : styles.inactive}
+                  >
+                    {title.isActive ? "Доступна" : "Отключена"}
+                  </span>
+                  <ActionButton
+                    icon={Pencil}
+                    onClick={() => setEditingId(title.id)}
+                  >
+                    Редактировать
+                  </ActionButton>
+                </>
+              ) : (
+                <>
+                  <label>
+                    Название
+                    <input
+                      value={draft.name}
+                      onChange={(event) =>
+                        setDrafts({
+                          ...drafts,
+                          [title.id]: { ...draft, name: event.target.value },
+                        })
+                      }
+                    />
+                  </label>
+                  <div className={styles.maxDays}>
+                    <span>Максимум дней</span>
+                    <NumberControl
+                      label={`Максимум дней: ${title.name}`}
+                      min={0}
+                      max={30}
+                      value={draft.irregularLeaveMaxDays}
+                      onChange={(value) =>
+                        setDrafts({
+                          ...drafts,
+                          [title.id]: {
+                            ...draft,
+                            irregularLeaveMaxDays: value,
+                          },
+                        })
+                      }
+                    />
+                  </div>
+                  <div className={styles.usage}>
+                    <span>Сотрудников</span>
+                    <strong>{title.employeeCount}</strong>
+                  </div>
+                  <ToggleControl
+                    label="Доступна для назначения"
+                    checked={draft.isActive}
+                    onChange={(isActive) =>
+                      setDrafts({
+                        ...drafts,
+                        [title.id]: { ...draft, isActive },
+                      })
+                    }
+                  />
+                  <ActionButton
+                    variant="quiet"
+                    icon={X}
+                    onClick={() => setEditingId(null)}
+                  >
+                    Отмена
+                  </ActionButton>
+                  <ActionButton
+                    icon={Save}
+                    disabled={savingId === title.id}
+                    onClick={() => saveJobTitle(title)}
+                  >
+                    Сохранить
+                  </ActionButton>
+                </>
+              )}
             </article>
           );
         })}

@@ -1,6 +1,16 @@
 "use client";
 
 import { useState } from "react";
+import {
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  Pencil,
+  Save,
+  Send,
+  Trash2,
+  X,
+} from "lucide-react";
 import { daysInMonth } from "@/domain/overtime";
 import {
   normalizePeriod,
@@ -8,6 +18,12 @@ import {
   totalPeriodDays,
   type DatePeriod,
 } from "@/domain/vacation";
+import {
+  ActionButton,
+  IconButton,
+  SubmissionFlight,
+  type FlightState,
+} from "./FormControls";
 import styles from "./VacationMatrix.module.css";
 
 const months = [
@@ -52,6 +68,7 @@ export function VacationMatrix({
   mode?: "employee" | "hr";
 }) {
   const [year, setYear] = useState(initial.year);
+  const [allowanceDays, setAllowanceDays] = useState(initial.allowanceDays);
   const [version, setVersion] = useState(initial.version);
   const [periods, setPeriods] = useState(initial.periods);
   const [start, setStart] = useState<string | null>(null);
@@ -64,6 +81,9 @@ export function VacationMatrix({
   const [entryWindowOpen, setEntryWindowOpen] = useState(
     initial.entryWindowOpen ?? true,
   );
+  const [mobileMonth, setMobileMonth] = useState(0);
+  const [editingPeriod, setEditingPeriod] = useState<DatePeriod | null>(null);
+  const [flight, setFlight] = useState<FlightState>(null);
   const canEdit =
     (mode === "hr" &&
       ["submitted", "reopened", "hr_proposed"].includes(status)) ||
@@ -72,6 +92,7 @@ export function VacationMatrix({
       (["draft", "reopened"].includes(status) ||
         (status === "hr_proposed" && editingResponse)));
   const total = totalPeriodDays(periods);
+  const excess = Math.max(0, total - allowanceDays);
   function periodFor(date: string) {
     return periods.find(
       (period) => period.startsOn <= date && period.endsOn >= date,
@@ -101,18 +122,37 @@ export function VacationMatrix({
       return;
     }
     const nextTotal = total + periodDays(next);
-    if (nextTotal > initial.allowanceDays) {
+    if (nextTotal > allowanceDays) {
       setMessage(
-        `Нельзя добавить период: останется ${Math.max(0, initial.allowanceDays - total)} из ${initial.allowanceDays} дней.`,
+        `Нельзя добавить период: доступно ${Math.max(0, allowanceDays - total)} из ${allowanceDays} дней. Выберите другую дату окончания.`,
       );
-      setStart(null);
       return;
     }
     setPeriods((current) =>
       [...current, next].sort((a, b) => a.startsOn.localeCompare(b.startsOn)),
     );
     setStart(null);
+    setEditingPeriod(null);
     setMessage("Период добавлен и пока не сохранён.");
+  }
+  function editPeriod(period: DatePeriod) {
+    if (!canEdit) return;
+    setEditingPeriod(period);
+    setPeriods((current) => current.filter((item) => item.id !== period.id));
+    setStart(period.startsOn);
+    setMessage("Изменение периода: выберите новую дату окончания.");
+  }
+  function cancelSelection() {
+    if (editingPeriod) {
+      setPeriods((current) =>
+        [...current, editingPeriod].sort((a, b) =>
+          a.startsOn.localeCompare(b.startsOn),
+        ),
+      );
+    }
+    setEditingPeriod(null);
+    setStart(null);
+    setMessage("");
   }
   async function changeYear(delta: number) {
     const nextYear = year + delta;
@@ -121,13 +161,24 @@ export function VacationMatrix({
     setYear(nextYear);
     setVersion(data.version);
     setPeriods(data.periods);
+    setAllowanceDays(data.allowanceDays);
     setPlanId(data.id);
     setStatus(data.status);
     setEntryWindowOpen(data.entryWindowOpen);
     setStart(null);
+    setEditingPeriod(null);
+    setMobileMonth(0);
     setMessage("");
   }
   async function save() {
+    if (start) {
+      setMessage("Завершите выбор периода или отмените начальную дату.");
+      return false;
+    }
+    if (total > allowanceDays) {
+      setMessage(`Уберите ещё ${excess} дн., чтобы сохранить план.`);
+      return false;
+    }
     setSaving(true);
     setMessage("Сохраняем…");
     const response = await fetch(
@@ -142,15 +193,17 @@ export function VacationMatrix({
     setSaving(false);
     if (!response.ok) {
       setMessage(data.error ?? "Не удалось сохранить");
-      return;
+      return false;
     }
     setVersion(data.version);
     if (data.status) setStatus(data.status);
     if (data.periods) setPeriods(data.periods);
     setEditingResponse(false);
     setMessage("Сохранено");
+    return true;
   }
   async function submit() {
+    if (!(await save())) return;
     setSaving(true);
     setMessage("Отправляем…");
     const response = await fetch("/api/workflow", {
@@ -171,6 +224,12 @@ export function VacationMatrix({
     setStatus(data.status);
     setVersion(data.version);
     setMessage("План отправлен кадровой службе");
+    const button = document.querySelector<HTMLElement>(
+      "[data-vacation-submit]",
+    );
+    const box = button?.getBoundingClientRect();
+    if (box)
+      setFlight({ id: Date.now(), x: box.left + box.width / 2, y: box.top });
   }
   async function approve() {
     setSaving(true);
@@ -217,81 +276,83 @@ export function VacationMatrix({
       ) : null}
       <div className={styles.commandBar} aria-label="Действия с планом">
         <div className={styles.yearControl}>
-          <button aria-label="Предыдущий год" onClick={() => changeYear(-1)}>
-            ←
-          </button>
+          <IconButton
+            label="Предыдущий год"
+            icon={ChevronLeft}
+            onClick={() => changeYear(-1)}
+          />
           <strong>{year}</strong>
-          <button aria-label="Следующий год" onClick={() => changeYear(1)}>
-            →
-          </button>
+          <IconButton
+            label="Следующий год"
+            icon={ChevronRight}
+            onClick={() => changeYear(1)}
+          />
         </div>
         <div
-          className={`${styles.total} ${total > initial.allowanceDays ? styles.totalExceeded : ""}`}
+          className={`${styles.total} ${total > allowanceDays ? styles.totalExceeded : ""}`}
         >
           <strong>{total}</strong>
-          <span>из {initial.allowanceDays} дней</span>
+          <span>из {allowanceDays} дней</span>
         </div>
         <span className={styles.message} role="status">
           {message}
         </span>
         <div className={`actions ${styles.actions}`}>
-          <button
-            className="secondaryButton"
+          <ActionButton
+            variant="quiet"
+            icon={X}
             disabled={!start}
-            onClick={() => setStart(null)}
+            onClick={cancelSelection}
           >
             Отменить выбор
-          </button>
+          </ActionButton>
           {mode === "hr" && canEdit && (
             <>
               {status !== "hr_proposed" && (
-                <button
-                  className="secondaryButton"
-                  disabled={saving || total > initial.allowanceDays}
+                <ActionButton
+                  disabled={saving || total > allowanceDays}
                   onClick={approve}
                 >
                   Утвердить без изменений
-                </button>
+                </ActionButton>
               )}
-              <button
-                className="primaryButton"
-                disabled={
-                  saving || !reason.trim() || total > initial.allowanceDays
-                }
+              <ActionButton
+                variant="primary"
+                disabled={saving || !reason.trim() || total > allowanceDays}
                 onClick={save}
               >
                 Предложить изменения
-              </button>
+              </ActionButton>
             </>
           )}
           {mode === "employee" &&
             (["draft", "reopened"].includes(status) || editingResponse) && (
-              <button
-                className="secondaryButton"
-                disabled={
-                  saving || !entryWindowOpen || total > initial.allowanceDays
-                }
+              <ActionButton
+                icon={Save}
+                disabled={saving || !entryWindowOpen}
                 onClick={save}
               >
                 {editingResponse
                   ? "Отправить свой вариант"
                   : "Сохранить черновик"}
-              </button>
+              </ActionButton>
             )}
           {mode === "employee" && ["draft", "reopened"].includes(status) && (
-            <button
-              className="primaryButton"
+            <ActionButton
+              data-vacation-submit
+              variant="primary"
+              icon={Send}
               disabled={
                 saving ||
                 !entryWindowOpen ||
                 !["draft", "reopened"].includes(status) ||
                 !periods.length ||
-                total > initial.allowanceDays
+                total > allowanceDays
               }
               onClick={submit}
             >
               Отправить кадровику
-            </button>
+            </ActionButton>
           )}
           {mode === "employee" &&
             status === "hr_proposed" &&
@@ -319,6 +380,16 @@ export function VacationMatrix({
         </div>
       </div>
 
+      {excess > 0 ? (
+        <div className={styles.correctionNotice} role="alert">
+          <strong>План превышает лимит на {excess} дн.</strong>
+          <span>
+            Откройте один из периодов и сократите его — после этого черновик
+            можно сохранить.
+          </span>
+        </div>
+      ) : null}
+
       {mode === "hr" && canEdit && (
         <label className={styles.reason}>
           Причина изменений
@@ -344,22 +415,27 @@ export function VacationMatrix({
                     {formatDate(period.startsOn)} — {formatDate(period.endsOn)}
                   </strong>
                   <small>
-                    {period.source === "hr" ? "Правка HR" : "Ваш период"} ·{" "}
-                    {periodDays(period)} дн.
+                    {period.source === "hr" ? "Правка кадровика" : "Ваш период"}{" "}
+                    · {periodDays(period)} дн.
                   </small>
                 </span>
-                <button
+                <IconButton
                   disabled={!canEdit}
-                  aria-label={`Удалить период ${formatDate(period.startsOn)} — ${formatDate(period.endsOn)}`}
+                  label={`Изменить период ${formatDate(period.startsOn)} — ${formatDate(period.endsOn)}`}
+                  icon={Pencil}
+                  onClick={() => editPeriod(period)}
+                />
+                <IconButton
+                  disabled={!canEdit}
+                  label={`Удалить период ${formatDate(period.startsOn)} — ${formatDate(period.endsOn)}`}
+                  icon={Trash2}
                   onClick={() => {
                     setPeriods((current) =>
                       current.filter((item) => item.id !== period.id),
                     );
                     setMessage("Период удалён и пока не сохранён.");
                   }}
-                >
-                  ×
-                </button>
+                />
               </li>
             ))}
           </ul>
@@ -368,10 +444,10 @@ export function VacationMatrix({
         )}
         <div className={styles.legend} aria-label="Обозначения">
           <span>
-            <i className={styles.dot} /> Выбор
+            <i className={styles.dot} /> Период сотрудника
           </span>
           <span>
-            <i className={`${styles.dot} ${styles.dotHr}`} /> HR
+            <i className={`${styles.dot} ${styles.dotHr}`} /> Правка кадровика
           </span>
           <span>
             <i className={`${styles.dot} ${styles.dotApproved}`} /> Утверждено
@@ -379,11 +455,7 @@ export function VacationMatrix({
         </div>
       </div>
 
-      <div
-        className={styles.scroll}
-        tabIndex={0}
-        aria-label="Матрица отпускных дней; прокручивается горизонтально"
-      >
+      <div className={styles.scroll} aria-label="Матрица отпускных дней">
         <div className={styles.matrix}>
           <span className={styles.corner} />
           {Array.from({ length: 31 }, (_, index) => (
@@ -466,6 +538,74 @@ export function VacationMatrix({
           ))}
         </div>
       </div>
+      <div
+        className={styles.mobileCalendar}
+        aria-label="Календарь отпускных дней"
+      >
+        <div className={styles.mobileMonthHead}>
+          <IconButton
+            label="Предыдущий месяц"
+            icon={ChevronLeft}
+            onClick={() => setMobileMonth((value) => Math.max(0, value - 1))}
+            disabled={mobileMonth === 0}
+          />
+          <strong>
+            <CalendarDays aria-hidden="true" size={19} /> {months[mobileMonth]}{" "}
+            {year}
+          </strong>
+          <IconButton
+            label="Следующий месяц"
+            icon={ChevronRight}
+            onClick={() => setMobileMonth((value) => Math.min(11, value + 1))}
+            disabled={mobileMonth === 11}
+          />
+        </div>
+        <div className={styles.mobileWeekdays}>
+          {["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"].map((day) => (
+            <span key={day}>{day}</span>
+          ))}
+        </div>
+        <div className={styles.mobileDays}>
+          {Array.from(
+            {
+              length:
+                (new Date(Date.UTC(year, mobileMonth, 1)).getUTCDay() + 6) % 7,
+            },
+            (_, index) => (
+              <span key={`empty-${index}`} />
+            ),
+          )}
+          {Array.from(
+            { length: daysInMonth(year, mobileMonth + 1) },
+            (_, index) => {
+              const day = index + 1;
+              const date = iso(year, mobileMonth + 1, day);
+              const period = periodFor(date);
+              return (
+                <button
+                  key={date}
+                  disabled={!canEdit}
+                  onClick={() => select(date)}
+                  className={[
+                    styles.mobileDay,
+                    period
+                      ? period.source === "hr"
+                        ? styles.hrRange
+                        : styles.range
+                      : "",
+                    period?.status === "approved" ? styles.approved : "",
+                    start === date ? styles.start : "",
+                  ].join(" ")}
+                >
+                  <span>{day}</span>
+                  {period ? <i aria-hidden="true" /> : null}
+                </button>
+              );
+            },
+          )}
+        </div>
+      </div>
+      <SubmissionFlight flight={flight} onComplete={() => setFlight(null)} />
     </section>
   );
 }

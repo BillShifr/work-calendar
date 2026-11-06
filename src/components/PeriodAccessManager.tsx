@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { ChevronLeft, ChevronRight, Lock, LockOpen } from "lucide-react";
+import { ActionButton, IconButton } from "./FormControls";
 import styles from "./PeriodAccessManager.module.css";
 
 const months = [
@@ -73,21 +75,19 @@ export function PeriodAccessManager({ initial }: { initial: Settings }) {
   return (
     <div className={styles.workspace}>
       <div className={styles.yearBar}>
-        <button
-          aria-label="Предыдущий год"
+        <IconButton
+          label="Предыдущий год"
+          icon={ChevronLeft}
           disabled={loading !== null || settings.year <= 2020}
           onClick={() => changeYear(-1)}
-        >
-          ←
-        </button>
+        />
         <strong>{settings.year}</strong>
-        <button
-          aria-label="Следующий год"
+        <IconButton
+          label="Следующий год"
+          icon={ChevronRight}
           disabled={loading !== null || settings.year >= 2100}
           onClick={() => changeYear(1)}
-        >
-          →
-        </button>
+        />
         <span role="status">{message}</span>
       </div>
 
@@ -159,12 +159,13 @@ function WindowButton({
   onClick: () => void;
 }) {
   return (
-    <button
-      className={open ? "secondaryButton" : "primaryButton"}
+    <ActionButton
+      variant={open ? "secondary" : "primary"}
+      icon={open ? Lock : LockOpen}
       disabled={busy}
       onClick={onClick}
     >
       {busy ? "Сохраняем…" : open ? "Закрыть" : "Открыть"}
-    </button>
+    </ActionButton>
   );
 }

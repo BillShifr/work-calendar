@@ -1,8 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useDeferredValue, useState } from "react";
 import { useRouter } from "next/navigation";
-import { NumberControl, SelectControl, ToggleControl } from "./FormControls";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  Save,
+  UserCog,
+  UserRound,
+  UsersRound,
+} from "lucide-react";
+import {
+  ActionButton,
+  NumberControl,
+  SearchControl,
+  SegmentedControl,
+  SelectControl,
+  ToggleControl,
+} from "./FormControls";
 import styles from "./EmployeeDirectory.module.css";
 
 type Department = { id: string; name: string };
@@ -32,32 +48,19 @@ function RoleChoice({
   onChange: (value: Role) => void;
 }) {
   return (
-    <fieldset className={styles.roleChoice}>
-      <legend>{label}</legend>
-      <div>
-        <button
-          type="button"
-          aria-pressed={value === "department_head"}
-          onClick={() => onChange("department_head")}
-        >
-          Руководитель подразделения
-        </button>
-        <button
-          type="button"
-          aria-pressed={value === "employee"}
-          onClick={() => onChange("employee")}
-        >
-          Сотрудник
-        </button>
-        <button
-          type="button"
-          aria-pressed={value === "hr"}
-          onClick={() => onChange("hr")}
-        >
-          Кадровая служба
-        </button>
-      </div>
-    </fieldset>
+    <div className={styles.roleChoice}>
+      <span>{label}</span>
+      <SegmentedControl
+        label={label}
+        value={value}
+        onChange={(next) => onChange(next as Role)}
+        options={[
+          { value: "employee", label: "Сотрудник", icon: UserRound },
+          { value: "department_head", label: "Руководитель", icon: UsersRound },
+          { value: "hr", label: "Кадры", icon: UserCog },
+        ]}
+      />
+    </div>
   );
 }
 
@@ -78,6 +81,9 @@ export function EmployeeDirectory({
   const [savingId, setSavingId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
+  const [query, setQuery] = useState("");
+  const [departmentFilter, setDepartmentFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("active");
   const [create, setCreate] = useState({
     fullName: "",
     login: "",
@@ -115,6 +121,18 @@ export function EmployeeDirectory({
     create.temporaryPassword.length >= 12 &&
     Boolean(create.departmentId) &&
     Boolean(create.jobTitleId);
+  const deferredQuery = useDeferredValue(query);
+  const normalizedQuery = deferredQuery.trim().toLocaleLowerCase("ru");
+  const visibleEmployees = employees.filter(
+    (employee) =>
+      (!departmentFilter || employee.departmentId === departmentFilter) &&
+      (statusFilter === "all" ||
+        (statusFilter === "active" ? employee.isActive : !employee.isActive)) &&
+      (!normalizedQuery ||
+        `${employee.fullName} ${employee.login} ${employee.jobTitle ?? ""} ${employee.departmentName ?? ""}`
+          .toLocaleLowerCase("ru")
+          .includes(normalizedQuery)),
+  );
 
   async function createEmployee() {
     setSavingId("new");
@@ -183,14 +201,14 @@ export function EmployeeDirectory({
               aria-label={`Открыть ${year - 1} год`}
               href={`/hr/employees?year=${year - 1}`}
             >
-              ←
+              <ChevronLeft aria-hidden="true" size={20} />
             </a>
             <strong>{year}</strong>
             <a
               aria-label={`Открыть ${year + 1} год`}
               href={`/hr/employees?year=${year + 1}`}
             >
-              →
+              <ChevronRight aria-hidden="true" size={20} />
             </a>
           </div>
         </div>
@@ -207,12 +225,13 @@ export function EmployeeDirectory({
             Применить ко всем
           </button>
         </div>
-        <button
-          className="primaryButton"
+        <ActionButton
+          variant="primary"
+          icon={Plus}
           onClick={() => setShowCreate((value) => !value)}
         >
           {showCreate ? "Закрыть форму" : "Добавить сотрудника"}
-        </button>
+        </ActionButton>
       </section>
 
       {showCreate && (
@@ -336,12 +355,43 @@ export function EmployeeDirectory({
       <div className={styles.sectionHeading}>
         <div>
           <h2>Штат</h2>
-          <p>{employees.length} сотрудников</p>
+          <p>
+            {visibleEmployees.length} из {employees.length} сотрудников
+          </p>
         </div>
         <span role="status">{message}</span>
       </div>
+      <div className={styles.filters}>
+        <SearchControl
+          value={query}
+          onChange={setQuery}
+          placeholder="ФИО, логин, должность"
+        />
+        <SelectControl
+          label="Фильтр по подразделению"
+          value={departmentFilter}
+          onChange={(event) => setDepartmentFilter(event.target.value)}
+        >
+          <option value="">Все подразделения</option>
+          {departments.map((department) => (
+            <option value={department.id} key={department.id}>
+              {department.name}
+            </option>
+          ))}
+        </SelectControl>
+        <SegmentedControl
+          label="Статус сотрудников"
+          value={statusFilter}
+          onChange={setStatusFilter}
+          options={[
+            { value: "active", label: "Активные" },
+            { value: "inactive", label: "Отключённые" },
+            { value: "all", label: "Все" },
+          ]}
+        />
+      </div>
       <section className={styles.list} aria-label="Список сотрудников">
-        {employees.map((employee) => {
+        {visibleEmployees.map((employee) => {
           const draft = drafts[employee.id];
           const editing = editingId === employee.id;
           return (
@@ -368,12 +418,12 @@ export function EmployeeDirectory({
                 >
                   {employee.isActive ? "Активен" : "Отключён"}
                 </span>
-                <button
-                  className="secondaryButton"
+                <ActionButton
+                  icon={UserCog}
                   onClick={() => setEditingId(editing ? null : employee.id)}
                 >
                   {editing ? "Закрыть" : "Редактировать"}
-                </button>
+                </ActionButton>
               </div>
               {editing && (
                 <div className={styles.editPanel}>
@@ -514,13 +564,14 @@ export function EmployeeDirectory({
                     >
                       Отмена
                     </button>
-                    <button
-                      className="primaryButton"
+                    <ActionButton
+                      variant="primary"
+                      icon={Save}
                       disabled={savingId === employee.id || !draft.jobTitleId}
                       onClick={() => saveEmployee(employee)}
                     >
                       Сохранить изменения
-                    </button>
+                    </ActionButton>
                   </div>
                 </div>
               )}
