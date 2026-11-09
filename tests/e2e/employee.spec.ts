@@ -180,11 +180,17 @@ test("vacation ranges work over internal HTTP in every selection mode", async ({
   await page.setViewportSize({ width: 1366, height: 768 });
   await goToVacationMonth(page, 2);
   const mobileCalendar = page.getByLabel("Календарь отпускных дней");
-  await expect(
-    mobileCalendar
-      .getByRole("button", { name: /^3 февраля, период/ })
-      .locator("span[aria-hidden=true]"),
-  ).toHaveCount(2);
+  const adjacentStart = mobileCalendar.getByRole("button", {
+    name: /^3 февраля, период/,
+  });
+  await expect(adjacentStart.locator("span[aria-hidden=true]")).toHaveCount(2);
+  const selectedBackground = await adjacentStart.evaluate(
+    (element) => getComputedStyle(element).backgroundColor,
+  );
+  const emptyBackground = await mobileCalendar
+    .getByRole("button", { name: /^10 февраля/ })
+    .evaluate((element) => getComputedStyle(element).backgroundColor);
+  expect(selectedBackground).not.toBe(emptyBackground);
 
   await goToVacationMonth(page, 5);
   await mobileCalendar.getByRole("button", { name: /^20 мая/ }).click();
