@@ -1,6 +1,6 @@
 .list {
   display: grid;
-  gap: 10px;
+  gap: 6px;
 }
 .toolbar {
   display: grid;
@@ -73,8 +73,20 @@
 .heading {
   display: grid;
   grid-template-columns: auto minmax(240px, 1fr) minmax(120px, auto) auto;
-  min-height: 68px;
-  padding: 10px 14px;
+  min-height: 58px;
+  padding: 7px 12px;
+}
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 6px;
+}
+.pagination > span {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: 750;
 }
 .heading > svg {
   color: var(--action);

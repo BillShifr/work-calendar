@@ -69,11 +69,13 @@ export function EmployeeDirectory({
   departments,
   jobTitles,
   year,
+  focusId,
 }: {
   employees: Employee[];
   departments: Department[];
   jobTitles: JobTitle[];
   year: number;
+  focusId?: string;
 }) {
   const router = useRouter();
   const [bulkDays, setBulkDays] = useState("28");
@@ -84,6 +86,10 @@ export function EmployeeDirectory({
   const [query, setQuery] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("active");
+  const [page, setPage] = useState(() => {
+    const index = employees.findIndex((item) => item.id === focusId);
+    return index < 0 ? 1 : Math.floor(index / 7) + 1;
+  });
   const [create, setCreate] = useState({
     fullName: "",
     login: "",
@@ -133,8 +139,16 @@ export function EmployeeDirectory({
           .toLocaleLowerCase("ru")
           .includes(normalizedQuery)),
   );
+  const pageSize = 7;
+  const pageCount = Math.max(1, Math.ceil(visibleEmployees.length / pageSize));
+  const currentPage = Math.min(page, pageCount);
+  const pagedEmployees = visibleEmployees.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
+  );
 
   async function createEmployee() {
+    const createdName = create.fullName.trim();
     setSavingId("new");
     setMessage("Создаём сотрудника…");
     const response = await fetch("/api/hr/employees", {
@@ -148,6 +162,8 @@ export function EmployeeDirectory({
       return setMessage(data.error ?? "Не удалось создать сотрудника");
     setMessage("Сотрудник создан");
     setShowCreate(false);
+    setQuery(createdName);
+    setPage(1);
     setCreate({
       fullName: "",
       login: "",
@@ -158,7 +174,7 @@ export function EmployeeDirectory({
       isCritical: false,
       allowanceDays: 28,
     });
-    router.refresh();
+    router.replace(`/hr/employees?year=${year}&focus=${data.id}`);
   }
 
   async function saveEmployee(employee: Employee) {
@@ -221,9 +237,7 @@ export function EmployeeDirectory({
             value={bulkDays}
             onChange={setBulkDays}
           />
-          <button className="secondaryButton" onClick={applyToAll}>
-            Применить ко всем
-          </button>
+          <ActionButton onClick={applyToAll}>Применить ко всем</ActionButton>
         </div>
         <ActionButton
           variant="primary"
@@ -335,19 +349,17 @@ export function EmployeeDirectory({
             </div>
           </div>
           <div className={styles.formActions}>
-            <button
-              className="secondaryButton"
-              onClick={() => setShowCreate(false)}
-            >
+            <ActionButton variant="quiet" onClick={() => setShowCreate(false)}>
               Отмена
-            </button>
-            <button
-              className="primaryButton"
+            </ActionButton>
+            <ActionButton
+              variant="primary"
+              icon={Plus}
               disabled={!canCreate || savingId === "new"}
               onClick={createEmployee}
             >
               Создать сотрудника
-            </button>
+            </ActionButton>
           </div>
         </section>
       )}
@@ -364,13 +376,19 @@ export function EmployeeDirectory({
       <div className={styles.filters}>
         <SearchControl
           value={query}
-          onChange={setQuery}
+          onChange={(value) => {
+            setQuery(value);
+            setPage(1);
+          }}
           placeholder="ФИО, логин, должность"
         />
         <SelectControl
           label="Фильтр по подразделению"
           value={departmentFilter}
-          onChange={(event) => setDepartmentFilter(event.target.value)}
+          onChange={(event) => {
+            setDepartmentFilter(event.target.value);
+            setPage(1);
+          }}
         >
           <option value="">Все подразделения</option>
           {departments.map((department) => (
@@ -382,7 +400,10 @@ export function EmployeeDirectory({
         <SegmentedControl
           label="Статус сотрудников"
           value={statusFilter}
-          onChange={setStatusFilter}
+          onChange={(value) => {
+            setStatusFilter(value);
+            setPage(1);
+          }}
           options={[
             { value: "active", label: "Активные" },
             { value: "inactive", label: "Отключённые" },
@@ -391,7 +412,7 @@ export function EmployeeDirectory({
         />
       </div>
       <section className={styles.list} aria-label="Список сотрудников">
-        {visibleEmployees.map((employee) => {
+        {pagedEmployees.map((employee) => {
           const draft = drafts[employee.id];
           const editing = editingId === employee.id;
           return (
@@ -558,12 +579,12 @@ export function EmployeeDirectory({
                     </div>
                   </div>
                   <div className={styles.formActions}>
-                    <button
-                      className="secondaryButton"
+                    <ActionButton
+                      variant="quiet"
                       onClick={() => setEditingId(null)}
                     >
                       Отмена
-                    </button>
+                    </ActionButton>
                     <ActionButton
                       variant="primary"
                       icon={Save}
@@ -579,6 +600,29 @@ export function EmployeeDirectory({
           );
         })}
       </section>
+      {visibleEmployees.length > pageSize ? (
+        <nav className={styles.pagination} aria-label="Страницы сотрудников">
+          <ActionButton
+            icon={ChevronLeft}
+            variant="quiet"
+            disabled={currentPage === 1}
+            onClick={() => setPage((value) => Math.max(1, value - 1))}
+          >
+            Назад
+          </ActionButton>
+          <span>
+            {currentPage} из {pageCount}
+          </span>
+          <ActionButton
+            icon={ChevronRight}
+            variant="quiet"
+            disabled={currentPage === pageCount}
+            onClick={() => setPage((value) => Math.min(pageCount, value + 1))}
+          >
+            Далее
+          </ActionButton>
+        </nav>
+      ) : null}
     </div>
   );
 }

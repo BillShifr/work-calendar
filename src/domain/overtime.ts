@@ -1,6 +1,6 @@
 export const OVERTIME_MINUTES = [5, 10, 15, 30, 60] as const;
 export type OvertimeMinutes = (typeof OVERTIME_MINUTES)[number];
-export const MAX_OVERTIME_MINUTES_PER_DAY = 24 * 60;
+export const MAX_OVERTIME_MINUTES_PER_DAY = 4 * 60;
 
 export function isOvertimeTotal(value: number): boolean {
   return (

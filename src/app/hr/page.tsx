@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ArrowRight, CalendarRange, Clock3, UsersRound } from "lucide-react";
 import { and, count, eq, inArray, isNull, sql } from "drizzle-orm";
 import { AppShell } from "@/components/AppShell";
 import { db } from "@/db/client";
@@ -189,29 +190,28 @@ export default async function HrPage({
       <header className="pageHeader">
         <h1>Кабинет кадровика</h1>
       </header>
-      <section className={styles.metrics} aria-label="Сводка">
-        <article className={`card ${styles.metric}`}>
-          <span>Требуют решения</span>
-          <strong>{awaiting}</strong>
-        </article>
-        <article className={`card ${styles.metric}`}>
-          <span>Активных сотрудников</span>
-          <strong>{employees.value}</strong>
-        </article>
-        <article className={`card ${styles.metric}`}>
-          <span>Подразделения с пересечениями</span>
-          <strong>{departmentsWithOverlaps}</strong>
-          <em>
-            {absenceRisks.length
-              ? `${absenceRisks.length} периодов пересекаются`
-              : "пересечений нет"}
-          </em>
-        </article>
-        <article className={`card ${styles.metric}`}>
-          <span>Ждём ответа сотрудника</span>
-          <strong>{waitingEmployee + waitingOvertimeEmployee}</strong>
-        </article>
-      </section>
+      <dl className={styles.summaryBar} aria-label="Оперативная сводка">
+        <div>
+          <Clock3 aria-hidden="true" size={19} />
+          <dt>На рассмотрении</dt>
+          <dd>{awaiting}</dd>
+        </div>
+        <div>
+          <UsersRound aria-hidden="true" size={19} />
+          <dt>Сотрудников</dt>
+          <dd>{employees.value}</dd>
+        </div>
+        <div className={departmentsWithOverlaps ? styles.attention : ""}>
+          <CalendarRange aria-hidden="true" size={19} />
+          <dt>Отделов с пересечениями</dt>
+          <dd>{departmentsWithOverlaps}</dd>
+        </div>
+        <div>
+          <ArrowRight aria-hidden="true" size={19} />
+          <dt>Ответ сотрудника</dt>
+          <dd>{waitingEmployee + waitingOvertimeEmployee}</dd>
+        </div>
+      </dl>
       <div className={styles.dashboard}>
         <section className={`card ${styles.section}`}>
           <div className={styles.sectionHeader}>
@@ -251,9 +251,8 @@ export default async function HrPage({
                   {item.updatedAt.toLocaleDateString("ru-RU")}
                 </div>
                 <Link className={styles.open} href={item.href}>
-                  {item.kind === "vacation"
-                    ? "Проверить отпуск"
-                    : "Проверить время"}
+                  Открыть
+                  <ArrowRight aria-hidden="true" size={18} />
                 </Link>
               </article>
             ))}
@@ -288,16 +287,9 @@ export default async function HrPage({
                     {risk.reason}. Штат подразделения: {risk.headcount}.
                   </p>
                   <small>{risk.employeeNames.join(", ")}</small>
-                  <div
-                    className={styles.calendarStrip}
-                    aria-label="Дни конфликта"
-                  >
-                    {risk.days.slice(0, 7).map((day) => (
-                      <span className={styles.risk} key={day}>
-                        {formatShortDate(day)}
-                      </span>
-                    ))}
-                  </div>
+                  <span className={styles.riskDays}>
+                    {risk.days.length} дн. пересечения
+                  </span>
                 </article>
               ))}
             </div>

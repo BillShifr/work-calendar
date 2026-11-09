@@ -17,8 +17,13 @@ type DepartmentRow = {
   updatedAt: Date | string;
 };
 
-export default async function HrDepartmentsPage() {
+export default async function HrDepartmentsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ focus?: string }>;
+}) {
   const actor = await requireHr();
+  const focusId = (await searchParams).focus;
   const [rows, employees] = await Promise.all([
     db.execute<DepartmentRow>(sql`
     SELECT
@@ -81,6 +86,7 @@ export default async function HrDepartmentsPage() {
           .join(":")}
         departments={departments}
         employees={employees}
+        focusId={focusId}
       />
     </AppShell>
   );
