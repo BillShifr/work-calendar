@@ -86,6 +86,141 @@ async function goToVacationMonth(page: Page, month: number) {
   throw new Error(`Не удалось открыть месяц отпуска: ${month}`);
 }
 
+async function goToVacationYear(page: Page, year: number) {
+  const yearLabel = page
+    .getByLabel("Действия с планом")
+    .locator("strong")
+    .first();
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    const current = Number((await yearLabel.textContent())?.trim());
+    expect(current, "Не удалось распознать год отпуска").toBeGreaterThan(0);
+    if (current === year) return;
+    await page
+      .getByRole("button", {
+        name: current < year ? "Следующий год" : "Предыдущий год",
+      })
+      .click();
+    await expect(yearLabel).not.toHaveText(String(current));
+  }
+  throw new Error(`Не удалось открыть год отпуска: ${year}`);
+}
+
+test("vacation ranges work over internal HTTP in every selection mode", async ({
+  page,
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name === "mobile",
+    "Both calendar layouts are covered in the desktop run",
+  );
+  await page.addInitScript(() => {
+    Object.defineProperty(globalThis.crypto, "randomUUID", {
+      configurable: true,
+      value: undefined,
+    });
+  });
+
+  await login(page, "hr", "CI-only-password-2026!");
+  await setEntryWindow(page, "vacation", 2029, 0, true);
+  await page.getByRole("button", { name: "Выйти" }).click();
+  await login(page, "employee", "Employee-2026!");
+  await page.getByRole("link", { name: "Отпуска" }).click();
+  await goToVacationYear(page, 2029);
+
+  await page.setViewportSize({ width: 1600, height: 900 });
+  const matrix = page.getByLabel("Матрица отпускных дней");
+  const matrixDay = (label: RegExp) =>
+    matrix.getByRole("button", { name: label });
+
+  await matrixDay(/^4 января/).click();
+  await expect(matrixDay(/^4 января/)).toHaveClass(/start/);
+  await matrixDay(/^4 января/).click();
+  await expect(matrixDay(/^4 января, период/)).toHaveClass(/segmentStart/);
+  await expect(matrixDay(/^4 января, период/)).toHaveClass(/segmentEnd/);
+
+  await matrixDay(/^12 января/).click();
+  await matrixDay(/^8 января/).click();
+  await expect(
+    page.getByRole("button", { name: /Изменить период 8 янв.*12 янв/ }),
+  ).toBeVisible();
+
+  await matrixDay(/^30 января/).click();
+  await matrixDay(/^2 февраля/).click();
+  await expect(matrixDay(/^30 января, период/)).toHaveClass(/segmentStart/);
+  await expect(matrixDay(/^2 февраля, период/)).toHaveClass(/segmentEnd/);
+
+  await matrixDay(/^3 февраля/).click();
+  await matrixDay(/^5 февраля/).click();
+  await expect(
+    matrixDay(/^3 февраля, период/).locator("span[aria-hidden=true]"),
+  ).toHaveCount(2);
+
+  await matrixDay(/^10 января, период/).click();
+  await matrixDay(/^15 января/).click();
+  await expect(page.getByRole("status")).toContainText(
+    "Этот период пересекается",
+  );
+  await expect(
+    page.getByRole("button", { name: "Отменить выбор" }),
+  ).toBeDisabled();
+
+  await page
+    .getByRole("button", { name: /Изменить период 8 янв.*12 янв/ })
+    .click();
+  await matrixDay(/^14 января/).click();
+  await expect(
+    page.getByRole("button", { name: /Изменить период 8 янв.*14 янв/ }),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "Сохранить черновик" }).click();
+  await expect(page.getByText("Сохранено", { exact: true })).toBeVisible();
+  await page.reload();
+  await goToVacationYear(page, 2029);
+  await expect(matrixDay(/^30 января, период/)).toBeVisible();
+
+  await page.setViewportSize({ width: 1366, height: 768 });
+  await goToVacationMonth(page, 2);
+  const mobileCalendar = page.getByLabel("Календарь отпускных дней");
+  const adjacentStart = mobileCalendar.getByRole("button", {
+    name: /^3 февраля, период/,
+  });
+  await expect(adjacentStart.locator("span[aria-hidden=true]")).toHaveCount(2);
+  const selectedBackground = await adjacentStart.evaluate(
+    (element) => getComputedStyle(element).backgroundColor,
+  );
+  const emptyBackground = await mobileCalendar
+    .getByRole("button", { name: /^10 февраля/ })
+    .evaluate((element) => getComputedStyle(element).backgroundColor);
+  expect(selectedBackground).not.toBe(emptyBackground);
+
+  await goToVacationMonth(page, 5);
+  await mobileCalendar.getByRole("button", { name: /^20 мая/ }).click();
+  await mobileCalendar.getByRole("button", { name: /^15 мая/ }).click();
+  await expect(
+    page.getByRole("button", { name: /Изменить период 15 мая.*20 мая/ }),
+  ).toBeVisible();
+
+  await goToVacationMonth(page, 6);
+  await mobileCalendar.getByRole("button", { name: /^1 июня/ }).click();
+  await mobileCalendar.getByRole("button", { name: /^15 июня/ }).click();
+  await expect(page.getByRole("status")).toContainText(
+    "Нельзя добавить период",
+  );
+  await mobileCalendar.getByRole("button", { name: /^7 июня/ }).click();
+  await expect(page.getByText("28", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("из 28 дней", { exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: "Сохранить черновик" }).click();
+  await expect(page.getByText("Сохранено", { exact: true })).toBeVisible();
+  await page.reload();
+  await goToVacationYear(page, 2029);
+  await goToVacationMonth(page, 6);
+  await expect(
+    page.getByLabel("Календарь отпускных дней").getByRole("button", {
+      name: /^7 июня, период/,
+    }),
+  ).toBeVisible();
+});
+
 test("employee and HR complete a bilateral vacation approval", async ({
   page,
 }, testInfo) => {

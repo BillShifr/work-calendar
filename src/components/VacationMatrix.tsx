@@ -18,6 +18,7 @@ import {
   totalPeriodDays,
   type DatePeriod,
 } from "@/domain/vacation";
+import { createClientId } from "@/lib/client-id";
 import {
   ActionButton,
   IconButton,
@@ -124,7 +125,7 @@ export function VacationMatrix({
     }
     const normalized = normalizePeriod(start, date);
     const next: DatePeriod = {
-      id: crypto.randomUUID(),
+      id: createClientId(`vacation-${mode}`),
       ...normalized,
       source: mode,
     };

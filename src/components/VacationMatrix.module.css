@@ -419,6 +419,24 @@
     cursor: pointer;
     font-weight: 700;
   }
+  .mobileDay.range {
+    background: var(--primary-soft);
+    color: var(--primary-strong);
+  }
+  .mobileDay.hrRange {
+    background: var(--hr-soft);
+    color: var(--hr);
+  }
+  .mobileDay.preview {
+    background: color-mix(in srgb, var(--action-soft) 72%, white);
+  }
+  .mobileDay.previewInvalid {
+    background: var(--danger-soft);
+  }
+  .mobileDay.start {
+    background: var(--primary);
+    color: white;
+  }
   .mobileDay i {
     position: absolute;
     right: 8px;
