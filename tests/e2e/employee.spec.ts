@@ -174,6 +174,7 @@ test("vacation ranges work over internal HTTP in every selection mode", async ({
   await page.getByRole("button", { name: "Сохранить черновик" }).click();
   await expect(page.getByText("Сохранено", { exact: true })).toBeVisible();
   await page.reload();
+  await goToVacationYear(page, 2029);
   await expect(matrixDay(/^30 января, период/)).toBeVisible();
 
   await page.setViewportSize({ width: 1366, height: 768 });
@@ -205,6 +206,7 @@ test("vacation ranges work over internal HTTP in every selection mode", async ({
   await page.getByRole("button", { name: "Сохранить черновик" }).click();
   await expect(page.getByText("Сохранено", { exact: true })).toBeVisible();
   await page.reload();
+  await goToVacationYear(page, 2029);
   await goToVacationMonth(page, 6);
   await expect(
     page.getByLabel("Календарь отпускных дней").getByRole("button", {
