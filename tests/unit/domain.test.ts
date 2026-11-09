@@ -17,6 +17,7 @@ import {
   totalPeriodDays,
 } from "@/domain/vacation";
 import { canTransition } from "@/domain/workflow";
+import { createClientId } from "@/lib/client-id";
 import { sessionCookieSecure } from "@/lib/origin";
 
 describe("domain rules", () => {
@@ -37,6 +38,13 @@ describe("domain rules", () => {
       startsOn: "2027-05-10",
       endsOn: "2027-05-20",
     });
+  });
+  it("creates unique client identifiers without secure-context browser APIs", () => {
+    const first = createClientId("vacation-employee");
+    const second = createClientId("vacation-employee");
+
+    expect(first).toMatch(/^vacation-employee-[a-z0-9]+-[a-z0-9]+$/);
+    expect(second).not.toBe(first);
   });
   it("counts inclusive days and detects intersections", () => {
     const period = { startsOn: "2027-02-28", endsOn: "2027-03-02" };
