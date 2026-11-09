@@ -2,7 +2,15 @@
 
 import { useDeferredValue, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Building2, Pencil, Plus, Save, X } from "lucide-react";
+import {
+  Building2,
+  ChevronLeft,
+  ChevronRight,
+  Pencil,
+  Plus,
+  Save,
+  X,
+} from "lucide-react";
 import {
   ActionButton,
   NumberControl,
@@ -28,9 +36,11 @@ type Department = {
 export function DepartmentRuleEditor({
   departments,
   employees,
+  focusId,
 }: {
   departments: Department[];
   employees: Array<{ id: string; fullName: string }>;
+  focusId?: string;
 }) {
   const router = useRouter();
   const [drafts, setDrafts] = useState(() =>
@@ -54,6 +64,10 @@ export function DepartmentRuleEditor({
   const [showCreate, setShowCreate] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [page, setPage] = useState(() => {
+    const index = departments.findIndex((item) => item.id === focusId);
+    return index < 0 ? 1 : Math.floor(index / 7) + 1;
+  });
   const [newDepartment, setNewDepartment] = useState({
     name: "",
     headcount: "",
@@ -67,6 +81,16 @@ export function DepartmentRuleEditor({
     `${department.displayName} ${department.assignedCount}`
       .toLocaleLowerCase("ru")
       .includes(normalizedQuery),
+  );
+  const pageSize = 7;
+  const pageCount = Math.max(
+    1,
+    Math.ceil(visibleDepartments.length / pageSize),
+  );
+  const currentPage = Math.min(page, pageCount);
+  const pagedDepartments = visibleDepartments.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
   );
 
   function change(
@@ -115,6 +139,7 @@ export function DepartmentRuleEditor({
   }
 
   async function createDepartment() {
+    const createdName = newDepartment.name.trim();
     setCreating(true);
     const response = await fetch("/api/hr/departments", {
       method: "POST",
@@ -146,7 +171,9 @@ export function DepartmentRuleEditor({
     });
     setMessages((current) => ({ ...current, create: "Подразделение создано" }));
     setShowCreate(false);
-    router.refresh();
+    setQuery(createdName);
+    setPage(1);
+    router.replace(`/hr/departments?focus=${data.id}`);
   }
 
   return (
@@ -154,7 +181,10 @@ export function DepartmentRuleEditor({
       <div className={styles.toolbar}>
         <SearchControl
           value={query}
-          onChange={setQuery}
+          onChange={(value) => {
+            setQuery(value);
+            setPage(1);
+          }}
           placeholder="Поиск подразделения"
         />
         <span>
@@ -269,7 +299,7 @@ export function DepartmentRuleEditor({
         </section>
       ) : null}
 
-      {visibleDepartments.map((department) => {
+      {pagedDepartments.map((department) => {
         const draft = drafts[department.id];
         const editing = editingId === department.id;
         return (
@@ -415,6 +445,29 @@ export function DepartmentRuleEditor({
           </article>
         );
       })}
+      {visibleDepartments.length > pageSize ? (
+        <nav className={styles.pagination} aria-label="Страницы подразделений">
+          <ActionButton
+            icon={ChevronLeft}
+            variant="quiet"
+            disabled={currentPage === 1}
+            onClick={() => setPage((value) => Math.max(1, value - 1))}
+          >
+            Назад
+          </ActionButton>
+          <span>
+            {currentPage} из {pageCount}
+          </span>
+          <ActionButton
+            icon={ChevronRight}
+            variant="quiet"
+            disabled={currentPage === pageCount}
+            onClick={() => setPage((value) => Math.min(pageCount, value + 1))}
+          >
+            Далее
+          </ActionButton>
+        </nav>
+      ) : null}
     </div>
   );
 }

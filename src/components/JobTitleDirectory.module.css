@@ -73,11 +73,22 @@
     auto;
   gap: 14px;
   align-items: center;
-  min-height: 68px;
-  padding: 10px 14px;
+  min-height: 56px;
+  padding: 7px 12px;
   border-bottom: 1px solid var(--border);
   content-visibility: auto;
   contain-intrinsic-size: 68px;
+}
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+.pagination > span {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: 750;
 }
 .summary {
   display: grid;

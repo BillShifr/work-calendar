@@ -1,6 +1,6 @@
 .workspace {
   display: grid;
-  gap: 20px;
+  gap: 12px;
 }
 .commandBar {
   display: flex;
@@ -75,39 +75,64 @@
   color: var(--text-muted);
   font-size: var(--text-sm);
 }
-.approvalRows {
+.approvalTable {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
-.approvalRows > div {
+.approvalTableHead,
+.approvalRow {
   display: grid;
-  grid-template-columns: minmax(160px, 1fr) minmax(90px, 0.6fr) 34px;
+  grid-template-columns: minmax(160px, 1fr) repeat(4, 34px);
   align-items: center;
-  gap: 12px;
-  min-height: 44px;
-  padding: 0 14px;
+  gap: 7px;
+  min-height: 38px;
+  padding: 0 10px;
   border-right: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
 }
-.approvalRows span {
+.approvalTableHead {
+  grid-template-columns: minmax(160px, 1fr) repeat(4, 34px);
+  min-height: 34px;
+  background: var(--surface-subtle);
+}
+.approvalTableHead span:not(:first-child) {
+  text-align: center;
+}
+.approvalRow > span {
   overflow: hidden;
   color: var(--text-muted);
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: var(--text-sm);
 }
-.approvalRows i {
-  height: 6px;
-  overflow: hidden;
-  background: var(--surface-muted);
+.approvalRow i {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border);
+  background: var(--surface-subtle);
+  color: var(--text-muted);
+  font-style: normal;
+  font-size: var(--text-xs);
+  font-weight: 800;
 }
-.approvalRows b {
-  display: block;
-  height: 100%;
-  background: var(--success);
+.approvalRow .quarterApproved {
+  border-color: var(--success);
+  background: var(--success-soft);
+  color: var(--success);
 }
-.approvalRows strong {
+.approvalPagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 6px 10px;
+  border-top: 1px solid var(--border);
+}
+.approvalPagination > span {
+  color: var(--text-muted);
   font-size: var(--text-sm);
+  font-weight: 750;
 }
 .filters {
   display: grid;
@@ -131,7 +156,8 @@
     auto;
   gap: 10px;
   align-items: center;
-  padding: 11px 12px;
+  min-height: 54px;
+  padding: 7px 10px;
   border-bottom: 1px solid var(--border);
 }
 .tableHead {
@@ -159,6 +185,17 @@
   padding: 24px 16px;
   color: var(--text-muted);
 }
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+.pagination > span {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: 750;
+}
 @media (max-width: 1100px) {
   .commandBar {
     align-items: stretch;
@@ -167,8 +204,8 @@
   .commandBar > a {
     margin-left: 0;
   }
-  .approvalRows {
-    grid-template-columns: 1fr;
+  .approvalTableHead {
+    grid-template-columns: minmax(160px, 1fr) repeat(4, 34px);
   }
   .tableHead {
     display: none;

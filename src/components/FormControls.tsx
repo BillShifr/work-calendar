@@ -293,7 +293,13 @@ export function SearchControl({
   );
 }
 
-export type FlightState = { id: number; x: number; y: number } | null;
+export type FlightState = {
+  id: number;
+  x: number;
+  y: number;
+  targetX: number;
+  targetY: number;
+} | null;
 
 export function SubmissionFlight({
   flight,
@@ -317,19 +323,8 @@ export function SubmissionFlight({
                   opacity: [0, 1, 1, 0],
                   scale: [0.72, 1, 0.82, 0.5],
                   rotate: [8, -8, -18, -25],
-                  x: [
-                    0,
-                    26,
-                    Math.max(
-                      80,
-                      (typeof window === "undefined"
-                        ? 1280
-                        : window.innerWidth) -
-                        flight.x -
-                        96,
-                    ),
-                  ],
-                  y: [0, -28, 72 - flight.y],
+                  x: [0, 24, flight.targetX - flight.x],
+                  y: [0, -32, flight.targetY - flight.y],
                 }
           }
           transition={{

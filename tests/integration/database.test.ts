@@ -48,14 +48,14 @@ describe.skipIf(!sql)("database constraints", () => {
     expect(departments).toBeGreaterThanOrEqual(31);
     expect(titles).toBeGreaterThanOrEqual(21);
   });
-  it("keeps accumulated overtime totals on the five-minute grid", async () => {
+  it("limits accumulated overtime to four hours on the five-minute grid", async () => {
     const checks =
       await sql!`SELECT pg_get_constraintdef(oid) definition FROM pg_constraint WHERE conrelid='overtime_entries'::regclass`;
     expect(
       checks.some(
         (row) =>
           row.definition.includes("minutes") &&
-          row.definition.includes("1440") &&
+          row.definition.includes("240") &&
           row.definition.includes("% 5"),
       ),
     ).toBe(true);

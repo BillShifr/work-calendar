@@ -44,6 +44,10 @@ const formatDate = (value: string) =>
   new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "short" }).format(
     new Date(`${value}T00:00:00Z`),
   );
+const formatDayLabel = (value: string) =>
+  new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long" }).format(
+    new Date(`${value}T00:00:00Z`),
+  );
 const iso = (year: number, month: number, day: number) =>
   `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 const shiftDate = (value: string, days: number) => {
@@ -83,6 +87,7 @@ export function VacationMatrix({
   );
   const [mobileMonth, setMobileMonth] = useState(0);
   const [editingPeriod, setEditingPeriod] = useState<DatePeriod | null>(null);
+  const [hoveredEnd, setHoveredEnd] = useState<string | null>(null);
   const [flight, setFlight] = useState<FlightState>(null);
   const canEdit =
     (mode === "hr" &&
@@ -93,6 +98,18 @@ export function VacationMatrix({
         (status === "hr_proposed" && editingResponse)));
   const total = totalPeriodDays(periods);
   const excess = Math.max(0, total - allowanceDays);
+  const remainingDays = Math.max(0, allowanceDays - total);
+  const previewPeriod =
+    start && hoveredEnd ? normalizePeriod(start, hoveredEnd) : null;
+  const previewDays = previewPeriod ? periodDays(previewPeriod) : 0;
+  const previewOverLimit = previewDays > remainingDays;
+  function isPreviewDate(date: string) {
+    return Boolean(
+      previewPeriod &&
+      previewPeriod.startsOn <= date &&
+      previewPeriod.endsOn >= date,
+    );
+  }
   function periodFor(date: string) {
     return periods.find(
       (period) => period.startsOn <= date && period.endsOn >= date,
@@ -119,6 +136,7 @@ export function VacationMatrix({
     ) {
       setMessage("Этот период пересекается с уже выбранным.");
       setStart(null);
+      setHoveredEnd(null);
       return;
     }
     const nextTotal = total + periodDays(next);
@@ -133,6 +151,7 @@ export function VacationMatrix({
     );
     setStart(null);
     setEditingPeriod(null);
+    setHoveredEnd(null);
     setMessage("Период добавлен и пока не сохранён.");
   }
   function editPeriod(period: DatePeriod) {
@@ -140,6 +159,7 @@ export function VacationMatrix({
     setEditingPeriod(period);
     setPeriods((current) => current.filter((item) => item.id !== period.id));
     setStart(period.startsOn);
+    setHoveredEnd(period.endsOn);
     setMessage("Изменение периода: выберите новую дату окончания.");
   }
   function cancelSelection() {
@@ -152,6 +172,7 @@ export function VacationMatrix({
     }
     setEditingPeriod(null);
     setStart(null);
+    setHoveredEnd(null);
     setMessage("");
   }
   async function changeYear(delta: number) {
@@ -167,6 +188,7 @@ export function VacationMatrix({
     setEntryWindowOpen(data.entryWindowOpen);
     setStart(null);
     setEditingPeriod(null);
+    setHoveredEnd(null);
     setMobileMonth(0);
     setMessage("");
   }
@@ -227,9 +249,19 @@ export function VacationMatrix({
     const button = document.querySelector<HTMLElement>(
       "[data-vacation-submit]",
     );
+    const target = document.querySelector<HTMLElement>(
+      "[data-vacation-status]",
+    );
     const box = button?.getBoundingClientRect();
-    if (box)
-      setFlight({ id: Date.now(), x: box.left + box.width / 2, y: box.top });
+    const targetBox = target?.getBoundingClientRect();
+    if (box && targetBox)
+      setFlight({
+        id: Date.now(),
+        x: box.left + box.width / 2,
+        y: box.top,
+        targetX: targetBox.left + targetBox.width / 2,
+        targetY: targetBox.top + targetBox.height / 2,
+      });
   }
   async function approve() {
     setSaving(true);
@@ -294,7 +326,7 @@ export function VacationMatrix({
           <strong>{total}</strong>
           <span>из {allowanceDays} дней</span>
         </div>
-        <span className={styles.message} role="status">
+        <span className={styles.message} role="status" data-vacation-status>
           {message}
         </span>
         <div className={`actions ${styles.actions}`}>
@@ -358,8 +390,7 @@ export function VacationMatrix({
             status === "hr_proposed" &&
             !editingResponse && (
               <>
-                <button
-                  className="secondaryButton"
+                <ActionButton
                   disabled={!entryWindowOpen}
                   onClick={() => {
                     setEditingResponse(true);
@@ -367,14 +398,14 @@ export function VacationMatrix({
                   }}
                 >
                   Изменить снова
-                </button>
-                <button
-                  className="primaryButton"
+                </ActionButton>
+                <ActionButton
+                  variant="primary"
                   disabled={saving}
                   onClick={approve}
                 >
                   Подтвердить правку
-                </button>
+                </ActionButton>
               </>
             )}
         </div>
@@ -404,7 +435,15 @@ export function VacationMatrix({
       <div className={styles.periodBar} aria-live="polite">
         <div className={styles.selection}>
           <strong>{start ? `Начало: ${formatDate(start)}` : "Периоды"}</strong>
-          {start && <span>Выберите дату окончания</span>}
+          {start ? (
+            <span>
+              {hoveredEnd
+                ? `${formatDate(start)} — ${formatDate(hoveredEnd)} · ${previewDays} дн.`
+                : `Выберите последний день · доступно ${remainingDays} дн.`}
+            </span>
+          ) : (
+            <span>Нажмите начальный и конечный день</span>
+          )}
         </div>
         {periods.length ? (
           <ul className={styles.periods}>
@@ -443,14 +482,15 @@ export function VacationMatrix({
           <span className={styles.empty}>Не выбраны</span>
         )}
         <div className={styles.legend} aria-label="Обозначения">
-          <span>
-            <i className={styles.dot} /> Период сотрудника
+          <strong>Статусы</strong>
+          <span className={styles.legendEmployee}>
+            <i /> <b>Ваш период</b>
           </span>
-          <span>
-            <i className={`${styles.dot} ${styles.dotHr}`} /> Правка кадровика
+          <span className={styles.legendHr}>
+            <i /> <b>Изменено кадровиком</b>
           </span>
-          <span>
-            <i className={`${styles.dot} ${styles.dotApproved}`} /> Утверждено
+          <span className={styles.legendApproved}>
+            <i /> <b>Утверждено</b>
           </span>
         </div>
       </div>
@@ -492,9 +532,11 @@ export function VacationMatrix({
                     key={date}
                     disabled={!valid || !canEdit}
                     onClick={() => select(date)}
+                    onPointerEnter={() => start && valid && setHoveredEnd(date)}
+                    onFocus={() => start && valid && setHoveredEnd(date)}
                     aria-label={
                       valid
-                        ? `${day} ${monthName.toLowerCase()}${period ? `, период ${formatDate(period.startsOn)} — ${formatDate(period.endsOn)}` : ""}`
+                        ? `${formatDayLabel(date)}${period ? `, период ${formatDate(period.startsOn)} — ${formatDate(period.endsOn)}` : ""}`
                         : undefined
                     }
                     className={[
@@ -509,6 +551,11 @@ export function VacationMatrix({
                       segmentStart ? styles.segmentStart : "",
                       segmentEnd ? styles.segmentEnd : "",
                       adjacentStart ? styles.adjacentStart : "",
+                      isPreviewDate(date)
+                        ? previewOverLimit
+                          ? styles.previewInvalid
+                          : styles.preview
+                        : "",
                       start === date ? styles.start : "",
                     ].join(" ")}
                   >
@@ -581,11 +628,31 @@ export function VacationMatrix({
               const day = index + 1;
               const date = iso(year, mobileMonth + 1, day);
               const period = periodFor(date);
+              const previousPeriod = period
+                ? periodFor(shiftDate(date, -1))
+                : undefined;
+              const segmentStart = Boolean(
+                period && (period.startsOn === date || day === 1),
+              );
+              const segmentEnd = Boolean(
+                period &&
+                (period.endsOn === date ||
+                  day === daysInMonth(year, mobileMonth + 1)),
+              );
+              const adjacentStart = Boolean(
+                period &&
+                period.startsOn === date &&
+                previousPeriod &&
+                previousPeriod.id !== period.id,
+              );
               return (
                 <button
                   key={date}
                   disabled={!canEdit}
                   onClick={() => select(date)}
+                  onPointerEnter={() => start && setHoveredEnd(date)}
+                  onFocus={() => start && setHoveredEnd(date)}
+                  aria-label={`${formatDayLabel(date)}${period ? `, период ${formatDate(period.startsOn)} — ${formatDate(period.endsOn)}` : ""}`}
                   className={[
                     styles.mobileDay,
                     period
@@ -594,11 +661,24 @@ export function VacationMatrix({
                         : styles.range
                       : "",
                     period?.status === "approved" ? styles.approved : "",
+                    segmentStart ? styles.segmentStart : "",
+                    segmentEnd ? styles.segmentEnd : "",
+                    adjacentStart ? styles.adjacentStart : "",
+                    isPreviewDate(date)
+                      ? previewOverLimit
+                        ? styles.previewInvalid
+                        : styles.preview
+                      : "",
                     start === date ? styles.start : "",
                   ].join(" ")}
                 >
                   <span>{day}</span>
-                  {period ? <i aria-hidden="true" /> : null}
+                  {period ? (
+                    <span className={styles.periodBracket} aria-hidden="true" />
+                  ) : null}
+                  {adjacentStart ? (
+                    <span className={styles.seamMark} aria-hidden="true" />
+                  ) : null}
                 </button>
               );
             },

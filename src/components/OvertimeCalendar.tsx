@@ -2,10 +2,12 @@
 
 import { useMemo, useState } from "react";
 import {
+  AlertTriangle,
   ChevronLeft,
   ChevronRight,
   Clock3,
   Eraser,
+  Plus,
   Save,
   Send,
 } from "lucide-react";
@@ -41,6 +43,10 @@ const months = [
 const weekdays = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
 const iso = (year: number, month: number, day: number) =>
   `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+const formatSelectedDate = (value: string) =>
+  new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long" }).format(
+    new Date(`${value}T00:00:00Z`),
+  );
 type Source = "employee" | "hr";
 type Mode = Source | "review";
 type InitialReport = {
@@ -100,6 +106,11 @@ export function OvertimeCalendar({
   const offset =
     (new Date(Date.UTC(period.year, period.month - 1, 1)).getUTCDay() + 6) % 7;
   const total = Object.values(entries).reduce((sum, value) => sum + value, 0);
+  const selectedMinutes = selected ? (entries[selected] ?? 0) : 0;
+  const selectedRemaining = MAX_OVERTIME_MINUTES_PER_DAY - selectedMinutes;
+  const legacyExcessDates = Object.entries(entries)
+    .filter(([, minutes]) => minutes > MAX_OVERTIME_MINUTES_PER_DAY)
+    .map(([date]) => date);
   const cells = useMemo(
     () =>
       Array.from({ length: offset + count }, (_, index) =>
@@ -169,6 +180,12 @@ export function OvertimeCalendar({
         ?.focus();
   }
   async function save() {
+    if (legacyExcessDates.length) {
+      setMessage(
+        "Есть дни свыше 4 часов. Откройте отмеченный день и уменьшите время перед сохранением.",
+      );
+      return false;
+    }
     setSaving(true);
     setMessage("Сохраняем…");
     const response = await fetch(
@@ -227,9 +244,19 @@ export function OvertimeCalendar({
       const button = document.querySelector<HTMLElement>(
         "[data-overtime-submit]",
       );
+      const target = document.querySelector<HTMLElement>(
+        "[data-overtime-status]",
+      );
       const box = button?.getBoundingClientRect();
-      if (box)
-        setFlight({ id: Date.now(), x: box.left + box.width / 2, y: box.top });
+      const targetBox = target?.getBoundingClientRect();
+      if (box && targetBox)
+        setFlight({
+          id: Date.now(),
+          x: box.left + box.width / 2,
+          y: box.top,
+          targetX: targetBox.left + targetBox.width / 2,
+          targetY: targetBox.top + targetBox.height / 2,
+        });
     }
   }
   async function saveAndSubmit() {
@@ -283,23 +310,22 @@ export function OvertimeCalendar({
           </strong>
           <span>{Object.keys(entries).length} дней</span>
         </div>
-        <span className={styles.message} role="status">
+        <span className={styles.message} role="status" data-overtime-status>
           {message}
         </span>
         <div className={`actions ${styles.actions}`}>
           {mode === "hr" && canEdit && (
             <>
               {status !== "hr_proposed" && (
-                <button
-                  className="secondaryButton"
+                <ActionButton
                   disabled={saving}
                   onClick={() => transition("approved")}
                 >
                   Утвердить без изменений
-                </button>
+                </ActionButton>
               )}
-              <button
-                className="primaryButton"
+              <ActionButton
+                variant="primary"
                 disabled={
                   saving ||
                   !reason.trim() ||
@@ -308,7 +334,7 @@ export function OvertimeCalendar({
                 onClick={save}
               >
                 Предложить изменения
-              </button>
+              </ActionButton>
             </>
           )}
           {mode === "employee" && ["draft", "reopened"].includes(status) && (
@@ -343,27 +369,26 @@ export function OvertimeCalendar({
             status === "hr_proposed" &&
             !editingResponse && (
               <>
-                <button
-                  className="secondaryButton"
+                <ActionButton
                   disabled={saving || !entryWindowOpen}
                   onClick={() => setEditingResponse(true)}
                 >
                   Изменить снова
-                </button>
-                <button
-                  className="primaryButton"
+                </ActionButton>
+                <ActionButton
+                  variant="primary"
                   disabled={saving}
                   onClick={() => transition("approved")}
                 >
                   Подтвердить правку
-                </button>
+                </ActionButton>
               </>
             )}
           {mode === "employee" &&
             status === "hr_proposed" &&
             editingResponse && (
-              <button
-                className="primaryButton"
+              <ActionButton
+                variant="primary"
                 disabled={
                   saving ||
                   !entryWindowOpen ||
@@ -372,10 +397,22 @@ export function OvertimeCalendar({
                 onClick={save}
               >
                 Отправить свой вариант
-              </button>
+              </ActionButton>
             )}
         </div>
       </div>
+
+      {legacyExcessDates.length ? (
+        <div className={styles.limitAlert} role="alert">
+          <AlertTriangle aria-hidden="true" size={20} />
+          <span>
+            <strong>Нужно исправить превышение лимита</strong>
+            {legacyExcessDates.length} дн. содержат больше 4 часов. Исторические
+            данные сохранены, но новые изменения нельзя отправить до
+            исправления.
+          </span>
+        </div>
+      ) : null}
 
       <div className={styles.editor} aria-live="polite">
         <div className={styles.selectedDate}>
@@ -383,44 +420,75 @@ export function OvertimeCalendar({
             <Clock3 aria-hidden="true" size={17} />{" "}
             {canEdit ? "Выбранный день" : "Просмотр"}
           </span>
-          <strong>
+          <strong>{selected ? formatSelectedDate(selected) : "—"}</strong>
+          <span>
             {selected
-              ? `${Number(selected.slice(-2))} ${months[period.month - 1].toLowerCase()}`
-              : "—"}
-          </strong>
-          {selected && entries[selected] ? (
-            <span className={styles.selectedTotal}>
-              Сейчас: {entries[selected]} мин
-            </span>
+              ? "Нажимайте значения справа — время суммируется"
+              : "Сначала выберите день в календаре"}
+          </span>
+          {selected ? (
+            <IconButton
+              className={styles.clearButton}
+              label="Очистить время выбранного дня"
+              icon={Eraser}
+              disabled={!entries[selected] || !canEdit}
+              onClick={clearSelected}
+            />
           ) : null}
         </div>
-        <div className={styles.minuteButtons}>
-          {OVERTIME_MINUTES.map((minutes) => (
-            <button
-              key={minutes}
-              disabled={
-                !selected ||
-                !canEdit ||
-                (entries[selected] ?? 0) + minutes >
-                  MAX_OVERTIME_MINUTES_PER_DAY
-              }
-              aria-label={`Добавить ${minutes === 60 ? "1 час" : `${minutes} минут`}`}
-              title="Можно нажать несколько раз"
-              onClick={() => chooseMinutes(minutes)}
-            >
-              <span>+</span>
-              {minutes === 60 ? "1 час" : `${minutes} мин`}
-            </button>
-          ))}
+        <div className={styles.timeTotal}>
+          <span>За выбранный день</span>
+          <strong>
+            {Math.floor(selectedMinutes / 60)} ч {selectedMinutes % 60} мин
+          </strong>
+          <div
+            className={styles.limitTrack}
+            role="progressbar"
+            aria-label="Заполнение лимита 4 часа"
+            aria-valuemin={0}
+            aria-valuemax={MAX_OVERTIME_MINUTES_PER_DAY}
+            aria-valuenow={Math.min(
+              selectedMinutes,
+              MAX_OVERTIME_MINUTES_PER_DAY,
+            )}
+          >
+            <i
+              style={{
+                width: `${Math.min(100, (selectedMinutes / MAX_OVERTIME_MINUTES_PER_DAY) * 100)}%`,
+              }}
+            />
+          </div>
+          <small>
+            {selected
+              ? selectedRemaining >= 0
+                ? `Осталось ${selectedRemaining} мин из 4 часов`
+                : `Превышение на ${Math.abs(selectedRemaining)} мин`
+              : "Лимит — 4 часа в день"}
+          </small>
         </div>
-        <ActionButton
-          variant="quiet"
-          icon={Eraser}
-          disabled={!selected || !entries[selected] || !canEdit}
-          onClick={clearSelected}
-        >
-          Очистить
-        </ActionButton>
+        <div className={styles.incrementPanel}>
+          <span>Добавить время</span>
+          <div className={styles.minuteButtons}>
+            {OVERTIME_MINUTES.map((minutes) => (
+              <ActionButton
+                className={styles.increment}
+                variant="secondary"
+                icon={Plus}
+                key={minutes}
+                disabled={
+                  !selected ||
+                  !canEdit ||
+                  selectedMinutes + minutes > MAX_OVERTIME_MINUTES_PER_DAY
+                }
+                aria-label={`Добавить ${minutes === 60 ? "1 час" : `${minutes} минут`}`}
+                title="Можно нажать несколько раз"
+                onClick={() => chooseMinutes(minutes)}
+              >
+                {minutes === 60 ? "1 час" : `${minutes} мин`}
+              </ActionButton>
+            ))}
+          </div>
+        </div>
         <div className={styles.zero}>
           <ToggleControl
             label="Внеурочного времени не было"
@@ -443,14 +511,15 @@ export function OvertimeCalendar({
       )}
 
       <div className={styles.legend} aria-label="Обозначения">
-        <span>
-          <i className={styles.dot} /> Внесено сотрудником
+        <strong>Статусы дней</strong>
+        <span className={styles.legendEmployee}>
+          <i /> <b>Ваши данные</b>
         </span>
-        <span>
-          <i className={`${styles.dot} ${styles.dotHr}`} /> Правка кадровика
+        <span className={styles.legendHr}>
+          <i /> <b>Изменено кадровиком</b>
         </span>
-        <span>
-          <i className={`${styles.dot} ${styles.dotApproved}`} /> Утверждено
+        <span className={styles.legendApproved}>
+          <i /> <b>Утверждено</b>
         </span>
       </div>
 

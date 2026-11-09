@@ -21,6 +21,7 @@ import { sessionCookieSecure } from "@/lib/origin";
 
 describe("domain rules", () => {
   it("accumulates overtime steps and validates the resulting daily total", () => {
+    expect(MAX_OVERTIME_MINUTES_PER_DAY).toBe(240);
     expect(addOvertimeMinutes(10, 10)).toBe(20);
     expect(addOvertimeMinutes(60, 30)).toBe(90);
     expect(addOvertimeMinutes(MAX_OVERTIME_MINUTES_PER_DAY, 5)).toBe(

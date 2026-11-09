@@ -113,7 +113,7 @@
 }
 .toggle {
   position: relative;
-  width: 72px;
+  width: 68px;
   height: var(--control-height);
   flex: 0 0 auto;
   border: 1px solid var(--border-strong);
@@ -127,10 +127,10 @@
 .toggleThumb {
   display: block;
   position: absolute;
-  top: 8px;
-  left: 7px;
-  width: 34px;
-  height: 34px;
+  top: 5px;
+  left: 5px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   background: white;
   box-shadow: 0 1px 3px rgb(0 0 0 / 22%);
@@ -141,7 +141,7 @@
   background: var(--action);
 }
 .toggle[data-state="checked"] .toggleThumb {
-  transform: translateX(24px);
+  transform: translateX(25px);
 }
 .toggleLabel:has(.toggle[data-state="checked"]) strong {
   color: var(--action-strong);

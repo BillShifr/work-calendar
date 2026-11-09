@@ -66,6 +66,26 @@ async function goToOvertimePeriod(page: Page, year: number, month: number) {
   throw new Error(`Не удалось открыть период ${month}.${year}`);
 }
 
+async function goToVacationMonth(page: Page, month: number) {
+  const calendar = page.getByLabel("Календарь отпускных дней");
+  const heading = calendar.locator("strong").first();
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    const label = (await heading.textContent())?.trim() ?? "";
+    const current = overtimeMonths.findIndex((name) => label.startsWith(name));
+    expect(
+      current,
+      `Не удалось распознать месяц отпуска: ${label}`,
+    ).toBeGreaterThanOrEqual(0);
+    if (current + 1 === month) return;
+    await calendar
+      .getByRole("button", {
+        name: current + 1 < month ? "Следующий месяц" : "Предыдущий месяц",
+      })
+      .click();
+  }
+  throw new Error(`Не удалось открыть месяц отпуска: ${month}`);
+}
+
 test("employee and HR complete a bilateral vacation approval", async ({
   page,
 }, testInfo) => {
@@ -88,6 +108,17 @@ test("employee and HR complete a bilateral vacation approval", async ({
     .first();
   await availableDay.click();
   await page.getByRole("button", { name: "Добавить 15 минут" }).click();
+  const limitDay = page
+    .locator('button[aria-label*="не заполнено"]:not([disabled])')
+    .nth(1);
+  await limitDay.click();
+  for (let index = 0; index < 4; index += 1) {
+    await page.getByRole("button", { name: "Добавить 1 час" }).click();
+  }
+  await expect(
+    page.getByRole("button", { name: "Добавить 1 час" }),
+  ).toBeDisabled();
+  await expect(page.getByText("Осталось 0 мин из 4 часов")).toBeVisible();
   await page.getByRole("button", { name: "Сохранить черновик" }).click();
   await expect(page.getByText("Сохранено", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Отправить на согласование" }).click();
@@ -100,7 +131,8 @@ test("employee and HR complete a bilateral vacation approval", async ({
   await expect(
     page.getByText("Заполнение на 2028 год закрыто кадровой службой"),
   ).toBeVisible();
-  await expect(page.getByRole("button", { name: /^10 май/ })).toBeDisabled();
+  await goToVacationMonth(page, 5);
+  await expect(page.getByRole("button", { name: /^10 мая/ })).toBeDisabled();
   await expect(
     page.getByRole("button", { name: "Сохранить черновик" }),
   ).toBeDisabled();
@@ -145,7 +177,7 @@ test("employee and HR complete a bilateral vacation approval", async ({
   await expect(overLimitResponse.json()).resolves.toMatchObject({
     error: "Количество дней превышает доступный лимит.",
   });
-  const vacationMatrix = page.getByLabel("Матрица отпускных дней");
+  const vacationMatrix = page.getByLabel("Календарь отпускных дней");
   await expect
     .poll(() =>
       vacationMatrix.evaluate(
@@ -156,20 +188,22 @@ test("employee and HR complete a bilateral vacation approval", async ({
   await expect(
     page.getByRole("button", { name: "Сохранить черновик" }),
   ).toBeInViewport();
-  await page.getByRole("button", { name: /^10 май/ }).click();
+  await goToVacationMonth(page, 5);
+  await page.getByRole("button", { name: /^10 мая/ }).click();
   await expect(page.getByText(/Начало: 10 мая/i)).toBeVisible();
-  await page.getByRole("button", { name: /^14 май/ }).click();
-  await page.getByRole("button", { name: /^15 май/ }).click();
-  await page.getByRole("button", { name: /^20 май/ }).click();
+  await page.getByRole("button", { name: /^14 мая/ }).click();
+  await page.getByRole("button", { name: /^15 мая/ }).click();
+  await page.getByRole("button", { name: /^20 мая/ }).click();
   const adjacentPeriodStart = page.getByRole("button", {
-    name: /^15 май, период/,
+    name: /^15 мая, период/,
   });
   await expect(
     adjacentPeriodStart.locator("span[aria-hidden=true]"),
   ).toHaveCount(2);
   await page.getByRole("button", { name: /Удалить период 15 мая/ }).click();
-  await page.getByRole("button", { name: /^1 июн/ }).click();
-  await page.getByRole("button", { name: /^30 июн/ }).click();
+  await goToVacationMonth(page, 6);
+  await page.getByRole("button", { name: /^1 июня/ }).click();
+  await page.getByRole("button", { name: /^30 июня/ }).click();
   await expect(page.getByRole("status")).toContainText(
     "Нельзя добавить период",
   );
@@ -177,6 +211,12 @@ test("employee and HR complete a bilateral vacation approval", async ({
   await expect(page.getByText("из 28 дней", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Отменить выбор" }).click();
   await page.getByRole("button", { name: "Сохранить черновик" }).click();
+  await expect(page.getByText("Сохранено", { exact: true })).toBeVisible();
+  await page.reload();
+  await goToVacationMonth(page, 5);
+  await expect(
+    page.getByRole("button", { name: /^10 мая, период/ }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Отправить кадровику" }).click();
   await expect(
     page.getByText("План отправлен кадровой службе", { exact: true }),
@@ -232,7 +272,7 @@ test("employee and HR complete a bilateral vacation approval", async ({
     .locator("article")
     .filter({ hasText: "Алексей Морозов" })
     .filter({ hasText: /Внеурочное время · 10\.2026/ })
-    .getByRole("link", { name: "Проверить время" })
+    .getByRole("link", { name: "Открыть" })
     .click();
   await expect(
     page.getByRole("button", { name: "Утвердить без изменений" }),
@@ -251,9 +291,10 @@ test("employee and HR complete a bilateral vacation approval", async ({
 
   await page.goto("/hr");
   await page.locator('a[href^="/hr/vacations/"]').click();
+  await goToVacationMonth(page, 5);
   await page.getByRole("button", { name: /Удалить период/ }).click();
-  await page.getByRole("button", { name: /^12 май/ }).click();
-  await page.getByRole("button", { name: /^22 май/ }).click();
+  await page.getByRole("button", { name: /^12 мая/ }).click();
+  await page.getByRole("button", { name: /^22 мая/ }).click();
   await page
     .getByLabel("Причина изменений")
     .fill("Устранение пересечения с отпуском дежурного специалиста");
@@ -396,7 +437,7 @@ test("monthly overtime calendar remains usable on mobile", async ({
   await expect(tenMinutes).toBeEnabled();
   await expect
     .poll(async () => (await tenMinutes.boundingBox())?.height ?? 0)
-    .toBeGreaterThanOrEqual(52);
+    .toBeGreaterThanOrEqual(44);
   await tenMinutes.click();
   await tenMinutes.click();
   await expect(day).toHaveAttribute("aria-label", /20 минут/);
@@ -457,7 +498,7 @@ test("HR screens use the shared readable UI system", async ({
   });
   await expect
     .poll(async () => (await headcountIncrease.boundingBox())?.height ?? 0)
-    .toBeGreaterThanOrEqual(52);
+    .toBeGreaterThanOrEqual(44);
   await expect
     .poll(() =>
       page
@@ -476,11 +517,11 @@ test("HR screens use the shared readable UI system", async ({
     .first();
   await expect
     .poll(async () => (await availabilitySwitch.boundingBox())?.height ?? 0)
-    .toBeGreaterThanOrEqual(52);
+    .toBeGreaterThanOrEqual(44);
 
   await page.goto("/hr");
   const queueFilter = page.getByRole("link", { name: "Все", exact: true });
   await expect
     .poll(async () => (await queueFilter.boundingBox())?.height ?? 0)
-    .toBeGreaterThanOrEqual(48);
+    .toBeGreaterThanOrEqual(40);
 });

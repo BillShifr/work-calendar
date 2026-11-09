@@ -49,9 +49,18 @@ export default async function ReportingPage({
         AND employee.is_active = true
       ORDER BY department.name NULLS LAST, employee.full_name
     `),
-    db.execute<{ departmentName: string; approvedQuarters: number }>(sql`
-      SELECT department.name AS "departmentName",
-        COUNT(approval.id) FILTER (WHERE approval.status = 'approved')::int AS "approvedQuarters"
+    db.execute<{
+      departmentId: string;
+      departmentName: string;
+      approvedQuarterNumbers: number[];
+    }>(sql`
+      SELECT department.id::text AS "departmentId",
+        department.name AS "departmentName",
+        COALESCE(
+          ARRAY_AGG(approval.quarter ORDER BY approval.quarter)
+            FILTER (WHERE approval.status = 'approved'),
+          '{}'::int[]
+        ) AS "approvedQuarterNumbers"
       FROM departments department
       LEFT JOIN department_quarter_approvals approval
         ON approval.department_id = department.id AND approval.year = ${year}

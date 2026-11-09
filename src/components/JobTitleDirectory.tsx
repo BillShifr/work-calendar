@@ -2,7 +2,7 @@
 
 import { useDeferredValue, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Pencil, Plus, Save, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pencil, Plus, Save, X } from "lucide-react";
 import {
   ActionButton,
   NumberControl,
@@ -19,7 +19,13 @@ type JobTitle = {
   irregularLeaveMaxDays: number;
 };
 
-export function JobTitleDirectory({ jobTitles }: { jobTitles: JobTitle[] }) {
+export function JobTitleDirectory({
+  jobTitles,
+  focusId,
+}: {
+  jobTitles: JobTitle[];
+  focusId?: string;
+}) {
   const router = useRouter();
   const [newName, setNewName] = useState("");
   const [newMaxDays, setNewMaxDays] = useState("0");
@@ -40,13 +46,25 @@ export function JobTitleDirectory({ jobTitles }: { jobTitles: JobTitle[] }) {
   const [query, setQuery] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
+  const [page, setPage] = useState(() => {
+    const index = jobTitles.findIndex((item) => item.id === focusId);
+    return index < 0 ? 1 : Math.floor(index / 7) + 1;
+  });
   const deferredQuery = useDeferredValue(query);
   const normalizedQuery = deferredQuery.trim().toLocaleLowerCase("ru");
   const visibleTitles = jobTitles.filter((title) =>
     title.name.toLocaleLowerCase("ru").includes(normalizedQuery),
   );
+  const pageSize = 7;
+  const pageCount = Math.max(1, Math.ceil(visibleTitles.length / pageSize));
+  const currentPage = Math.min(page, pageCount);
+  const pagedTitles = visibleTitles.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
+  );
 
   async function createJobTitle() {
+    const createdName = newName.trim();
     setSavingId("new");
     const response = await fetch("/api/hr/job-titles", {
       method: "POST",
@@ -63,7 +81,9 @@ export function JobTitleDirectory({ jobTitles }: { jobTitles: JobTitle[] }) {
     setNewMaxDays("0");
     setMessage("Должность добавлена");
     setShowCreate(false);
-    router.refresh();
+    setQuery(createdName);
+    setPage(1);
+    router.replace(`/hr/reference-data?focus=${data.id}`);
   }
 
   async function saveJobTitle(title: JobTitle) {
@@ -88,7 +108,10 @@ export function JobTitleDirectory({ jobTitles }: { jobTitles: JobTitle[] }) {
       <div className={styles.toolbar}>
         <SearchControl
           value={query}
-          onChange={setQuery}
+          onChange={(value) => {
+            setQuery(value);
+            setPage(1);
+          }}
           placeholder="Поиск должности"
         />
         <span>
@@ -141,7 +164,7 @@ export function JobTitleDirectory({ jobTitles }: { jobTitles: JobTitle[] }) {
         <span role="status">{message}</span>
       </div>
       <section className={styles.list} aria-label="Справочник должностей">
-        {visibleTitles.map((title) => {
+        {pagedTitles.map((title) => {
           const draft = drafts[title.id];
           const editing = editingId === title.id;
           return (
@@ -236,6 +259,29 @@ export function JobTitleDirectory({ jobTitles }: { jobTitles: JobTitle[] }) {
           <p className={styles.empty}>Добавьте первую должность.</p>
         )}
       </section>
+      {visibleTitles.length > pageSize ? (
+        <nav className={styles.pagination} aria-label="Страницы должностей">
+          <ActionButton
+            icon={ChevronLeft}
+            variant="quiet"
+            disabled={currentPage === 1}
+            onClick={() => setPage((value) => Math.max(1, value - 1))}
+          >
+            Назад
+          </ActionButton>
+          <span>
+            {currentPage} из {pageCount}
+          </span>
+          <ActionButton
+            icon={ChevronRight}
+            variant="quiet"
+            disabled={currentPage === pageCount}
+            onClick={() => setPage((value) => Math.min(pageCount, value + 1))}
+          >
+            Далее
+          </ActionButton>
+        </nav>
+      ) : null}
     </div>
   );
 }

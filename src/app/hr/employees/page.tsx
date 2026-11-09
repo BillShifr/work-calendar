@@ -22,10 +22,11 @@ type EmployeeRow = {
 export default async function EmployeesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ year?: string }>;
+  searchParams: Promise<{ year?: string; focus?: string }>;
 }) {
   const actor = await requireHr();
-  const requestedYear = Number((await searchParams).year);
+  const params = await searchParams;
+  const requestedYear = Number(params.year);
   const year =
     Number.isInteger(requestedYear) &&
     requestedYear >= 2020 &&
@@ -99,6 +100,7 @@ export default async function EmployeesPage({
         departments={departmentOptions}
         jobTitles={jobTitles}
         year={year}
+        focusId={params.focus}
       />
     </AppShell>
   );

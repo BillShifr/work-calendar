@@ -5,8 +5,13 @@ import { WorkforceNavigation } from "@/components/WorkforceNavigation";
 import { db } from "@/db/client";
 import { requireHr } from "@/lib/auth";
 
-export default async function ReferenceDataPage() {
+export default async function ReferenceDataPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ focus?: string }>;
+}) {
   const actor = await requireHr();
+  const focusId = (await searchParams).focus;
   const jobTitles = await db.execute<{
     id: string;
     name: string;
@@ -34,6 +39,7 @@ export default async function ReferenceDataPage() {
       <JobTitleDirectory
         key={jobTitles.map((title) => title.id).join(":")}
         jobTitles={jobTitles}
+        focusId={focusId}
       />
     </AppShell>
   );

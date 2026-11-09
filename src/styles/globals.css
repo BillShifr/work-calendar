@@ -43,8 +43,8 @@
   --text-sm: 15px;
   --text-base: 16px;
   --text-lg: 18px;
-  --control-height: 52px;
-  --control-height-compact: 48px;
+  --control-height: 44px;
+  --control-height-compact: 40px;
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -108,7 +108,7 @@ a {
   display: flex;
   align-items: center;
   gap: 20px;
-  min-height: 64px;
+  min-height: 60px;
   padding: 8px clamp(16px, 2vw, 32px);
   background: rgba(255, 255, 255, 0.97);
   border-bottom: 1px solid var(--border);
@@ -177,7 +177,7 @@ a {
 .main {
   width: min(1880px, 100%);
   margin: 0 auto;
-  padding: clamp(18px, 2vw, 32px);
+  padding: clamp(14px, 1.5vw, 24px);
 }
 .sectionTabs {
   display: flex;
@@ -220,7 +220,7 @@ a {
 }
 h1 {
   margin: 0;
-  font-size: clamp(28px, 2.5vw, 38px);
+  font-size: clamp(26px, 2vw, 32px);
   line-height: 1.15;
   letter-spacing: -0.025em;
 }
@@ -292,7 +292,7 @@ h1 {
 .primaryButton:active:not(:disabled),
 .secondaryButton:active:not(:disabled),
 .plainButton:active:not(:disabled) {
-  transform: scale(0.98);
+  transform: translateY(1px) scale(0.985);
 }
 .dangerButton {
   color: var(--conflict);
@@ -314,7 +314,7 @@ h1 {
   border: 0;
 }
 
-@media (max-width: 1500px) and (min-width: 801px) {
+@media (max-width: 1180px) and (min-width: 801px) {
   .topbar {
     display: grid;
     grid-template-columns: auto 1fr auto;
