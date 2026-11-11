@@ -200,8 +200,6 @@ export function VacationMatrix({
   const allowanceRef = useRef(allowanceDays);
   const ignoreClickRef = useRef(false);
   const pointerRef = useRef<{ date: string; dragging: boolean } | null>(null);
-  periodsRef.current = periods;
-  allowanceRef.current = allowanceDays;
   const canEdit =
     (mode === "hr" &&
       ["submitted", "reopened", "hr_proposed"].includes(status)) ||
@@ -214,7 +212,6 @@ export function VacationMatrix({
   const excess = Math.max(0, total - allowanceDays);
   const remainingDays = Math.max(0, allowanceDays - total);
   const remainingRef = useRef(remainingDays);
-  remainingRef.current = remainingDays;
 
   const paintDraft = useCallback((draft: RangeDraft | null) => {
     paintVacationPreview(
@@ -230,8 +227,19 @@ export function VacationMatrix({
   }, []);
 
   useLayoutEffect(() => {
+    periodsRef.current = periods;
+    allowanceRef.current = allowanceDays;
+    remainingRef.current = remainingDays;
     paintDraft(draftRef.current);
-  }, [paintDraft, periods, compact, year, mobileMonth]);
+  }, [
+    paintDraft,
+    periods,
+    allowanceDays,
+    remainingDays,
+    compact,
+    year,
+    mobileMonth,
+  ]);
 
   const startDraft = useCallback(
     (anchor: string, editing: DatePeriod | null = null) => {
