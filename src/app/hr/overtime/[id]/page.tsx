@@ -1,6 +1,7 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
+import { ApprovalHistory } from "@/components/ApprovalHistory";
 import { OvertimeCalendar } from "@/components/OvertimeCalendar";
 import { db } from "@/db/client";
 import {
@@ -10,7 +11,6 @@ import {
   users,
 } from "@/db/schema";
 import { requireHr } from "@/lib/auth";
-import styles from "./review.module.css";
 
 const statusLabels: Record<string, string> = {
   submitted: "Требуется решение",
@@ -101,28 +101,11 @@ export default async function HrOvertimePage({
         </span>
       </header>
       <OvertimeCalendar initial={initial} mode="hr" />
-      <section className={`card ${styles.history}`}>
-        <div>
-          <h2>История решений</h2>
-        </div>
-        {history.length ? (
-          <ol>
-            {history.map((event) => (
-              <li key={event.id}>
-                <span>{event.createdAt.toLocaleString("ru-RU")}</span>
-                <strong>{event.actorName}</strong>
-                <p>
-                  {statusLabels[event.fromStatus] ?? event.fromStatus} →{" "}
-                  {statusLabels[event.toStatus] ?? event.toStatus}
-                </p>
-                {event.comment && <blockquote>{event.comment}</blockquote>}
-              </li>
-            ))}
-          </ol>
-        ) : (
-          <p className={styles.empty}>Это первая кадровая проверка отчёта.</p>
-        )}
-      </section>
+      <ApprovalHistory
+        events={history}
+        statusLabels={statusLabels}
+        emptyLabel="Это первая кадровая проверка отчёта."
+      />
     </AppShell>
   );
 }

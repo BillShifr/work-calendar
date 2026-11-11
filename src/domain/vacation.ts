@@ -6,6 +6,30 @@ export type DatePeriod = {
   status?: "draft" | "approved";
 };
 
+export function periodClientId(startsOn: string, endsOn: string): string {
+  return `${startsOn}_${endsOn}`;
+}
+
+export function shiftIsoDate(value: string, days: number): string {
+  const date = new Date(`${value}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+export function occupancyByDate(
+  periods: DatePeriod[],
+): Map<string, DatePeriod> {
+  const map = new Map<string, DatePeriod>();
+  for (const period of periods) {
+    let date = period.startsOn;
+    while (date <= period.endsOn) {
+      map.set(date, period);
+      date = shiftIsoDate(date, 1);
+    }
+  }
+  return map;
+}
+
 export function normalizePeriod(
   first: string,
   second: string,

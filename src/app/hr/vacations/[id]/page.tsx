@@ -1,10 +1,26 @@
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
+import { ApprovalHistory } from "@/components/ApprovalHistory";
 import { VacationMatrix } from "@/components/VacationMatrix";
 import { db } from "@/db/client";
-import { users, vacationPeriods, vacationPlans } from "@/db/schema";
+import {
+  approvalEvents,
+  users,
+  vacationPeriods,
+  vacationPlans,
+} from "@/db/schema";
 import { requireHr } from "@/lib/auth";
+
+const statusLabels: Record<string, string> = {
+  draft: "Черновик",
+  submitted: "Требуется решение",
+  hr_proposed: "Ожидает сотрудника",
+  approved: "Утверждено",
+  rejected: "Отклонено",
+  withdrawn: "Отозвано",
+  reopened: "Открыто повторно",
+};
 
 export default async function HrVacationPage({
   params,
@@ -33,10 +49,28 @@ export default async function HrVacationPage({
     )
     .limit(1);
   if (!plan) notFound();
-  const rows = await db
-    .select()
-    .from(vacationPeriods)
-    .where(eq(vacationPeriods.planId, id));
+  const [rows, history] = await Promise.all([
+    db.select().from(vacationPeriods).where(eq(vacationPeriods.planId, id)),
+    db
+      .select({
+        id: approvalEvents.id,
+        fromStatus: approvalEvents.fromStatus,
+        toStatus: approvalEvents.toStatus,
+        comment: approvalEvents.comment,
+        createdAt: approvalEvents.createdAt,
+        actorName: users.fullName,
+      })
+      .from(approvalEvents)
+      .innerJoin(users, eq(users.id, approvalEvents.actorId))
+      .where(
+        and(
+          eq(approvalEvents.aggregateType, "vacation_plan"),
+          eq(approvalEvents.aggregateId, id),
+        ),
+      )
+      .orderBy(desc(approvalEvents.createdAt))
+      .limit(10),
+  ]);
   const periods = rows.map((period) => ({
     id: period.id,
     startsOn: period.startsOn,
@@ -53,16 +87,15 @@ export default async function HrVacationPage({
           <h1>{plan.fullName}</h1>
         </div>
         <span className="statusPill">
-          {plan.status === "submitted"
-            ? "Требуется решение"
-            : plan.status === "hr_proposed"
-              ? "Ожидает сотрудника"
-              : plan.status === "approved"
-                ? "Утверждено"
-                : "На редактировании"}
+          {statusLabels[plan.status] ?? plan.status}
         </span>
       </header>
       <VacationMatrix initial={{ ...plan, periods }} mode="hr" />
+      <ApprovalHistory
+        events={history}
+        statusLabels={statusLabels}
+        emptyLabel="Это первая кадровая проверка плана."
+      />
     </AppShell>
   );
 }
