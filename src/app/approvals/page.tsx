@@ -1,6 +1,7 @@
 import { AppShell } from "@/components/AppShell";
 import { DepartmentApprovalDashboard } from "@/components/DepartmentApprovalDashboard";
 import { getDepartmentApprovalDashboard } from "@/domain/department-approval-service";
+import { getDepartmentVacationBoard } from "@/domain/department-vacation-board";
 import { requireDepartmentApprover } from "@/lib/auth";
 
 export default async function ApprovalsPage({
@@ -16,13 +17,21 @@ export default async function ApprovalsPage({
     requestedYear <= 2100
       ? requestedYear
       : new Date().getFullYear();
-  const departments = await getDepartmentApprovalDashboard(actor, year);
+  const vacationYear = year + 1;
+  const [departments, vacationDepartments] = await Promise.all([
+    getDepartmentApprovalDashboard(actor, year),
+    getDepartmentVacationBoard(actor, vacationYear),
+  ]);
   return (
     <AppShell>
       <header className="pageHeader">
         <h1>Согласование</h1>
       </header>
-      <DepartmentApprovalDashboard departments={departments} year={year} />
+      <DepartmentApprovalDashboard
+        departments={departments}
+        vacationDepartments={vacationDepartments}
+        year={year}
+      />
     </AppShell>
   );
 }

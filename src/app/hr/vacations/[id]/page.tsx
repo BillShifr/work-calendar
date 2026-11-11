@@ -14,6 +14,7 @@ import { requireHr } from "@/lib/auth";
 
 const statusLabels: Record<string, string> = {
   draft: "Черновик",
+  manager_review: "У руководителя",
   submitted: "Требуется решение",
   hr_proposed: "Ожидает сотрудника",
   approved: "Утверждено",
@@ -49,6 +50,7 @@ export default async function HrVacationPage({
     )
     .limit(1);
   if (!plan) notFound();
+  if (plan.status === "manager_review") notFound();
   const [rows, history] = await Promise.all([
     db.select().from(vacationPeriods).where(eq(vacationPeriods.planId, id)),
     db

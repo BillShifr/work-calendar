@@ -26,5 +26,7 @@ export async function POST(request: Request) {
   )
     return relativeRedirect("/login?error=1");
   await createSession(user.id);
-  return relativeRedirect(user.role === "employee" ? "/overtime" : "/hr");
+  if (user.role === "employee") return relativeRedirect("/overtime");
+  if (user.role === "department_head") return relativeRedirect("/approvals");
+  return relativeRedirect("/hr");
 }

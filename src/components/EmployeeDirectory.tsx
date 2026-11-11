@@ -60,6 +60,11 @@ function RoleChoice({
           { value: "hr", label: "Кадры", icon: UserCog },
         ]}
       />
+      {value === "department_head" ? (
+        <p className={styles.roleHint}>
+          После сохранения станет согласующим выбранного подразделения
+        </p>
+      ) : null}
     </div>
   );
 }

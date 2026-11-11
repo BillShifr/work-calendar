@@ -75,6 +75,15 @@ describe("domain rules", () => {
     );
     expect(() => assertVacationAllowance(periods, 29)).not.toThrow();
   });
+  it("routes vacation through manager review before HR", () => {
+    expect(canTransition("draft", "manager_review", "employee")).toBe(true);
+    expect(
+      canTransition("manager_review", "submitted", "department_head"),
+    ).toBe(true);
+    expect(canTransition("manager_review", "draft", "employee")).toBe(true);
+    expect(canTransition("submitted", "draft", "employee")).toBe(true);
+    expect(canTransition("manager_review", "hr_proposed", "hr")).toBe(false);
+  });
   it("requires HR proposal to be confirmed by employee", () => {
     expect(canTransition("submitted", "hr_proposed", "hr")).toBe(true);
     expect(canTransition("hr_proposed", "approved", "employee")).toBe(true);

@@ -7,7 +7,8 @@ import { requireUser } from "@/lib/auth";
 export const metadata: Metadata = { title: "Планирование отпусков" };
 const statusLabels: Record<string, string> = {
   draft: "Черновик",
-  submitted: "На проверке",
+  manager_review: "У руководителя",
+  submitted: "В кадрах",
   hr_proposed: "Есть правка кадровика",
   approved: "Утверждено",
   rejected: "Отклонено",

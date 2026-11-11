@@ -12,6 +12,7 @@ import {
   users,
   vacationPlans,
 } from "@/db/schema";
+import { ensureDepartmentApprover } from "@/domain/manager-gate";
 import { requireHr } from "@/lib/auth";
 
 const schema = z.object({
@@ -104,6 +105,39 @@ export async function PUT(
           updatedAt: new Date(),
         })
         .where(eq(users.id, id));
+      if (input.role === "department_head" && input.isActive) {
+        await ensureDepartmentApprover(
+          tx,
+          actor.organizationId,
+          input.departmentId,
+          id,
+        );
+      } else {
+        const owned = await tx
+          .select({
+            id: departments.id,
+            headUserId: departments.headUserId,
+          })
+          .from(departments)
+          .where(
+            and(
+              eq(departments.organizationId, actor.organizationId),
+              eq(departments.approverUserId, id),
+            ),
+          );
+        for (const department of owned) {
+          await tx
+            .update(departments)
+            .set({
+              approverUserId:
+                department.headUserId && department.headUserId !== id
+                  ? department.headUserId
+                  : null,
+              updatedAt: new Date(),
+            })
+            .where(eq(departments.id, department.id));
+        }
+      }
       const [assignment] = await tx
         .select()
         .from(departmentAssignments)
