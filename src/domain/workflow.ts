@@ -1,5 +1,6 @@
 export const workflowStatuses = [
   "draft",
+  "manager_review",
   "submitted",
   "hr_proposed",
   "approved",
@@ -16,10 +17,19 @@ const transitions: Record<
   WorkflowStatus,
   Partial<Record<ActorRole, WorkflowStatus[]>>
 > = {
-  draft: { employee: ["submitted"], department_head: ["submitted"] },
+  draft: {
+    employee: ["manager_review", "submitted"],
+    department_head: ["manager_review", "submitted"],
+  },
+  manager_review: {
+    employee: ["draft", "withdrawn"],
+    department_head: ["submitted", "draft"],
+    hr: ["submitted"],
+    hr_lead: ["submitted"],
+  },
   submitted: {
-    employee: ["withdrawn"],
-    department_head: ["withdrawn"],
+    employee: ["withdrawn", "draft"],
+    department_head: ["withdrawn", "draft"],
     hr: ["hr_proposed", "approved", "rejected"],
     hr_lead: ["hr_proposed", "approved", "rejected"],
   },
@@ -33,8 +43,8 @@ const transitions: Record<
   rejected: { employee: ["draft"], department_head: ["draft"] },
   withdrawn: { employee: ["draft"], department_head: ["draft"] },
   reopened: {
-    employee: ["submitted"],
-    department_head: ["submitted"],
+    employee: ["manager_review", "submitted"],
+    department_head: ["manager_review", "submitted"],
     hr: ["hr_proposed", "approved"],
     hr_lead: ["hr_proposed", "approved"],
   },

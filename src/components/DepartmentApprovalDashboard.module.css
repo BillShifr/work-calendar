@@ -32,11 +32,90 @@
   border: 1px solid var(--border-strong);
   background: var(--surface);
 }
-.department > h2 {
-  margin: 0;
+.sectionHead {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
   padding: 22px 24px;
   border-bottom: 1px solid var(--border);
+}
+.sectionHead h2 {
+  margin: 0;
   font-size: 24px;
+}
+.eyebrow {
+  margin: 0 0 4px;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.vacationRows {
+  display: grid;
+}
+.vacationRow {
+  border-bottom: 1px solid var(--border);
+}
+.vacationRow:last-child {
+  border-bottom: 0;
+}
+.vacationMain {
+  display: grid;
+  grid-template-columns: minmax(160px, 1.4fr) 88px 72px minmax(110px, 1fr) 28px;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  min-height: 56px;
+  padding: 12px 24px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.vacationMain:hover {
+  background: var(--surface-muted);
+}
+.vacationName {
+  font-weight: 700;
+}
+.vacationMain span {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.chevronOpen {
+  transform: rotate(180deg);
+}
+.vacationDetail {
+  display: grid;
+  gap: 14px;
+  padding: 0 24px 18px;
+}
+.vacationDetail ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.vacationDetail li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  background: var(--surface-muted);
+}
+.vacationDetail p {
+  margin: 0;
+  color: var(--text-muted);
+}
+.vacationActions {
+  display: flex;
+  justify-content: end;
+  gap: 10px;
 }
 .quarters {
   display: grid;

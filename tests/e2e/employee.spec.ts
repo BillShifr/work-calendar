@@ -352,20 +352,35 @@ test("employee and HR complete a bilateral vacation approval", async ({
   await expect(
     page.getByRole("button", { name: /^10 мая, период/ }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Отправить кадровику" }).click();
+  await page.getByRole("button", { name: "Отправить", exact: true }).click();
   await expect(
-    page.getByText("План отправлен кадровой службе", { exact: true }),
+    page.getByText(/Сначала проверит руководитель подразделения/),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Подтвердить отправку" }).click();
+  await expect(
+    page.getByText("План отправлен руководителю", { exact: true }),
   ).toBeVisible();
 
   await page.getByRole("button", { name: "Выйти" }).click();
-  await login(page, "hr", "CI-only-password-2026!");
+  await login(page, "manager", "Manager-2026!");
+  await expect(page.getByText("Руководитель подразделения")).toBeVisible();
   await page.getByRole("link", { name: "Согласование" }).click();
+  const vacationBoard = page
+    .locator("section")
+    .filter({ hasText: "Отпуска" })
+    .filter({ hasText: "Алексей Морозов" });
+  await vacationBoard.getByRole("button", { name: /Алексей Морозов/ }).click();
+  await vacationBoard.getByRole("button", { name: "В кадры" }).click();
+  await expect(page.getByRole("status")).toContainText("План передан в кадры");
   const fourthQuarter = page
     .locator("article")
     .filter({ hasText: "4 квартал" });
   await expect(fourthQuarter).toContainText("6 из 6 отчётов");
   await fourthQuarter.getByRole("button", { name: "Согласовано" }).click();
   await expect(page.getByRole("status")).toContainText("Согласован 4 квартал");
+
+  await page.getByRole("button", { name: "Выйти" }).click();
+  await login(page, "hr", "CI-only-password-2026!");
   await page.getByRole("link", { name: "Свод" }).click();
   await page.getByLabel("Максимум дней для всех", { exact: true }).fill("11");
   await page.getByRole("button", { name: "Применить", exact: true }).click();

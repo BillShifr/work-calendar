@@ -9,6 +9,7 @@ import {
   vacationPeriods,
   vacationPlans,
 } from "@/db/schema";
+import { actorApprovesUser, vacationSubmitTarget } from "@/domain/manager-gate";
 import { assertVacationAllowance } from "@/domain/vacation";
 import {
   assertTransition,
@@ -34,12 +35,9 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   const { aggregate, id, to, comment } = parsed.data;
-  const isEmployee = ["employee", "department_head"].includes(actor.role);
-  if (
-    ["hr_proposed", "rejected", "reopened"].includes(to) &&
-    !isEmployee &&
-    !comment
-  )
+  const isOwnerRole = ["employee", "department_head"].includes(actor.role);
+  const isHr = ["hr", "hr_lead"].includes(actor.role);
+  if (["hr_proposed", "rejected", "reopened"].includes(to) && isHr && !comment)
     return NextResponse.json(
       { error: "Для кадровой правки обязательна причина" },
       { status: 400 },
@@ -56,8 +54,49 @@ export async function POST(request: Request) {
         )
         .limit(1);
       if (!item) throw new Error("NOT_FOUND");
-      if (isEmployee && item.userId !== actor.id) throw new Error("FORBIDDEN");
-      if (isEmployee && ["submitted", "draft"].includes(to)) {
+
+      const isOwner = isOwnerRole && item.userId === actor.id;
+      const isManagerForOwner =
+        aggregate === "vacation_plan" &&
+        (await actorApprovesUser(tx, actor, item.userId));
+      if (!isOwner && !isHr && !isManagerForOwner) throw new Error("FORBIDDEN");
+      if (isManagerForOwner && !isOwner && !isHr) {
+        if (!(
+          item.status === "manager_review" &&
+          (to === "submitted" || to === "draft")
+        ))
+          throw new Error("FORBIDDEN");
+      }
+      if (
+        isOwner &&
+        !isManagerForOwner &&
+        item.status === "manager_review" &&
+        to === "submitted"
+      )
+        throw new Error("FORBIDDEN");
+
+      let nextStatus = to as WorkflowStatus;
+      if (
+        isOwner &&
+        aggregate === "vacation_plan" &&
+        ["draft", "reopened"].includes(item.status) &&
+        to === "submitted"
+      ) {
+        nextStatus = await vacationSubmitTarget(tx, actor);
+      }
+      if (
+        isOwner &&
+        aggregate === "vacation_plan" &&
+        to === "manager_review" &&
+        ["draft", "reopened"].includes(item.status)
+      ) {
+        nextStatus = await vacationSubmitTarget(tx, actor);
+      }
+
+      if (
+        isOwner &&
+        ["submitted", "manager_review", "draft"].includes(nextStatus)
+      ) {
         const kind = aggregate === "overtime_report" ? "overtime" : "vacation";
         const month =
           aggregate === "overtime_report"
@@ -70,8 +109,8 @@ export async function POST(request: Request) {
       }
       if (
         aggregate === "overtime_report" &&
-        !isEmployee &&
-        ["hr", "hr_lead"].includes(actor.role)
+        isHr &&
+        ["hr_proposed", "approved", "rejected", "reopened"].includes(nextStatus)
       ) {
         const report = item as typeof overtimeReports.$inferSelect;
         const [managerApproval] = await tx.execute<{ approved: boolean }>(sql`
@@ -87,14 +126,18 @@ export async function POST(request: Request) {
         if (!managerApproval?.approved)
           throw new Error("MANAGER_APPROVAL_REQUIRED");
       }
+      const transitionRole: ActorRole =
+        isManagerForOwner && !isOwner
+          ? "department_head"
+          : (actor.role as ActorRole);
       assertTransition(
         item.status as WorkflowStatus,
-        to,
-        actor.role as ActorRole,
+        nextStatus,
+        transitionRole,
       );
       if (
         aggregate === "vacation_plan" &&
-        ["submitted", "approved"].includes(to)
+        ["manager_review", "submitted", "approved"].includes(nextStatus)
       ) {
         const periods = await tx
           .select({
@@ -110,7 +153,11 @@ export async function POST(request: Request) {
       }
       const [updated] = await tx
         .update(table)
-        .set({ status: to, version: item.version + 1, updatedAt: new Date() })
+        .set({
+          status: nextStatus,
+          version: item.version + 1,
+          updatedAt: new Date(),
+        })
         .where(and(eq(table.id, id), eq(table.version, item.version)))
         .returning();
       if (!updated) throw new Error("VERSION_CONFLICT");
@@ -118,19 +165,23 @@ export async function POST(request: Request) {
         aggregateType: aggregate,
         aggregateId: id,
         fromStatus: item.status,
-        toStatus: to,
+        toStatus: nextStatus,
         actorId: actor.id,
         comment,
       });
       await tx.insert(auditEvents).values({
         organizationId: actor.organizationId,
         actorId: actor.id,
-        action: `${aggregate}.${to}`,
+        action: `${aggregate}.${nextStatus}`,
         objectType: aggregate,
         objectId: id,
-        metadata: { from: item.status, to },
+        metadata: { from: item.status, to: nextStatus },
       });
-      if (aggregate === "overtime_report" && !isEmployee && to === "reopened") {
+      if (
+        aggregate === "overtime_report" &&
+        isHr &&
+        nextStatus === "reopened"
+      ) {
         const report = item as typeof overtimeReports.$inferSelect;
         const [reopenedApproval] = await tx.execute<{ id: string }>(sql`
           UPDATE department_quarter_approvals
@@ -153,7 +204,7 @@ export async function POST(request: Request) {
             metadata: { reason: "hr_reopened_report", reportId: id },
           });
       }
-      return { status: to, version: updated.version };
+      return { status: nextStatus, version: updated.version };
     });
     return NextResponse.json(result);
   } catch (error) {

@@ -11,6 +11,7 @@ import {
   users,
   vacationPlans,
 } from "@/db/schema";
+import { ensureDepartmentApprover } from "@/domain/manager-gate";
 import { requireHr } from "@/lib/auth";
 
 const schema = z.object({
@@ -89,6 +90,14 @@ export async function POST(request: Request) {
         jobTitle: jobTitle.name,
         isCritical: input.isCritical,
       });
+      if (input.role === "department_head") {
+        await ensureDepartmentApprover(
+          tx,
+          actor.organizationId,
+          department.id,
+          created.id,
+        );
+      }
       await tx.insert(vacationPlans).values({
         organizationId: actor.organizationId,
         userId: created.id,

@@ -197,6 +197,7 @@ export function VacationMatrix({
   );
   const [mobileMonth, setMobileMonth] = useState(0);
   const [flight, setFlight] = useState<FlightState>(null);
+  const [confirmSubmit, setConfirmSubmit] = useState(false);
   const calendarRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLElement>(null);
   const detailRef = useRef<HTMLSpanElement>(null);
@@ -504,6 +505,7 @@ export function VacationMatrix({
   async function submit() {
     if (!(await save())) return;
     setSaving(true);
+    setConfirmSubmit(false);
     setMessage("Отправляем…");
     const response = await fetch("/api/workflow", {
       method: "POST",
@@ -522,7 +524,11 @@ export function VacationMatrix({
     }
     setStatus(data.status);
     setVersion(data.version);
-    setMessage("План отправлен кадровой службе");
+    setMessage(
+      data.status === "manager_review"
+        ? "План отправлен руководителю"
+        : "План отправлен кадровой службе",
+    );
     const button = document.querySelector<HTMLElement>(
       "[data-vacation-submit]",
     );
@@ -539,6 +545,34 @@ export function VacationMatrix({
         targetX: targetBox.left + targetBox.width / 2,
         targetY: targetBox.top + targetBox.height / 2,
       });
+  }
+
+  async function supplementPlan() {
+    setSaving(true);
+    setMessage("Возвращаем план в черновик…");
+    const response = await fetch("/api/workflow", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        aggregate: "vacation_plan",
+        id: planId,
+        to: "draft",
+        comment: "Дополнение плана",
+      }),
+    });
+    const data = await response.json();
+    setSaving(false);
+    if (!response.ok) {
+      setMessage(data.error ?? "Не удалось вернуть план");
+      return;
+    }
+    setStatus(data.status);
+    setVersion(data.version);
+    setMessage(
+      remainingDays > 0
+        ? `Можно добрать ещё ${remainingDays} дн. и отправить снова.`
+        : "План снова в черновике.",
+    );
   }
 
   async function approve() {
@@ -588,11 +622,49 @@ export function VacationMatrix({
       ) : null}
       {mode === "employee" &&
       entryWindowOpen &&
-      ["submitted", "approved"].includes(status) ? (
+      ["manager_review", "submitted", "approved"].includes(status) ? (
         <div className={styles.accessNotice} role="status">
-          {status === "submitted"
-            ? "План отправлен кадровику и доступен только для просмотра"
-            : "Утверждённый план доступен только для просмотра"}
+          {status === "manager_review"
+            ? "План у руководителя. Добор дней — через «Дополнить план»."
+            : status === "submitted"
+              ? "План у кадровой службы. Добор дней — через «Дополнить план»."
+              : "Утверждённый план доступен только для просмотра"}
+        </div>
+      ) : null}
+      {mode === "employee" && confirmSubmit ? (
+        <div
+          className={styles.confirmBar}
+          role="region"
+          aria-label="Подтверждение отправки"
+        >
+          <div>
+            <strong>
+              {total} из {allowanceDays} дн.
+              {remainingDays > 0 ? ` · останется ${remainingDays}` : ""}
+            </strong>
+            <span>
+              Сначала проверит руководитель подразделения, затем кадровая
+              служба. Пока план на проверке, даты нельзя менять без отзыва.
+            </span>
+          </div>
+          <div className={styles.confirmActions}>
+            <ActionButton
+              variant="quiet"
+              disabled={saving}
+              onClick={() => setConfirmSubmit(false)}
+            >
+              Назад
+            </ActionButton>
+            <ActionButton
+              data-vacation-submit
+              variant="primary"
+              icon={Send}
+              disabled={saving}
+              onClick={submit}
+            >
+              Подтвердить отправку
+            </ActionButton>
+          </div>
         </div>
       ) : null}
       <div className={styles.commandBar} aria-label="Действия с планом">
@@ -658,23 +730,34 @@ export function VacationMatrix({
                   : "Сохранить черновик"}
               </ActionButton>
             )}
-          {mode === "employee" && ["draft", "reopened"].includes(status) && (
-            <ActionButton
-              data-vacation-submit
-              variant="primary"
-              icon={Send}
-              disabled={
-                saving ||
-                !entryWindowOpen ||
-                !["draft", "reopened"].includes(status) ||
-                !periods.length ||
-                total > allowanceDays
-              }
-              onClick={submit}
-            >
-              Отправить кадровику
-            </ActionButton>
-          )}
+          {mode === "employee" &&
+            ["draft", "reopened"].includes(status) &&
+            !confirmSubmit && (
+              <ActionButton
+                variant="primary"
+                icon={Send}
+                disabled={
+                  saving ||
+                  !entryWindowOpen ||
+                  !periods.length ||
+                  total > allowanceDays
+                }
+                onClick={() => setConfirmSubmit(true)}
+              >
+                Отправить
+              </ActionButton>
+            )}
+          {mode === "employee" &&
+            entryWindowOpen &&
+            ["manager_review", "submitted"].includes(status) && (
+              <ActionButton
+                icon={Pencil}
+                disabled={saving}
+                onClick={supplementPlan}
+              >
+                Дополнить план
+              </ActionButton>
+            )}
           {mode === "employee" &&
             status === "hr_proposed" &&
             !editingResponse && (

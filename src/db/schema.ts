@@ -23,6 +23,7 @@ export const roleEnum = pgEnum("role", [
 ]);
 export const workflowStatusEnum = pgEnum("workflow_status", [
   "draft",
+  "manager_review",
   "submitted",
   "hr_proposed",
   "approved",
