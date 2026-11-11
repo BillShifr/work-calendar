@@ -1,6 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import {
+  memo,
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import {
   CalendarDays,
   ChevronLeft,
@@ -13,12 +22,26 @@ import {
 } from "lucide-react";
 import { daysInMonth } from "@/domain/overtime";
 import {
-  normalizePeriod,
+  occupancyByDate,
   periodDays,
+  shiftIsoDate,
   totalPeriodDays,
   type DatePeriod,
 } from "@/domain/vacation";
-import { createClientId } from "@/lib/client-id";
+import {
+  beginRange,
+  cancelRange,
+  commitRange,
+  insertPeriod,
+  previewRange,
+  type RangeDraft,
+} from "@/domain/vacation-selection";
+import {
+  dateFromCalendarEvent,
+  dateFromPoint,
+  paintVacationPreview,
+  vacationSelectionCopy,
+} from "./vacation-preview";
 import {
   ActionButton,
   IconButton,
@@ -41,21 +64,101 @@ const months = [
   "Ноябрь",
   "Декабрь",
 ];
+const shortDate = new Intl.DateTimeFormat("ru-RU", {
+  day: "numeric",
+  month: "short",
+  timeZone: "UTC",
+});
+const longDate = new Intl.DateTimeFormat("ru-RU", {
+  day: "numeric",
+  month: "long",
+  timeZone: "UTC",
+});
 const formatDate = (value: string) =>
-  new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "short" }).format(
-    new Date(`${value}T00:00:00Z`),
-  );
+  shortDate.format(new Date(`${value}T00:00:00Z`));
 const formatDayLabel = (value: string) =>
-  new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long" }).format(
-    new Date(`${value}T00:00:00Z`),
-  );
+  longDate.format(new Date(`${value}T00:00:00Z`));
 const iso = (year: number, month: number, day: number) =>
   `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-const shiftDate = (value: string, days: number) => {
-  const date = new Date(`${value}T00:00:00Z`);
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
+const compactQuery = "(max-width: 1500px)";
+const previewClasses = {
+  start: styles.start,
+  preview: styles.preview,
+  previewInvalid: styles.previewInvalid,
 };
+
+function subscribeCompact(onStoreChange: () => void) {
+  const media = window.matchMedia(compactQuery);
+  media.addEventListener("change", onStoreChange);
+  return () => media.removeEventListener("change", onStoreChange);
+}
+
+function useCompactCalendar() {
+  return useSyncExternalStore(
+    subscribeCompact,
+    () => window.matchMedia(compactQuery).matches,
+    () => true,
+  );
+}
+
+const VacationDayButton = memo(function VacationDayButton({
+  date,
+  day,
+  valid,
+  canEdit,
+  compact,
+  occupiedClass,
+  segmentStart,
+  segmentEnd,
+  adjacentStart,
+  label,
+}: {
+  date: string;
+  day: number;
+  valid: boolean;
+  canEdit: boolean;
+  compact: boolean;
+  occupiedClass: string;
+  segmentStart: boolean;
+  segmentEnd: boolean;
+  adjacentStart: boolean;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      data-date={date}
+      disabled={!valid || !canEdit}
+      aria-label={valid ? label : undefined}
+      className={[
+        compact ? styles.mobileDay : styles.day,
+        !valid ? styles.invalid : !canEdit ? styles.readonly : "",
+        occupiedClass,
+        segmentStart ? styles.segmentStart : "",
+        segmentEnd ? styles.segmentEnd : "",
+        adjacentStart ? styles.adjacentStart : "",
+      ].join(" ")}
+    >
+      {valid ? (
+        <>
+          {compact ? (
+            <span>{day}</span>
+          ) : (
+            <span className={styles.dayValue}>{day}</span>
+          )}
+          {occupiedClass ? (
+            <span className={styles.periodBracket} aria-hidden="true" />
+          ) : null}
+          {adjacentStart ? (
+            <span className={styles.seamMark} aria-hidden="true" />
+          ) : null}
+        </>
+      ) : (
+        ""
+      )}
+    </button>
+  );
+});
 
 export function VacationMatrix({
   initial,
@@ -72,11 +175,12 @@ export function VacationMatrix({
   };
   mode?: "employee" | "hr";
 }) {
+  const compact = useCompactCalendar();
   const [year, setYear] = useState(initial.year);
   const [allowanceDays, setAllowanceDays] = useState(initial.allowanceDays);
   const [version, setVersion] = useState(initial.version);
   const [periods, setPeriods] = useState(initial.periods);
-  const [start, setStart] = useState<string | null>(null);
+  const [picking, setPicking] = useState(false);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [planId, setPlanId] = useState(initial.id);
@@ -87,9 +191,17 @@ export function VacationMatrix({
     initial.entryWindowOpen ?? true,
   );
   const [mobileMonth, setMobileMonth] = useState(0);
-  const [editingPeriod, setEditingPeriod] = useState<DatePeriod | null>(null);
-  const [hoveredEnd, setHoveredEnd] = useState<string | null>(null);
   const [flight, setFlight] = useState<FlightState>(null);
+  const calendarRef = useRef<HTMLDivElement>(null);
+  const titleRef = useRef<HTMLElement>(null);
+  const detailRef = useRef<HTMLSpanElement>(null);
+  const draftRef = useRef<RangeDraft | null>(null);
+  const periodsRef = useRef(periods);
+  const allowanceRef = useRef(allowanceDays);
+  const ignoreClickRef = useRef(false);
+  const pointerRef = useRef<{ date: string; dragging: boolean } | null>(null);
+  periodsRef.current = periods;
+  allowanceRef.current = allowanceDays;
   const canEdit =
     (mode === "hr" &&
       ["submitted", "reopened", "hr_proposed"].includes(status)) ||
@@ -97,89 +209,226 @@ export function VacationMatrix({
       entryWindowOpen &&
       (["draft", "reopened"].includes(status) ||
         (status === "hr_proposed" && editingResponse)));
+  const occupancy = useMemo(() => occupancyByDate(periods), [periods]);
   const total = totalPeriodDays(periods);
   const excess = Math.max(0, total - allowanceDays);
   const remainingDays = Math.max(0, allowanceDays - total);
-  const previewPeriod =
-    start && hoveredEnd ? normalizePeriod(start, hoveredEnd) : null;
-  const previewDays = previewPeriod ? periodDays(previewPeriod) : 0;
-  const previewOverLimit = previewDays > remainingDays;
-  function isPreviewDate(date: string) {
-    return Boolean(
-      previewPeriod &&
-      previewPeriod.startsOn <= date &&
-      previewPeriod.endsOn >= date,
+  const remainingRef = useRef(remainingDays);
+  remainingRef.current = remainingDays;
+
+  const paintDraft = useCallback((draft: RangeDraft | null) => {
+    paintVacationPreview(
+      calendarRef.current,
+      previewClasses,
+      draft,
+      periodsRef.current,
+      allowanceRef.current,
     );
-  }
-  function periodFor(date: string) {
-    return periods.find(
-      (period) => period.startsOn <= date && period.endsOn >= date,
-    );
-  }
-  function select(date: string) {
-    if (!canEdit) return;
-    if (!start) {
-      setStart(date);
+    const copy = vacationSelectionCopy(draft, remainingRef.current, formatDate);
+    if (titleRef.current) titleRef.current.textContent = copy.title;
+    if (detailRef.current) detailRef.current.textContent = copy.detail;
+  }, []);
+
+  useLayoutEffect(() => {
+    paintDraft(draftRef.current);
+  }, [paintDraft, periods, compact, year, mobileMonth]);
+
+  const startDraft = useCallback(
+    (anchor: string, editing: DatePeriod | null = null) => {
+      const draft = beginRange(anchor, editing);
+      draftRef.current = draft;
+      setPicking(true);
       setMessage("Начало выбрано. Теперь укажите последний день.");
-      return;
-    }
-    const normalized = normalizePeriod(start, date);
-    const next: DatePeriod = {
-      id: createClientId(`vacation-${mode}`),
-      ...normalized,
-      source: mode,
-    };
-    if (
-      periods.some(
-        (period) =>
-          period.startsOn <= next.endsOn && next.startsOn <= period.endsOn,
-      )
-    ) {
-      setMessage("Этот период пересекается с уже выбранным.");
-      setStart(null);
-      setHoveredEnd(null);
-      return;
-    }
-    const nextTotal = total + periodDays(next);
-    if (nextTotal > allowanceDays) {
-      setMessage(
-        `Нельзя добавить период: доступно ${Math.max(0, allowanceDays - total)} из ${allowanceDays} дней. Выберите другую дату окончания.`,
+      paintDraft(draft);
+    },
+    [paintDraft],
+  );
+
+  const finishDraft = useCallback(
+    (end: string) => {
+      const draft = draftRef.current;
+      if (!draft) return;
+      const result = commitRange(
+        draft,
+        end,
+        periodsRef.current,
+        allowanceRef.current,
+        mode,
       );
-      return;
-    }
-    setPeriods((current) =>
-      [...current, next].sort((a, b) => a.startsOn.localeCompare(b.startsOn)),
-    );
-    setStart(null);
-    setEditingPeriod(null);
-    setHoveredEnd(null);
-    setMessage("Период добавлен и пока не сохранён.");
+      if (result.status === "overlap") {
+        draftRef.current = null;
+        setPicking(false);
+        setMessage("Этот период пересекается с уже выбранным.");
+        paintDraft(null);
+        return;
+      }
+      if (result.status === "allowance") {
+        draftRef.current = result.draft;
+        setMessage(
+          `Нельзя добавить период: доступно ${Math.max(0, allowanceRef.current - totalPeriodDays(periodsRef.current))} из ${allowanceRef.current} дней. Выберите другую дату окончания.`,
+        );
+        paintDraft(result.draft);
+        return;
+      }
+      const next = insertPeriod(periodsRef.current, result.period);
+      periodsRef.current = next;
+      draftRef.current = null;
+      setPicking(false);
+      setPeriods(next);
+      setMessage("Период добавлен и пока не сохранён.");
+    },
+    [mode, paintDraft],
+  );
+
+  const onCalendarPointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (!canEdit) return;
+      const date = dateFromCalendarEvent(event.target);
+      if (!date) return;
+      pointerRef.current = { date, dragging: false };
+      event.currentTarget.setPointerCapture(event.pointerId);
+    },
+    [canEdit],
+  );
+
+  const onCalendarPointerOver = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      const date =
+        dateFromPoint(event.clientX, event.clientY) ??
+        dateFromCalendarEvent(event.target);
+      if (!date) return;
+      const pointer = pointerRef.current;
+      if (pointer && !draftRef.current && date !== pointer.date) {
+        pointer.dragging = true;
+        startDraft(pointer.date);
+      }
+      const draft = draftRef.current;
+      if (!draft || draft.hover === date) return;
+      draftRef.current = previewRange(draft, date);
+      paintDraft(draftRef.current);
+    },
+    [paintDraft, startDraft],
+  );
+
+  const onCalendarPointerUp = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      const pointer = pointerRef.current;
+      pointerRef.current = null;
+      if (!pointer?.dragging) return;
+      const date =
+        dateFromPoint(event.clientX, event.clientY) ??
+        dateFromCalendarEvent(event.target) ??
+        pointer.date;
+      ignoreClickRef.current = true;
+      finishDraft(date);
+    },
+    [finishDraft],
+  );
+
+  const onCalendarClick = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      if (ignoreClickRef.current) {
+        ignoreClickRef.current = false;
+        return;
+      }
+      if (!canEdit) return;
+      const date = dateFromCalendarEvent(event.target);
+      if (!date) return;
+      if (!draftRef.current) {
+        startDraft(date);
+        return;
+      }
+      finishDraft(date);
+    },
+    [canEdit, finishDraft, startDraft],
+  );
+
+  function dayModel(date: string, day: number, monthLength: number) {
+    const period = occupancy.get(date);
+    const previousPeriod = period
+      ? occupancy.get(shiftIsoDate(date, -1))
+      : undefined;
+    return {
+      occupiedClass: [
+        period ? (period.source === "hr" ? styles.hrRange : styles.range) : "",
+        period?.status === "approved" ? styles.approved : "",
+      ]
+        .filter(Boolean)
+        .join(" "),
+      segmentStart: Boolean(period && (period.startsOn === date || day === 1)),
+      segmentEnd: Boolean(
+        period && (period.endsOn === date || day === monthLength),
+      ),
+      adjacentStart: Boolean(
+        period &&
+        period.startsOn === date &&
+        previousPeriod &&
+        previousPeriod.id !== period.id,
+      ),
+      label: `${formatDayLabel(date)}${period ? `, период ${formatDate(period.startsOn)} — ${formatDate(period.endsOn)}` : ""}`,
+    };
   }
+
+  function renderDay(
+    date: string,
+    day: number,
+    monthLength: number,
+    valid: boolean,
+  ) {
+    const model = valid
+      ? dayModel(date, day, monthLength)
+      : {
+          occupiedClass: "",
+          segmentStart: false,
+          segmentEnd: false,
+          adjacentStart: false,
+          label: "",
+        };
+    return (
+      <VacationDayButton
+        key={date}
+        date={date}
+        day={day}
+        valid={valid}
+        canEdit={canEdit}
+        compact={compact}
+        occupiedClass={model.occupiedClass}
+        segmentStart={model.segmentStart}
+        segmentEnd={model.segmentEnd}
+        adjacentStart={model.adjacentStart}
+        label={model.label}
+      />
+    );
+  }
+
   function editPeriod(period: DatePeriod) {
     if (!canEdit) return;
-    setEditingPeriod(period);
-    setPeriods((current) => current.filter((item) => item.id !== period.id));
-    setStart(period.startsOn);
-    setHoveredEnd(period.endsOn);
+    const next = periodsRef.current.filter((item) => item.id !== period.id);
+    periodsRef.current = next;
+    setPeriods(next);
+    startDraft(period.startsOn, period);
     setMessage("Изменение периода: выберите новую дату окончания.");
   }
+
   function cancelSelection() {
-    if (editingPeriod) {
-      setPeriods((current) =>
-        [...current, editingPeriod].sort((a, b) =>
-          a.startsOn.localeCompare(b.startsOn),
-        ),
-      );
+    const restored = cancelRange(draftRef.current);
+    draftRef.current = null;
+    setPicking(false);
+    if (restored) {
+      const next = insertPeriod(periodsRef.current, restored);
+      periodsRef.current = next;
+      setPeriods(next);
     }
-    setEditingPeriod(null);
-    setStart(null);
-    setHoveredEnd(null);
     setMessage("");
+    paintDraft(null);
   }
+
   async function changeYear(delta: number) {
     const nextYear = year + delta;
     const response = await fetch(`/api/vacations?year=${nextYear}`);
     const data = await response.json();
+    draftRef.current = null;
+    setPicking(false);
     setYear(nextYear);
     setVersion(data.version);
     setPeriods(data.periods);
@@ -187,14 +436,12 @@ export function VacationMatrix({
     setPlanId(data.id);
     setStatus(data.status);
     setEntryWindowOpen(data.entryWindowOpen);
-    setStart(null);
-    setEditingPeriod(null);
-    setHoveredEnd(null);
     setMobileMonth(0);
     setMessage("");
   }
+
   async function save() {
-    if (start) {
+    if (draftRef.current) {
       setMessage("Завершите выбор периода или отмените начальную дату.");
       return false;
     }
@@ -225,6 +472,7 @@ export function VacationMatrix({
     setMessage("Сохранено");
     return true;
   }
+
   async function submit() {
     if (!(await save())) return;
     setSaving(true);
@@ -264,6 +512,7 @@ export function VacationMatrix({
         targetY: targetBox.top + targetBox.height / 2,
       });
   }
+
   async function approve() {
     setSaving(true);
     setMessage("Подтверждаем…");
@@ -291,6 +540,17 @@ export function VacationMatrix({
       mode === "hr" ? "План утверждён" : "Предложение кадровика утверждено",
     );
   }
+
+  const calendarEvents = {
+    onPointerDown: onCalendarPointerDown,
+    onPointerOver: onCalendarPointerOver,
+    onPointerUp: onCalendarPointerUp,
+    onPointerCancel: () => {
+      pointerRef.current = null;
+    },
+    onClick: onCalendarClick,
+  };
+
   return (
     <section className={styles.workspace}>
       {mode === "employee" && !entryWindowOpen ? (
@@ -334,7 +594,7 @@ export function VacationMatrix({
           <ActionButton
             variant="quiet"
             icon={X}
-            disabled={!start}
+            disabled={!picking}
             onClick={cancelSelection}
           >
             Отменить выбор
@@ -435,16 +695,8 @@ export function VacationMatrix({
 
       <div className={styles.periodBar} aria-live="polite">
         <div className={styles.selection}>
-          <strong>{start ? `Начало: ${formatDate(start)}` : "Периоды"}</strong>
-          {start ? (
-            <span>
-              {hoveredEnd
-                ? `${formatDate(start)} — ${formatDate(hoveredEnd)} · ${previewDays} дн.`
-                : `Выберите последний день · доступно ${remainingDays} дн.`}
-            </span>
-          ) : (
-            <span>Нажмите начальный и конечный день</span>
-          )}
+          <strong ref={titleRef} />
+          <span ref={detailRef} />
         </div>
         {periods.length ? (
           <ul className={styles.periods}>
@@ -470,9 +722,11 @@ export function VacationMatrix({
                   label={`Удалить период ${formatDate(period.startsOn)} — ${formatDate(period.endsOn)}`}
                   icon={Trash2}
                   onClick={() => {
-                    setPeriods((current) =>
-                      current.filter((item) => item.id !== period.id),
+                    const next = periodsRef.current.filter(
+                      (item) => item.id !== period.id,
                     );
+                    periodsRef.current = next;
+                    setPeriods(next);
                     setMessage("Период удалён и пока не сохранён.");
                   }}
                 />
@@ -496,196 +750,95 @@ export function VacationMatrix({
         </div>
       </div>
 
-      <div className={styles.scroll} aria-label="Матрица отпускных дней">
-        <div className={styles.matrix}>
-          <span className={styles.corner} />
-          {Array.from({ length: 31 }, (_, index) => (
-            <span className={styles.dayHead} key={index}>
-              {index + 1}
-            </span>
-          ))}
-          {months.map((monthName, monthIndex) => (
-            <div style={{ display: "contents" }} key={monthName}>
-              <span className={styles.month}>{monthName}</span>
-              {Array.from({ length: 31 }, (_, index) => {
+      {compact ? (
+        <div
+          ref={calendarRef}
+          className={styles.mobileCalendar}
+          aria-label="Календарь отпускных дней"
+          {...calendarEvents}
+        >
+          <div className={styles.mobileMonthHead}>
+            <IconButton
+              label="Предыдущий месяц"
+              icon={ChevronLeft}
+              onClick={() => setMobileMonth((value) => Math.max(0, value - 1))}
+              disabled={mobileMonth === 0}
+            />
+            <strong>
+              <CalendarDays aria-hidden="true" size={19} />{" "}
+              {months[mobileMonth]} {year}
+            </strong>
+            <IconButton
+              label="Следующий месяц"
+              icon={ChevronRight}
+              onClick={() => setMobileMonth((value) => Math.min(11, value + 1))}
+              disabled={mobileMonth === 11}
+            />
+          </div>
+          <div className={styles.mobileWeekdays}>
+            {["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"].map((day) => (
+              <span key={day}>{day}</span>
+            ))}
+          </div>
+          <div className={styles.mobileDays}>
+            {Array.from(
+              {
+                length:
+                  (new Date(Date.UTC(year, mobileMonth, 1)).getUTCDay() + 6) %
+                  7,
+              },
+              (_, index) => (
+                <span key={`empty-${index}`} />
+              ),
+            )}
+            {Array.from(
+              { length: daysInMonth(year, mobileMonth + 1) },
+              (_, index) => {
                 const day = index + 1;
-                const valid = day <= daysInMonth(year, monthIndex + 1);
-                const date = iso(year, monthIndex + 1, day);
-                const period = valid ? periodFor(date) : undefined;
-                const previousPeriod =
-                  valid && period ? periodFor(shiftDate(date, -1)) : undefined;
-                const segmentStart = Boolean(
-                  period && (period.startsOn === date || day === 1),
+                return renderDay(
+                  iso(year, mobileMonth + 1, day),
+                  day,
+                  daysInMonth(year, mobileMonth + 1),
+                  true,
                 );
-                const segmentEnd = Boolean(
-                  period &&
-                  (period.endsOn === date ||
-                    day === daysInMonth(year, monthIndex + 1)),
-                );
-                const adjacentStart = Boolean(
-                  period &&
-                  period.startsOn === date &&
-                  previousPeriod &&
-                  previousPeriod.id !== period.id,
-                );
-                return (
-                  <button
-                    key={date}
-                    disabled={!valid || !canEdit}
-                    onClick={() => select(date)}
-                    onPointerEnter={() => start && valid && setHoveredEnd(date)}
-                    onFocus={() => start && valid && setHoveredEnd(date)}
-                    aria-label={
-                      valid
-                        ? `${formatDayLabel(date)}${period ? `, период ${formatDate(period.startsOn)} — ${formatDate(period.endsOn)}` : ""}`
-                        : undefined
-                    }
-                    className={[
-                      styles.day,
-                      !valid ? styles.invalid : !canEdit ? styles.readonly : "",
-                      period
-                        ? period.source === "hr"
-                          ? styles.hrRange
-                          : styles.range
-                        : "",
-                      period?.status === "approved" ? styles.approved : "",
-                      segmentStart ? styles.segmentStart : "",
-                      segmentEnd ? styles.segmentEnd : "",
-                      adjacentStart ? styles.adjacentStart : "",
-                      isPreviewDate(date)
-                        ? previewOverLimit
-                          ? styles.previewInvalid
-                          : styles.preview
-                        : "",
-                      start === date ? styles.start : "",
-                    ].join(" ")}
-                  >
-                    {valid ? (
-                      <>
-                        <span className={styles.dayValue}>{day}</span>
-                        {period ? (
-                          <span
-                            className={styles.periodBracket}
-                            aria-hidden="true"
-                          />
-                        ) : null}
-                        {adjacentStart ? (
-                          <span
-                            className={styles.seamMark}
-                            aria-hidden="true"
-                          />
-                        ) : null}
-                      </>
-                    ) : (
-                      ""
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          ))}
+              },
+            )}
+          </div>
         </div>
-      </div>
-      <div
-        className={styles.mobileCalendar}
-        aria-label="Календарь отпускных дней"
-      >
-        <div className={styles.mobileMonthHead}>
-          <IconButton
-            label="Предыдущий месяц"
-            icon={ChevronLeft}
-            onClick={() => setMobileMonth((value) => Math.max(0, value - 1))}
-            disabled={mobileMonth === 0}
-          />
-          <strong>
-            <CalendarDays aria-hidden="true" size={19} /> {months[mobileMonth]}{" "}
-            {year}
-          </strong>
-          <IconButton
-            label="Следующий месяц"
-            icon={ChevronRight}
-            onClick={() => setMobileMonth((value) => Math.min(11, value + 1))}
-            disabled={mobileMonth === 11}
-          />
-        </div>
-        <div className={styles.mobileWeekdays}>
-          {["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"].map((day) => (
-            <span key={day}>{day}</span>
-          ))}
-        </div>
-        <div className={styles.mobileDays}>
-          {Array.from(
-            {
-              length:
-                (new Date(Date.UTC(year, mobileMonth, 1)).getUTCDay() + 6) % 7,
-            },
-            (_, index) => (
-              <span key={`empty-${index}`} />
-            ),
-          )}
-          {Array.from(
-            { length: daysInMonth(year, mobileMonth + 1) },
-            (_, index) => {
-              const day = index + 1;
-              const date = iso(year, mobileMonth + 1, day);
-              const period = periodFor(date);
-              const previousPeriod = period
-                ? periodFor(shiftDate(date, -1))
-                : undefined;
-              const segmentStart = Boolean(
-                period && (period.startsOn === date || day === 1),
-              );
-              const segmentEnd = Boolean(
-                period &&
-                (period.endsOn === date ||
-                  day === daysInMonth(year, mobileMonth + 1)),
-              );
-              const adjacentStart = Boolean(
-                period &&
-                period.startsOn === date &&
-                previousPeriod &&
-                previousPeriod.id !== period.id,
-              );
+      ) : (
+        <div
+          ref={calendarRef}
+          className={styles.scroll}
+          aria-label="Матрица отпускных дней"
+          {...calendarEvents}
+        >
+          <div className={styles.matrix}>
+            <span className={styles.corner} />
+            {Array.from({ length: 31 }, (_, index) => (
+              <span className={styles.dayHead} key={index}>
+                {index + 1}
+              </span>
+            ))}
+            {months.map((monthName, monthIndex) => {
+              const monthLength = daysInMonth(year, monthIndex + 1);
               return (
-                <button
-                  key={date}
-                  disabled={!canEdit}
-                  onClick={() => select(date)}
-                  onPointerEnter={() => start && setHoveredEnd(date)}
-                  onFocus={() => start && setHoveredEnd(date)}
-                  aria-label={`${formatDayLabel(date)}${period ? `, период ${formatDate(period.startsOn)} — ${formatDate(period.endsOn)}` : ""}`}
-                  className={[
-                    styles.mobileDay,
-                    period
-                      ? period.source === "hr"
-                        ? styles.hrRange
-                        : styles.range
-                      : "",
-                    period?.status === "approved" ? styles.approved : "",
-                    segmentStart ? styles.segmentStart : "",
-                    segmentEnd ? styles.segmentEnd : "",
-                    adjacentStart ? styles.adjacentStart : "",
-                    isPreviewDate(date)
-                      ? previewOverLimit
-                        ? styles.previewInvalid
-                        : styles.preview
-                      : "",
-                    start === date ? styles.start : "",
-                  ].join(" ")}
-                >
-                  <span>{day}</span>
-                  {period ? (
-                    <span className={styles.periodBracket} aria-hidden="true" />
-                  ) : null}
-                  {adjacentStart ? (
-                    <span className={styles.seamMark} aria-hidden="true" />
-                  ) : null}
-                </button>
+                <div style={{ display: "contents" }} key={monthName}>
+                  <span className={styles.month}>{monthName}</span>
+                  {Array.from({ length: 31 }, (_, index) => {
+                    const day = index + 1;
+                    return renderDay(
+                      iso(year, monthIndex + 1, day),
+                      day,
+                      monthLength,
+                      day <= monthLength,
+                    );
+                  })}
+                </div>
               );
-            },
-          )}
+            })}
+          </div>
         </div>
-      </div>
+      )}
       <SubmissionFlight flight={flight} onComplete={() => setFlight(null)} />
     </section>
   );

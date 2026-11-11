@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { buildAbsenceRisks } from "@/domain/absence-risk";
 import {
   monthsForQuarter,
@@ -12,6 +12,7 @@ import {
 import {
   assertVacationAllowance,
   normalizePeriod,
+  periodClientId,
   periodDays,
   periodsOverlap,
   totalPeriodDays,
@@ -45,6 +46,16 @@ describe("domain rules", () => {
 
     expect(first).toMatch(/^vacation-employee-[a-z0-9]+-[a-z0-9]+$/);
     expect(second).not.toBe(first);
+  });
+  it("identifies a vacation range without crypto.randomUUID", () => {
+    const randomUUID = globalThis.crypto.randomUUID;
+    const spy = vi.spyOn(globalThis.crypto, "randomUUID");
+    expect(periodClientId("2027-01-08", "2027-01-09")).toBe(
+      "2027-01-08_2027-01-09",
+    );
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+    expect(randomUUID).toBeTypeOf("function");
   });
   it("counts inclusive days and detects intersections", () => {
     const period = { startsOn: "2027-02-28", endsOn: "2027-03-02" };
