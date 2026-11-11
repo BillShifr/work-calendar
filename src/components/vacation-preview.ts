@@ -6,7 +6,6 @@ import {
 import { periodDays, type DatePeriod } from "@/domain/vacation";
 
 export type PreviewClasses = {
-  start: string;
   preview: string;
   previewInvalid: string;
 };
@@ -31,7 +30,6 @@ export function paintVacationPreview(
     const inRange = Boolean(
       range && date >= range.startsOn && date <= range.endsOn,
     );
-    button.classList.toggle(classes.start, draft?.anchor === date);
     button.classList.toggle(classes.preview, inRange && !invalid);
     button.classList.toggle(classes.previewInvalid, inRange && invalid);
   }

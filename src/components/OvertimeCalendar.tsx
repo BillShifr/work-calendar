@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
   ChevronLeft,
@@ -68,6 +69,7 @@ export function OvertimeCalendar({
   initial: InitialReport;
   mode?: Mode;
 }) {
+  const router = useRouter();
   const [period, setPeriod] = useState({
     year: initial.year,
     month: initial.month,
@@ -217,6 +219,7 @@ export function OvertimeCalendar({
     setMessage(
       mode === "hr" ? "Предложение отправлено сотруднику" : "Сохранено",
     );
+    if (mode === "hr") router.refresh();
     return true;
   }
   async function transition(to: "submitted" | "approved") {

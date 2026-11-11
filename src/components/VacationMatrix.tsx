@@ -10,6 +10,7 @@ import {
   useSyncExternalStore,
   type PointerEvent as ReactPointerEvent,
 } from "react";
+import { useRouter } from "next/navigation";
 import {
   CalendarDays,
   ChevronLeft,
@@ -81,8 +82,8 @@ const formatDayLabel = (value: string) =>
 const iso = (year: number, month: number, day: number) =>
   `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 const compactQuery = "(max-width: 1500px)";
+const DRAG_THRESHOLD_PX = 12;
 const previewClasses = {
-  start: styles.start,
   preview: styles.preview,
   previewInvalid: styles.previewInvalid,
 };
@@ -111,6 +112,7 @@ const VacationDayButton = memo(function VacationDayButton({
   segmentStart,
   segmentEnd,
   adjacentStart,
+  isStart,
   label,
 }: {
   date: string;
@@ -122,6 +124,7 @@ const VacationDayButton = memo(function VacationDayButton({
   segmentStart: boolean;
   segmentEnd: boolean;
   adjacentStart: boolean;
+  isStart: boolean;
   label: string;
 }) {
   return (
@@ -137,6 +140,7 @@ const VacationDayButton = memo(function VacationDayButton({
         segmentStart ? styles.segmentStart : "",
         segmentEnd ? styles.segmentEnd : "",
         adjacentStart ? styles.adjacentStart : "",
+        isStart ? styles.start : "",
       ].join(" ")}
     >
       {valid ? (
@@ -175,12 +179,13 @@ export function VacationMatrix({
   };
   mode?: "employee" | "hr";
 }) {
+  const router = useRouter();
   const compact = useCompactCalendar();
   const [year, setYear] = useState(initial.year);
   const [allowanceDays, setAllowanceDays] = useState(initial.allowanceDays);
   const [version, setVersion] = useState(initial.version);
   const [periods, setPeriods] = useState(initial.periods);
-  const [picking, setPicking] = useState(false);
+  const [pickingAnchor, setPickingAnchor] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [planId, setPlanId] = useState(initial.id);
@@ -199,7 +204,12 @@ export function VacationMatrix({
   const periodsRef = useRef(periods);
   const allowanceRef = useRef(allowanceDays);
   const ignoreClickRef = useRef(false);
-  const pointerRef = useRef<{ date: string; dragging: boolean } | null>(null);
+  const pointerRef = useRef<{
+    date: string;
+    x: number;
+    y: number;
+    dragging: boolean;
+  } | null>(null);
   const canEdit =
     (mode === "hr" &&
       ["submitted", "reopened", "hr_proposed"].includes(status)) ||
@@ -245,7 +255,7 @@ export function VacationMatrix({
     (anchor: string, editing: DatePeriod | null = null) => {
       const draft = beginRange(anchor, editing);
       draftRef.current = draft;
-      setPicking(true);
+      setPickingAnchor(anchor);
       setMessage("Начало выбрано. Теперь укажите последний день.");
       paintDraft(draft);
     },
@@ -265,7 +275,7 @@ export function VacationMatrix({
       );
       if (result.status === "overlap") {
         draftRef.current = null;
-        setPicking(false);
+        setPickingAnchor(null);
         setMessage("Этот период пересекается с уже выбранным.");
         paintDraft(null);
         return;
@@ -281,7 +291,7 @@ export function VacationMatrix({
       const next = insertPeriod(periodsRef.current, result.period);
       periodsRef.current = next;
       draftRef.current = null;
-      setPicking(false);
+      setPickingAnchor(null);
       setPeriods(next);
       setMessage("Период добавлен и пока не сохранён.");
     },
@@ -293,23 +303,31 @@ export function VacationMatrix({
       if (!canEdit) return;
       const date = dateFromCalendarEvent(event.target);
       if (!date) return;
-      pointerRef.current = { date, dragging: false };
-      event.currentTarget.setPointerCapture(event.pointerId);
+      pointerRef.current = {
+        date,
+        x: event.clientX,
+        y: event.clientY,
+        dragging: false,
+      };
     },
     [canEdit],
   );
 
-  const onCalendarPointerOver = useCallback(
+  const onCalendarPointerMove = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
+      const pointer = pointerRef.current;
+      if (!pointer) return;
+      const distance = Math.hypot(
+        event.clientX - pointer.x,
+        event.clientY - pointer.y,
+      );
+      if (!pointer.dragging && distance < DRAG_THRESHOLD_PX) return;
+      pointer.dragging = true;
+      if (!draftRef.current) startDraft(pointer.date);
       const date =
         dateFromPoint(event.clientX, event.clientY) ??
         dateFromCalendarEvent(event.target);
       if (!date) return;
-      const pointer = pointerRef.current;
-      if (pointer && !draftRef.current && date !== pointer.date) {
-        pointer.dragging = true;
-        startDraft(pointer.date);
-      }
       const draft = draftRef.current;
       if (!draft || draft.hover === date) return;
       draftRef.current = previewRange(draft, date);
@@ -404,6 +422,7 @@ export function VacationMatrix({
         segmentStart={model.segmentStart}
         segmentEnd={model.segmentEnd}
         adjacentStart={model.adjacentStart}
+        isStart={date === pickingAnchor}
         label={model.label}
       />
     );
@@ -421,7 +440,7 @@ export function VacationMatrix({
   function cancelSelection() {
     const restored = cancelRange(draftRef.current);
     draftRef.current = null;
-    setPicking(false);
+    setPickingAnchor(null);
     if (restored) {
       const next = insertPeriod(periodsRef.current, restored);
       periodsRef.current = next;
@@ -436,7 +455,7 @@ export function VacationMatrix({
     const response = await fetch(`/api/vacations?year=${nextYear}`);
     const data = await response.json();
     draftRef.current = null;
-    setPicking(false);
+    setPickingAnchor(null);
     setYear(nextYear);
     setVersion(data.version);
     setPeriods(data.periods);
@@ -478,6 +497,7 @@ export function VacationMatrix({
     if (data.periods) setPeriods(data.periods);
     setEditingResponse(false);
     setMessage("Сохранено");
+    if (mode === "hr") router.refresh();
     return true;
   }
 
@@ -551,7 +571,7 @@ export function VacationMatrix({
 
   const calendarEvents = {
     onPointerDown: onCalendarPointerDown,
-    onPointerOver: onCalendarPointerOver,
+    onPointerMove: onCalendarPointerMove,
     onPointerUp: onCalendarPointerUp,
     onPointerCancel: () => {
       pointerRef.current = null;
@@ -602,7 +622,7 @@ export function VacationMatrix({
           <ActionButton
             variant="quiet"
             icon={X}
-            disabled={!picking}
+            disabled={!pickingAnchor}
             onClick={cancelSelection}
           >
             Отменить выбор
