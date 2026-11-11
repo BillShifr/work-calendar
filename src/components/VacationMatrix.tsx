@@ -822,25 +822,33 @@ export function VacationMatrix({
                     · {periodDays(period)} дн.
                   </small>
                 </span>
-                <IconButton
-                  disabled={!canEdit}
-                  label={`Изменить период ${formatDate(period.startsOn)} — ${formatDate(period.endsOn)}`}
-                  icon={Pencil}
-                  onClick={() => editPeriod(period)}
-                />
-                <IconButton
-                  disabled={!canEdit}
-                  label={`Удалить период ${formatDate(period.startsOn)} — ${formatDate(period.endsOn)}`}
-                  icon={Trash2}
-                  onClick={() => {
-                    const next = periodsRef.current.filter(
-                      (item) => item.id !== period.id,
-                    );
-                    periodsRef.current = next;
-                    setPeriods(next);
-                    setMessage("Период удалён и пока не сохранён.");
-                  }}
-                />
+                {canEdit ? (
+                  <>
+                    <IconButton
+                      label={`Изменить период ${formatDate(period.startsOn)} — ${formatDate(period.endsOn)}`}
+                      icon={Pencil}
+                      onPointerDown={(event) => event.stopPropagation()}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        editPeriod(period);
+                      }}
+                    />
+                    <IconButton
+                      label={`Удалить период ${formatDate(period.startsOn)} — ${formatDate(period.endsOn)}`}
+                      icon={Trash2}
+                      onPointerDown={(event) => event.stopPropagation()}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        const next = periodsRef.current.filter(
+                          (item) => item.id !== period.id,
+                        );
+                        periodsRef.current = next;
+                        setPeriods(next);
+                        setMessage("Период удалён и пока не сохранён.");
+                      }}
+                    />
+                  </>
+                ) : null}
               </li>
             ))}
           </ul>

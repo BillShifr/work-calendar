@@ -228,6 +228,7 @@ test("employee and HR complete a bilateral vacation approval", async ({
     testInfo.project.name === "mobile",
     "Full workflow runs once on desktop",
   );
+  test.setTimeout(120_000);
   await login(page, "hr", "CI-only-password-2026!");
   await setEntryWindow(page, "overtime", 2026, 10, true);
   await setEntryWindow(page, "vacation", 2027, 0, true);
@@ -241,6 +242,7 @@ test("employee and HR complete a bilateral vacation approval", async ({
   const availableDay = page
     .locator('button[aria-label*="не заполнено"]:not([disabled])')
     .first();
+  await expect(availableDay).toBeVisible();
   await availableDay.click();
   await page.getByRole("button", { name: "Добавить 15 минут" }).click();
   const limitDay = page
@@ -547,6 +549,8 @@ test("employee and HR complete a bilateral vacation approval", async ({
   await page.getByLabel("Дней отпуска для всех", { exact: true }).fill("30");
   await page.getByRole("button", { name: "Применить ко всем" }).click();
   await expect(page.getByRole("status")).toContainText("Лимит обновлён");
+  await page.getByRole("button", { name: "Выйти" }).click();
+  await login(page, "manager", "Manager-2026!");
   await page.getByRole("link", { name: "Согласование" }).click();
   const reopenedQuarter = page
     .locator("article")

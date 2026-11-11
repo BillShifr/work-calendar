@@ -418,60 +418,68 @@ export function OvertimeCalendar({
       ) : null}
 
       <div className={styles.editor} aria-live="polite">
-        <div className={styles.selectedDate}>
-          <span>
-            <Clock3 aria-hidden="true" size={17} />{" "}
+        <div className={styles.editorField}>
+          <span className={styles.editorLabel}>
+            <Clock3 aria-hidden="true" size={16} />
             {canEdit ? "Выбранный день" : "Просмотр"}
           </span>
-          <strong>{selected ? formatSelectedDate(selected) : "—"}</strong>
-          <span>
+          <div className={styles.editorMain}>
+            <strong className={styles.editorValue}>
+              {selected ? formatSelectedDate(selected) : "—"}
+            </strong>
+            {selected ? (
+              <IconButton
+                className={styles.clearButton}
+                label="Очистить время выбранного дня"
+                icon={Eraser}
+                disabled={!entries[selected] || !canEdit}
+                onClick={clearSelected}
+              />
+            ) : null}
+          </div>
+          <span className={styles.editorMeta}>
             {selected
               ? "Нажимайте значения справа — время суммируется"
               : "Сначала выберите день в календаре"}
           </span>
-          {selected ? (
-            <IconButton
-              className={styles.clearButton}
-              label="Очистить время выбранного дня"
-              icon={Eraser}
-              disabled={!entries[selected] || !canEdit}
-              onClick={clearSelected}
-            />
-          ) : null}
         </div>
-        <div className={styles.timeTotal}>
-          <span>За выбранный день</span>
-          <strong>
-            {Math.floor(selectedMinutes / 60)} ч {selectedMinutes % 60} мин
-          </strong>
-          <div
-            className={styles.limitTrack}
-            role="progressbar"
-            aria-label="Заполнение лимита 4 часа"
-            aria-valuemin={0}
-            aria-valuemax={MAX_OVERTIME_MINUTES_PER_DAY}
-            aria-valuenow={Math.min(
-              selectedMinutes,
-              MAX_OVERTIME_MINUTES_PER_DAY,
-            )}
-          >
-            <i
-              style={{
-                width: `${Math.min(100, (selectedMinutes / MAX_OVERTIME_MINUTES_PER_DAY) * 100)}%`,
-              }}
-            />
+        <div className={styles.editorField}>
+          <span className={styles.editorLabel}>За выбранный день</span>
+          <div className={styles.editorMain}>
+            <strong className={styles.editorValue}>
+              {Math.floor(selectedMinutes / 60)} ч {selectedMinutes % 60} мин
+            </strong>
           </div>
-          <small>
-            {selected
-              ? selectedRemaining >= 0
-                ? `Осталось ${selectedRemaining} мин из 4 часов`
-                : `Превышение на ${Math.abs(selectedRemaining)} мин`
-              : "Лимит — 4 часа в день"}
-          </small>
+          <div className={styles.editorMetaStack}>
+            <div
+              className={styles.limitTrack}
+              role="progressbar"
+              aria-label="Заполнение лимита 4 часа"
+              aria-valuemin={0}
+              aria-valuemax={MAX_OVERTIME_MINUTES_PER_DAY}
+              aria-valuenow={Math.min(
+                selectedMinutes,
+                MAX_OVERTIME_MINUTES_PER_DAY,
+              )}
+            >
+              <i
+                style={{
+                  width: `${Math.min(100, (selectedMinutes / MAX_OVERTIME_MINUTES_PER_DAY) * 100)}%`,
+                }}
+              />
+            </div>
+            <span className={styles.editorMeta}>
+              {selected
+                ? selectedRemaining >= 0
+                  ? `Осталось ${selectedRemaining} мин из 4 часов`
+                  : `Превышение на ${Math.abs(selectedRemaining)} мин`
+                : "Лимит — 4 часа в день"}
+            </span>
+          </div>
         </div>
-        <div className={styles.incrementPanel}>
-          <span>Добавить время</span>
-          <div className={styles.minuteButtons}>
+        <div className={styles.editorField}>
+          <span className={styles.editorLabel}>Добавить время</span>
+          <div className={`${styles.editorMain} ${styles.minuteButtons}`}>
             {OVERTIME_MINUTES.map((minutes) => (
               <ActionButton
                 className={styles.increment}
@@ -491,14 +499,25 @@ export function OvertimeCalendar({
               </ActionButton>
             ))}
           </div>
+          <span className={styles.editorMeta} aria-hidden="true">
+            &nbsp;
+          </span>
         </div>
-        <div className={styles.zero}>
-          <ToggleControl
-            label="Внеурочного времени не было"
-            checked={zeroConfirmed}
-            disabled={Object.keys(entries).length > 0 || !canEdit}
-            onChange={setZeroConfirmed}
-          />
+        <div className={`${styles.editorField} ${styles.zeroField}`}>
+          <span className={styles.editorLabel} aria-hidden="true">
+            &nbsp;
+          </span>
+          <div className={styles.editorMain}>
+            <ToggleControl
+              label="Внеурочного времени не было"
+              checked={zeroConfirmed}
+              disabled={Object.keys(entries).length > 0 || !canEdit}
+              onChange={setZeroConfirmed}
+            />
+          </div>
+          <span className={styles.editorMeta} aria-hidden="true">
+            &nbsp;
+          </span>
         </div>
       </div>
 
