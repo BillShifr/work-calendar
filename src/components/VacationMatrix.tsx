@@ -10,6 +10,7 @@ import {
   useSyncExternalStore,
   type PointerEvent as ReactPointerEvent,
 } from "react";
+import { useRouter } from "next/navigation";
 import {
   CalendarDays,
   ChevronLeft,
@@ -178,6 +179,7 @@ export function VacationMatrix({
   };
   mode?: "employee" | "hr";
 }) {
+  const router = useRouter();
   const compact = useCompactCalendar();
   const [year, setYear] = useState(initial.year);
   const [allowanceDays, setAllowanceDays] = useState(initial.allowanceDays);
@@ -495,6 +497,7 @@ export function VacationMatrix({
     if (data.periods) setPeriods(data.periods);
     setEditingResponse(false);
     setMessage("Сохранено");
+    if (mode === "hr") router.refresh();
     return true;
   }
 

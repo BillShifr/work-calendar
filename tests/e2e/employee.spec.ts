@@ -423,11 +423,14 @@ test("employee and HR complete a bilateral vacation approval", async ({
   await expect(page.getByRole("status")).toContainText(
     "Предложение отправлено",
   );
+  const overtimeHistory = page
+    .locator("section")
+    .filter({ has: page.getByRole("heading", { name: "История решений" }) });
   await expect(
-    page.getByRole("heading", { name: "История решений" }),
+    overtimeHistory.getByText("Уточнение по данным табеля подразделения"),
   ).toBeVisible();
   await expect(
-    page.getByText("Уточнение по данным табеля подразделения"),
+    overtimeHistory.getByText("Требуется решение → Ожидает сотрудника"),
   ).toBeVisible();
 
   await page.goto("/hr");
@@ -441,14 +444,16 @@ test("employee and HR complete a bilateral vacation approval", async ({
     .fill("Устранение пересечения с отпуском дежурного специалиста");
   await page.getByRole("button", { name: "Предложить изменения" }).click();
   await expect(page.getByText("Сохранено", { exact: true })).toBeVisible();
+  const vacationHistory = page
+    .locator("section")
+    .filter({ has: page.getByRole("heading", { name: "История решений" }) });
   await expect(
-    page.getByRole("heading", { name: "История решений" }),
+    vacationHistory.getByText(
+      "Устранение пересечения с отпуском дежурного специалиста",
+    ),
   ).toBeVisible();
   await expect(
-    page.getByText("Устранение пересечения с отпуском дежурного специалиста"),
-  ).toBeVisible();
-  await expect(
-    page.getByText("Требуется решение → Ожидает сотрудника"),
+    vacationHistory.getByText("Требуется решение → Ожидает сотрудника"),
   ).toBeVisible();
 
   await page.getByRole("button", { name: "Выйти" }).click();
