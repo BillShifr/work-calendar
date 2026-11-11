@@ -45,9 +45,12 @@ const weekdays = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
 const iso = (year: number, month: number, day: number) =>
   `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 const formatSelectedDate = (value: string) =>
-  new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long" }).format(
-    new Date(`${value}T00:00:00Z`),
-  );
+  new Intl.DateTimeFormat("ru-RU", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    timeZone: "UTC",
+  }).format(new Date(`${value}T00:00:00Z`));
 type Source = "employee" | "hr";
 type Mode = Source | "review";
 type InitialReport = {
