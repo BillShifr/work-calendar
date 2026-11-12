@@ -40,7 +40,10 @@ describe.skipIf(!sql)("vacation workbook export", () => {
     expect(tableSheet.getCell("B2").value).toBe("основной");
     expect(tableSheet.getCell("A2").value).toBeTruthy();
 
-    const chessWorkbook = await buildVacationChessboardWorkbook(employees);
+    const chessWorkbook = await buildVacationChessboardWorkbook(
+      employees,
+      employees[0]?.departmentName ?? "Подразделение",
+    );
     const chessSheet = chessWorkbook.worksheets[0];
     expect(chessSheet.getCell("C3").value).toContain("Фамилия");
     expect(chessSheet.getCell("C7").value).toBeTruthy();
