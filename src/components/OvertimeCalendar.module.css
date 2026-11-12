@@ -238,6 +238,19 @@
   border-left-color: var(--approved);
   background: color-mix(in srgb, var(--approved) 28%, white);
 }
+.legendHoliday i {
+  border-color: color-mix(in srgb, var(--holiday-strong) 45%, white);
+  border-left-color: var(--holiday-strong);
+  background: var(--holiday);
+}
+.legendShort i {
+  border-color: color-mix(in srgb, var(--short-day-strong) 45%, white);
+  border-left-color: var(--short-day-strong);
+  background: var(--short-day);
+}
+.weekdayMode {
+  margin-left: auto;
+}
 .calendar {
   padding: 8px 14px 14px;
 }
@@ -267,8 +280,11 @@
 }
 .day {
   position: relative;
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  align-content: start;
   min-height: clamp(44px, calc((100dvh - 500px) / 6), 72px);
-  padding: 10px;
+  padding: 8px 10px 6px;
   border: 0;
   background: white;
   color: var(--text);
@@ -287,6 +303,69 @@
 }
 .weekend {
   background: var(--weekend);
+}
+.holiday {
+  background: var(--holiday);
+}
+.shortDay {
+  background: var(--short-day);
+}
+.weekday0 {
+  --weekday-tone: var(--weekday-wash-0);
+}
+.weekday1 {
+  --weekday-tone: var(--weekday-wash-1);
+}
+.weekday2 {
+  --weekday-tone: var(--weekday-wash-2);
+}
+.weekday3 {
+  --weekday-tone: var(--weekday-wash-3);
+}
+.weekday4 {
+  --weekday-tone: var(--weekday-wash-4);
+}
+.weekday5 {
+  --weekday-tone: var(--weekday-wash-5);
+}
+.weekday6 {
+  --weekday-tone: var(--weekday-wash-6);
+}
+.weekdayExtended
+  .day.weekday0:not(.filled):not(.hrFilled):not(.holiday):not(.weekend):not(
+    .shortDay
+  ) {
+  background: var(--weekday-wash-0);
+}
+.weekdayExtended
+  .day.weekday1:not(.filled):not(.hrFilled):not(.holiday):not(.weekend):not(
+    .shortDay
+  ) {
+  background: var(--weekday-wash-1);
+}
+.weekdayExtended
+  .day.weekday2:not(.filled):not(.hrFilled):not(.holiday):not(.weekend):not(
+    .shortDay
+  ) {
+  background: var(--weekday-wash-2);
+}
+.weekdayExtended
+  .day.weekday3:not(.filled):not(.hrFilled):not(.holiday):not(.weekend):not(
+    .shortDay
+  ) {
+  background: var(--weekday-wash-3);
+}
+.weekdayExtended
+  .day.weekday4:not(.filled):not(.hrFilled):not(.holiday):not(.weekend):not(
+    .shortDay
+  ) {
+  background: var(--weekday-wash-4);
+}
+.weekdayExtended .day.weekday5:not(.filled):not(.hrFilled):not(.holiday) {
+  background: color-mix(in srgb, var(--weekday-wash-5) 55%, var(--weekend));
+}
+.weekdayExtended .day.weekday6:not(.filled):not(.hrFilled):not(.holiday) {
+  background: color-mix(in srgb, var(--weekday-wash-6) 70%, var(--weekend));
 }
 .selected {
   z-index: 3;
@@ -310,10 +389,20 @@
 .dayNumber {
   font-size: var(--text-base);
   font-weight: 700;
+  line-height: 1.1;
+}
+.weekdayLabel {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+  text-transform: lowercase;
 }
 .minutes {
   display: block;
-  margin-top: 20px;
+  align-self: end;
+  margin-top: 8px;
   color: var(--primary-strong);
   font-size: var(--text-base);
   font-weight: 750;
@@ -372,6 +461,10 @@
     flex-wrap: wrap;
     gap: 10px 16px;
     padding-block: 10px;
+  }
+  .weekdayMode {
+    margin-left: 0;
+    width: 100%;
   }
   .calendar {
     padding-inline: 8px;

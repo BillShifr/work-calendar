@@ -4,6 +4,17 @@
   --surface-subtle: #f8f9fa;
   --surface-muted: #edf1f3;
   --weekend: #f2f5f6;
+  --holiday: #f7e8e6;
+  --holiday-strong: #c45b4a;
+  --short-day: #fff6e4;
+  --short-day-strong: #b07a12;
+  --weekday-wash-0: #f7fafb;
+  --weekday-wash-1: #eef5f7;
+  --weekday-wash-2: #e4eef2;
+  --weekday-wash-3: #d7e7ed;
+  --weekday-wash-4: #c6dde6;
+  --weekday-wash-5: #b3d1dd;
+  --weekday-wash-6: #9cc2d2;
   --text: #17242d;
   --text-muted: #5f6e78;
   --text-faint: #95a1aa;

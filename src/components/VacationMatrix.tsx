@@ -23,6 +23,11 @@ import {
 } from "lucide-react";
 import { daysInMonth } from "@/domain/overtime";
 import {
+  classifyProductionDay,
+  weekdayIndexMonday,
+  weekdayShortLabel,
+} from "@/domain/production-calendar";
+import {
   occupancyByDate,
   periodDays,
   shiftIsoDate,
@@ -46,9 +51,11 @@ import {
 import {
   ActionButton,
   IconButton,
+  SegmentedControl,
   SubmissionFlight,
   type FlightState,
 } from "./FormControls";
+import { useWeekdayDisplayMode } from "./useWeekdayDisplayMode";
 import styles from "./VacationMatrix.module.css";
 
 const months = [
@@ -87,6 +94,15 @@ const previewClasses = {
   preview: styles.preview,
   previewInvalid: styles.previewInvalid,
 };
+const weekdayClasses = [
+  styles.weekday0,
+  styles.weekday1,
+  styles.weekday2,
+  styles.weekday3,
+  styles.weekday4,
+  styles.weekday5,
+  styles.weekday6,
+];
 
 function subscribeCompact(onStoreChange: () => void) {
   const media = window.matchMedia(compactQuery);
@@ -127,16 +143,24 @@ const VacationDayButton = memo(function VacationDayButton({
   isStart: boolean;
   label: string;
 }) {
+  const weekday = valid ? weekdayIndexMonday(date) : 0;
+  const dayKind = valid ? classifyProductionDay(date) : "working";
+  const weekdayLabel = valid ? weekdayShortLabel(date) : "";
   return (
     <button
       type="button"
       data-date={date}
+      data-weekday={weekday}
       disabled={!valid || !canEdit}
       aria-label={valid ? label : undefined}
       className={[
         compact ? styles.mobileDay : styles.day,
         !valid ? styles.invalid : !canEdit ? styles.readonly : "",
         occupiedClass,
+        weekdayClasses[weekday] ?? "",
+        !occupiedClass && dayKind === "weekend" ? styles.weekend : "",
+        !occupiedClass && dayKind === "holiday" ? styles.holiday : "",
+        !occupiedClass && dayKind === "short" ? styles.shortDay : "",
         segmentStart ? styles.segmentStart : "",
         segmentEnd ? styles.segmentEnd : "",
         adjacentStart ? styles.adjacentStart : "",
@@ -146,9 +170,19 @@ const VacationDayButton = memo(function VacationDayButton({
       {valid ? (
         <>
           {compact ? (
-            <span>{day}</span>
+            <span className={styles.dayStack}>
+              <span>{day}</span>
+              <span className={styles.weekdayLabel} aria-hidden="true">
+                {weekdayLabel}
+              </span>
+            </span>
           ) : (
-            <span className={styles.dayValue}>{day}</span>
+            <span className={styles.dayStack}>
+              <span className={styles.dayValue}>{day}</span>
+              <span className={styles.weekdayLabel} aria-hidden="true">
+                {weekdayLabel}
+              </span>
+            </span>
           )}
           {occupiedClass ? (
             <span className={styles.periodBracket} aria-hidden="true" />
@@ -181,6 +215,7 @@ export function VacationMatrix({
 }) {
   const router = useRouter();
   const compact = useCompactCalendar();
+  const [weekdayMode, setWeekdayMode] = useWeekdayDisplayMode();
   const [year, setYear] = useState(initial.year);
   const [allowanceDays, setAllowanceDays] = useState(initial.allowanceDays);
   const [version, setVersion] = useState(initial.version);
@@ -392,7 +427,7 @@ export function VacationMatrix({
         previousPeriod &&
         previousPeriod.id !== period.id,
       ),
-      label: `${formatDayLabel(date)}${period ? `, период ${formatDate(period.startsOn)} — ${formatDate(period.endsOn)}` : ""}`,
+      label: `${weekdayShortLabel(date)}, ${formatDayLabel(date)}${period ? `, период ${formatDate(period.startsOn)} — ${formatDate(period.endsOn)}` : ""}`,
     };
   }
 
@@ -866,13 +901,35 @@ export function VacationMatrix({
           <span className={styles.legendApproved}>
             <i /> <b>Утверждено</b>
           </span>
+          <span className={styles.legendHoliday}>
+            <i /> <b>Праздник</b>
+          </span>
+          <span className={styles.legendShort}>
+            <i /> <b>Сокращённый</b>
+          </span>
+          <div className={styles.weekdayMode}>
+            <SegmentedControl
+              label="Дни недели"
+              value={weekdayMode}
+              onChange={(value) =>
+                setWeekdayMode(value === "extended" ? "extended" : "simple")
+              }
+              options={[
+                { value: "simple", label: "Простой" },
+                { value: "extended", label: "Расширенный" },
+              ]}
+            />
+          </div>
         </div>
       </div>
 
       {compact ? (
         <div
           ref={calendarRef}
-          className={styles.mobileCalendar}
+          className={[
+            styles.mobileCalendar,
+            weekdayMode === "extended" ? styles.weekdayExtended : "",
+          ].join(" ")}
           aria-label="Календарь отпускных дней"
           {...calendarEvents}
         >
@@ -927,7 +984,10 @@ export function VacationMatrix({
       ) : (
         <div
           ref={calendarRef}
-          className={styles.scroll}
+          className={[
+            styles.scroll,
+            weekdayMode === "extended" ? styles.weekdayExtended : "",
+          ].join(" ")}
           aria-label="Матрица отпускных дней"
           {...calendarEvents}
         >
