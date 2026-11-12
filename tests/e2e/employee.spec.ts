@@ -454,6 +454,15 @@ test("employee and HR complete a bilateral vacation approval", async ({
   await expect(page).toHaveURL(/type=overtime/);
   await page.getByRole("link", { name: "Отпуска" }).last().click();
   await expect(page).toHaveURL(/type=vacation/);
+  const vacationExportPromise = page.waitForEvent("download");
+  await page.getByRole("link", { name: "Выгрузить Excel" }).click();
+  const vacationExport = await vacationExportPromise;
+  expect(vacationExport.suggestedFilename()).toBe("vacation-export-2027.zip");
+  const vacationExportPath = await vacationExport.path();
+  expect(vacationExportPath).not.toBeNull();
+  const vacationArchive = await readFile(vacationExportPath!);
+  expect(vacationArchive.byteLength).toBeGreaterThan(5_000);
+  expect(vacationArchive.subarray(0, 2).toString()).toBe("PK");
   await page.getByRole("link", { name: "Все" }).click();
   await page
     .locator("article")

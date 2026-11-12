@@ -1,6 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, CalendarRange, Clock3, UsersRound } from "lucide-react";
+import {
+  ArrowRight,
+  CalendarRange,
+  Clock3,
+  Download,
+  UsersRound,
+} from "lucide-react";
 import { and, count, eq, inArray, isNull, sql } from "drizzle-orm";
 import { AppShell } from "@/components/AppShell";
 import { db } from "@/db/client";
@@ -185,6 +191,23 @@ export default async function HrPage({
         ? item.kind === "vacation"
         : true,
   );
+  const [exportYearRow] = await db.execute<{ year: number }>(sql`
+    SELECT COALESCE(MAX(plan.year), ${currentYear + 1})::int AS year
+    FROM vacation_plans plan
+    WHERE plan.organization_id = ${hr.organizationId}
+      AND plan.status IN (
+        'manager_review',
+        'submitted',
+        'hr_proposed',
+        'approved',
+        'reopened'
+      )
+      AND EXISTS (
+        SELECT 1 FROM vacation_periods period WHERE period.plan_id = plan.id
+      )
+  `);
+  const vacationExportYear = exportYearRow?.year ?? currentYear + 1;
+  const showVacationExport = selectedType !== "overtime";
   return (
     <AppShell>
       <header className="pageHeader">
@@ -216,25 +239,36 @@ export default async function HrPage({
         <section className={`card ${styles.section}`}>
           <div className={styles.sectionHeader}>
             <h2>Очередь согласования</h2>
-            <div className={styles.filters}>
-              <Link
-                href="/hr"
-                className={`${styles.filter} ${!selectedType ? styles.filterActive : ""}`}
-              >
-                Все
-              </Link>
-              <Link
-                href="/hr?type=overtime"
-                className={`${styles.filter} ${selectedType === "overtime" ? styles.filterActive : ""}`}
-              >
-                Внеурочное время
-              </Link>
-              <Link
-                href="/hr?type=vacation"
-                className={`${styles.filter} ${selectedType === "vacation" ? styles.filterActive : ""}`}
-              >
-                Отпуска
-              </Link>
+            <div className={styles.sectionActions}>
+              <div className={styles.filters}>
+                <Link
+                  href="/hr"
+                  className={`${styles.filter} ${!selectedType ? styles.filterActive : ""}`}
+                >
+                  Все
+                </Link>
+                <Link
+                  href="/hr?type=overtime"
+                  className={`${styles.filter} ${selectedType === "overtime" ? styles.filterActive : ""}`}
+                >
+                  Внеурочное время
+                </Link>
+                <Link
+                  href="/hr?type=vacation"
+                  className={`${styles.filter} ${selectedType === "vacation" ? styles.filterActive : ""}`}
+                >
+                  Отпуска
+                </Link>
+              </div>
+              {showVacationExport ? (
+                <a
+                  className={styles.export}
+                  href={`/api/hr/export/vacations?year=${vacationExportYear}`}
+                >
+                  <Download aria-hidden="true" size={19} />
+                  Выгрузить Excel
+                </a>
+              ) : null}
             </div>
           </div>
           <div className={styles.queue}>
