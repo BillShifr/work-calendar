@@ -233,12 +233,15 @@ export function VacationMatrix({
   const [mobileMonth, setMobileMonth] = useState(0);
   const [flight, setFlight] = useState<FlightState>(null);
   const [confirmSubmit, setConfirmSubmit] = useState(false);
+  const [hrEditing, setHrEditing] = useState(false);
   const calendarRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLElement>(null);
   const detailRef = useRef<HTMLSpanElement>(null);
   const draftRef = useRef<RangeDraft | null>(null);
   const periodsRef = useRef(periods);
+  const hrBaselineRef = useRef(periods);
   const allowanceRef = useRef(allowanceDays);
+  const canEditRef = useRef(false);
   const ignoreClickRef = useRef(false);
   const pointerRef = useRef<{
     date: string;
@@ -246,9 +249,10 @@ export function VacationMatrix({
     y: number;
     dragging: boolean;
   } | null>(null);
+  const hrCanReview =
+    mode === "hr" && ["submitted", "reopened", "hr_proposed"].includes(status);
   const canEdit =
-    (mode === "hr" &&
-      ["submitted", "reopened", "hr_proposed"].includes(status)) ||
+    (hrCanReview && hrEditing) ||
     (mode === "employee" &&
       entryWindowOpen &&
       (["draft", "reopened"].includes(status) ||
@@ -267,7 +271,12 @@ export function VacationMatrix({
       periodsRef.current,
       allowanceRef.current,
     );
-    const copy = vacationSelectionCopy(draft, remainingRef.current, formatDate);
+    const copy = vacationSelectionCopy(
+      draft,
+      remainingRef.current,
+      formatDate,
+      canEditRef.current,
+    );
     if (titleRef.current) titleRef.current.textContent = copy.title;
     if (detailRef.current) detailRef.current.textContent = copy.detail;
   }, []);
@@ -276,6 +285,7 @@ export function VacationMatrix({
     periodsRef.current = periods;
     allowanceRef.current = allowanceDays;
     remainingRef.current = remainingDays;
+    canEditRef.current = canEdit;
     paintDraft(draftRef.current);
   }, [
     paintDraft,
@@ -285,6 +295,7 @@ export function VacationMatrix({
     compact,
     year,
     mobileMonth,
+    canEdit,
   ]);
 
   const startDraft = useCallback(
@@ -530,8 +541,14 @@ export function VacationMatrix({
     }
     setVersion(data.version);
     if (data.status) setStatus(data.status);
-    if (data.periods) setPeriods(data.periods);
+    if (data.periods) {
+      setPeriods(data.periods);
+      periodsRef.current = data.periods;
+      hrBaselineRef.current = data.periods;
+    }
     setEditingResponse(false);
+    setHrEditing(false);
+    setReason("");
     setMessage("Сохранено");
     if (mode === "hr") router.refresh();
     return true;
@@ -734,16 +751,48 @@ export function VacationMatrix({
           >
             Отменить выбор
           </ActionButton>
-          {mode === "hr" && canEdit && (
+          {hrCanReview && !hrEditing && status !== "hr_proposed" && (
+            <ActionButton
+              disabled={saving || total > allowanceDays}
+              onClick={approve}
+            >
+              Утвердить без изменений
+            </ActionButton>
+          )}
+          {hrCanReview && !hrEditing && (
+            <ActionButton
+              variant="primary"
+              icon={Pencil}
+              disabled={saving}
+              onClick={() => {
+                hrBaselineRef.current = periodsRef.current;
+                setHrEditing(true);
+                setMessage("Измените периоды и укажите причину.");
+              }}
+            >
+              Изменить
+            </ActionButton>
+          )}
+          {hrCanReview && hrEditing && (
             <>
-              {status !== "hr_proposed" && (
-                <ActionButton
-                  disabled={saving || total > allowanceDays}
-                  onClick={approve}
-                >
-                  Утвердить без изменений
-                </ActionButton>
-              )}
+              <ActionButton
+                variant="quiet"
+                icon={X}
+                disabled={saving}
+                onClick={() => {
+                  const baseline = hrBaselineRef.current;
+                  periodsRef.current = baseline;
+                  setPeriods(baseline);
+                  draftRef.current = null;
+                  setPickingAnchor(null);
+                  paintDraft(null);
+                  setReason("");
+                  setHrEditing(false);
+                  setMessage("");
+                }}
+              >
+                Отменить правку
+              </ActionButton>
               <ActionButton
                 variant="primary"
                 disabled={saving || !reason.trim() || total > allowanceDays}
@@ -828,7 +877,7 @@ export function VacationMatrix({
         </div>
       ) : null}
 
-      {mode === "hr" && canEdit && (
+      {hrCanReview && hrEditing && (
         <label className={styles.reason}>
           Причина изменений
           <textarea
@@ -840,56 +889,69 @@ export function VacationMatrix({
       )}
 
       <div className={styles.periodBar} aria-live="polite">
-        <div className={styles.selection}>
-          <strong ref={titleRef} />
-          <span ref={detailRef} />
+        <div className={styles.periodRow}>
+          <div className={styles.selection}>
+            <strong ref={titleRef} />
+            <span ref={detailRef} />
+          </div>
+          {periods.length ? (
+            <ul className={styles.periods}>
+              {periods.map((period) => (
+                <li
+                  className={[
+                    styles.period,
+                    period.source === "hr"
+                      ? styles.periodHr
+                      : styles.periodEmployee,
+                  ].join(" ")}
+                  key={period.id}
+                >
+                  <span>
+                    <strong>
+                      {formatDate(period.startsOn)} —{" "}
+                      {formatDate(period.endsOn)}
+                    </strong>
+                    <small>
+                      {period.source === "hr"
+                        ? "Правка кадровика"
+                        : "Ваш период"}{" "}
+                      · {periodDays(period)} дн.
+                    </small>
+                  </span>
+                  {canEdit ? (
+                    <>
+                      <IconButton
+                        label={`Изменить период ${formatDate(period.startsOn)} — ${formatDate(period.endsOn)}`}
+                        icon={Pencil}
+                        onPointerDown={(event) => event.stopPropagation()}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          editPeriod(period);
+                        }}
+                      />
+                      <IconButton
+                        label={`Удалить период ${formatDate(period.startsOn)} — ${formatDate(period.endsOn)}`}
+                        icon={Trash2}
+                        onPointerDown={(event) => event.stopPropagation()}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          const next = periodsRef.current.filter(
+                            (item) => item.id !== period.id,
+                          );
+                          periodsRef.current = next;
+                          setPeriods(next);
+                          setMessage("Период удалён и пока не сохранён.");
+                        }}
+                      />
+                    </>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <span className={styles.empty}>Не выбраны</span>
+          )}
         </div>
-        {periods.length ? (
-          <ul className={styles.periods}>
-            {periods.map((period) => (
-              <li className={styles.period} key={period.id}>
-                <span>
-                  <strong>
-                    {formatDate(period.startsOn)} — {formatDate(period.endsOn)}
-                  </strong>
-                  <small>
-                    {period.source === "hr" ? "Правка кадровика" : "Ваш период"}{" "}
-                    · {periodDays(period)} дн.
-                  </small>
-                </span>
-                {canEdit ? (
-                  <>
-                    <IconButton
-                      label={`Изменить период ${formatDate(period.startsOn)} — ${formatDate(period.endsOn)}`}
-                      icon={Pencil}
-                      onPointerDown={(event) => event.stopPropagation()}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        editPeriod(period);
-                      }}
-                    />
-                    <IconButton
-                      label={`Удалить период ${formatDate(period.startsOn)} — ${formatDate(period.endsOn)}`}
-                      icon={Trash2}
-                      onPointerDown={(event) => event.stopPropagation()}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        const next = periodsRef.current.filter(
-                          (item) => item.id !== period.id,
-                        );
-                        periodsRef.current = next;
-                        setPeriods(next);
-                        setMessage("Период удалён и пока не сохранён.");
-                      }}
-                    />
-                  </>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <span className={styles.empty}>Не выбраны</span>
-        )}
         <div className={styles.legend} aria-label="Обозначения">
           <strong>Статусы</strong>
           <span className={styles.legendEmployee}>

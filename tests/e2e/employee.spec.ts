@@ -487,6 +487,13 @@ test("employee and HR complete a bilateral vacation approval", async ({
 
   await page.goto("/hr");
   await page.locator('a[href^="/hr/vacations/"]').click();
+  await expect(
+    page.getByRole("button", { name: "Утвердить без изменений" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /Удалить период/ }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "Изменить", exact: true }).click();
   await goToVacationMonth(page, 5);
   await page.getByRole("button", { name: /Удалить период/ }).click();
   await page.getByRole("button", { name: calendarDayName("12 мая") }).click();

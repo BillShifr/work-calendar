@@ -39,11 +39,12 @@ export function vacationSelectionCopy(
   draft: RangeDraft | null,
   remainingDays: number,
   formatDate: (value: string) => string,
+  canEdit = true,
 ): { title: string; detail: string } {
   if (!draft)
     return {
       title: "Периоды",
-      detail: "Нажмите начальный и конечный день",
+      detail: canEdit ? "Нажмите начальный и конечный день" : "Только просмотр",
     };
   const title = `Начало: ${formatDate(draft.anchor)}`;
   if (!draft.hover)
