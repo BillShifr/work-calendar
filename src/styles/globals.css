@@ -144,18 +144,34 @@ a {
 }
 .nav {
   display: flex;
-  gap: 4px;
+  align-items: center;
+  gap: 6px;
   flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+}
+.navGroup {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-small);
+}
+.navGroupActive {
+  border-color: var(--border);
+  background: var(--surface-subtle);
 }
 .nav a {
   min-height: var(--control-height-compact);
   display: inline-flex;
   align-items: center;
-  padding: 0 14px;
+  padding: 0 12px;
   border-radius: var(--radius-small);
   text-decoration: none;
   color: var(--text-muted);
   font-weight: 650;
+  white-space: nowrap;
 }
 .nav a:hover {
   background: var(--surface-muted);
@@ -163,6 +179,18 @@ a {
 }
 .nav a[aria-current="page"] {
   box-shadow: inset 0 -2px var(--primary);
+  color: var(--primary-strong);
+}
+.nav a.navSection {
+  color: var(--text);
+}
+.nav a.navChild {
+  padding-inline: 10px;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+.nav a.navChild[aria-current="page"] {
   color: var(--primary-strong);
 }
 .userBox {
@@ -337,9 +365,12 @@ h1 {
     justify-content: center;
     overflow-x: auto;
   }
+  .navGroup {
+    flex: 0 0 auto;
+  }
   .nav a {
     flex: 0 0 auto;
-    padding: 0 14px;
+    padding: 0 12px;
   }
   .userBox {
     grid-column: 3;
