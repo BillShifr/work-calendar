@@ -165,7 +165,7 @@ test("vacation ranges work over internal HTTP in every selection mode", async ({
   await matrixDay(calendarDayName("5 февраля")).click();
   await expect(
     matrixDay(calendarDayName("3 февраля", ", период")).locator(
-      "span[aria-hidden=true]",
+      "span[aria-hidden=true]:empty",
     ),
   ).toHaveCount(2);
 
@@ -200,7 +200,9 @@ test("vacation ranges work over internal HTTP in every selection mode", async ({
   const adjacentStart = mobileCalendar.getByRole("button", {
     name: calendarDayName("3 февраля", ", период"),
   });
-  await expect(adjacentStart.locator("span[aria-hidden=true]")).toHaveCount(2);
+  await expect(
+    adjacentStart.locator("span[aria-hidden=true]:empty"),
+  ).toHaveCount(2);
   const selectedBackground = await adjacentStart.evaluate(
     (element) => getComputedStyle(element).backgroundColor,
   );
@@ -368,7 +370,7 @@ test("employee and HR complete a bilateral vacation approval", async ({
     name: calendarDayName("15 мая", ", период"),
   });
   await expect(
-    adjacentPeriodStart.locator("span[aria-hidden=true]"),
+    adjacentPeriodStart.locator("span[aria-hidden=true]:empty"),
   ).toHaveCount(2);
   await page.getByRole("button", { name: /Удалить период 15 мая/ }).click();
   await goToVacationMonth(page, 6);
