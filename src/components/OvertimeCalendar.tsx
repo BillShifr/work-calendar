@@ -19,12 +19,19 @@ import {
   OVERTIME_MINUTES,
 } from "@/domain/overtime";
 import {
+  classifyProductionDay,
+  weekdayIndexMonday,
+  weekdayShortLabel,
+} from "@/domain/production-calendar";
+import {
   ActionButton,
   IconButton,
+  SegmentedControl,
   SubmissionFlight,
   ToggleControl,
   type FlightState,
 } from "./FormControls";
+import { useWeekdayDisplayMode } from "./useWeekdayDisplayMode";
 import styles from "./OvertimeCalendar.module.css";
 
 const months = [
@@ -42,12 +49,24 @@ const months = [
   "Декабрь",
 ];
 const weekdays = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
+const weekdayClasses = [
+  styles.weekday0,
+  styles.weekday1,
+  styles.weekday2,
+  styles.weekday3,
+  styles.weekday4,
+  styles.weekday5,
+  styles.weekday6,
+];
 const iso = (year: number, month: number, day: number) =>
   `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 const formatSelectedDate = (value: string) =>
-  new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long" }).format(
-    new Date(`${value}T00:00:00Z`),
-  );
+  new Intl.DateTimeFormat("ru-RU", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    timeZone: "UTC",
+  }).format(new Date(`${value}T00:00:00Z`));
 type Source = "employee" | "hr";
 type Mode = Source | "review";
 type InitialReport = {
@@ -91,6 +110,7 @@ export function OvertimeCalendar({
     initial.entryWindowOpen ?? true,
   );
   const [flight, setFlight] = useState<FlightState>(null);
+  const [weekdayMode, setWeekdayMode] = useWeekdayDisplayMode();
   const canEdit =
     (mode === "hr" &&
       ["submitted", "reopened", "hr_proposed"].includes(status)) ||
@@ -543,10 +563,32 @@ export function OvertimeCalendar({
         <span className={styles.legendApproved}>
           <i /> <b>Утверждено</b>
         </span>
+        <span className={styles.legendHoliday}>
+          <i /> <b>Праздник</b>
+        </span>
+        <span className={styles.legendShort}>
+          <i /> <b>Сокращённый</b>
+        </span>
+        <div className={styles.weekdayMode}>
+          <SegmentedControl
+            label="Дни недели"
+            value={weekdayMode}
+            onChange={(value) =>
+              setWeekdayMode(value === "extended" ? "extended" : "simple")
+            }
+            options={[
+              { value: "simple", label: "Простой" },
+              { value: "extended", label: "Расширенный" },
+            ]}
+          />
+        </div>
       </div>
 
       <div
-        className={styles.calendar}
+        className={[
+          styles.calendar,
+          weekdayMode === "extended" ? styles.weekdayExtended : "",
+        ].join(" ")}
         aria-label="Календарь внеурочного времени"
       >
         <div className={styles.weekdays} aria-hidden="true">
@@ -561,34 +603,41 @@ export function OvertimeCalendar({
             ) : (
               (() => {
                 const date = iso(period.year, period.month, day);
-                const weekday = (offset + day - 1) % 7;
+                const weekday = weekdayIndexMonday(date);
+                const dayKind = classifyProductionDay(date);
                 const future = date > today;
+                const filled = Boolean(entries[date]);
                 return (
                   <button
                     data-calendar-day={day}
+                    data-weekday={weekday}
                     key={date}
                     className={[
                       styles.day,
-                      weekday >= 5 ? styles.weekend : "",
+                      weekdayClasses[weekday] ?? "",
+                      dayKind === "weekend" ? styles.weekend : "",
+                      dayKind === "holiday" ? styles.holiday : "",
+                      dayKind === "short" ? styles.shortDay : "",
                       selected === date ? styles.selected : "",
-                      entries[date]
+                      filled
                         ? sources[date] === "hr"
                           ? styles.hrFilled
                           : styles.filled
                         : "",
-                      status === "approved" && entries[date]
-                        ? styles.approved
-                        : "",
+                      status === "approved" && filled ? styles.approved : "",
                       !canEdit ? styles.readonly : "",
                     ].join(" ")}
                     disabled={future || !canEdit}
                     aria-pressed={selected === date}
-                    aria-label={`${day} ${months[period.month - 1]}, ${entries[date] ? `${entries[date]} минут` : "не заполнено"}${future ? ", будущая дата" : ""}`}
+                    aria-label={`${weekdayShortLabel(date)}, ${day} ${months[period.month - 1]}, ${filled ? `${entries[date]} минут` : "не заполнено"}${dayKind === "holiday" ? ", праздник" : ""}${dayKind === "short" ? ", сокращённый день" : ""}${future ? ", будущая дата" : ""}`}
                     onKeyDown={(event) => onDayKey(event, day)}
                     onClick={() => setSelected(date)}
                   >
                     <span className={styles.dayNumber}>{day}</span>
-                    {entries[date] && (
+                    <span className={styles.weekdayLabel} aria-hidden="true">
+                      {weekdayShortLabel(date)}
+                    </span>
+                    {filled && (
                       <span className={styles.minutes}>
                         {entries[date]} мин
                       </span>
