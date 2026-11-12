@@ -1,22 +1,17 @@
-import { createReadStream } from "node:fs";
-import path from "node:path";
-import ExcelJS from "exceljs";
 import { sql } from "drizzle-orm";
 import { db } from "@/db/client";
+import type { VacationExportEmployee } from "./vacation-export-types";
 import {
-  formatVacationPeriodCell,
-  isoToExcelDate,
-} from "./vacation-export-format";
-import { periodDays, totalPeriodDays } from "./vacation";
+  buildVacationChessboardWorkbook,
+  buildVacationTableWorkbook,
+} from "./vacation-export-workbooks";
 
 export { formatVacationPeriodCell } from "./vacation-export-format";
-
-const TEMPLATE_DIR = path.join(process.cwd(), "templates", "vacation-export");
-const TABLE_TEMPLATE = path.join(TEMPLATE_DIR, "appendix-1-table.xlsx");
-const CHESSBOARD_TEMPLATE = path.join(
-  TEMPLATE_DIR,
-  "appendix-2-chessboard.xlsx",
-);
+export type { VacationExportEmployee } from "./vacation-export-types";
+export {
+  buildVacationChessboardWorkbook,
+  buildVacationTableWorkbook,
+} from "./vacation-export-workbooks";
 
 export const VACATION_EXPORT_STATUSES = [
   "manager_review",
@@ -25,19 +20,6 @@ export const VACATION_EXPORT_STATUSES = [
   "approved",
   "reopened",
 ] as const;
-
-export type VacationExportEmployee = {
-  userId: string;
-  fullName: string;
-  departmentId: string | null;
-  departmentName: string | null;
-  jobTitle: string | null;
-  periods: Array<{ startsOn: string; endsOn: string }>;
-};
-
-function monthColumn(month: number) {
-  return 4 + month;
-}
 
 export async function loadVacationExportEmployees(
   organizationId: string,
@@ -101,69 +83,6 @@ export async function loadVacationExportEmployees(
   return [...grouped.values()];
 }
 
-async function readTemplateWorkbook(templatePath: string) {
-  const workbook = new ExcelJS.Workbook();
-  await workbook.xlsx.read(createReadStream(templatePath));
-  return workbook;
-}
-
-function clearSheetRows(sheet: ExcelJS.Worksheet, fromRow: number) {
-  for (let row = fromRow; row <= sheet.rowCount; row += 1) {
-    const sheetRow = sheet.getRow(row);
-    sheetRow.eachCell({ includeEmpty: true }, (cell) => {
-      cell.value = null;
-    });
-  }
-}
-
-export async function buildVacationTableWorkbook(
-  employees: VacationExportEmployee[],
-) {
-  const workbook = await readTemplateWorkbook(TABLE_TEMPLATE);
-  const sheet = workbook.worksheets[0];
-  clearSheetRows(sheet, 2);
-  let rowNumber = 2;
-  for (const employee of employees) {
-    for (const period of employee.periods) {
-      const row = sheet.getRow(rowNumber);
-      row.getCell(1).value = employee.fullName;
-      row.getCell(2).value = "основной";
-      row.getCell(3).value = isoToExcelDate(period.startsOn);
-      row.getCell(4).value = isoToExcelDate(period.endsOn);
-      rowNumber += 1;
-    }
-  }
-  return workbook;
-}
-
-export async function buildVacationChessboardWorkbook(
-  employees: VacationExportEmployee[],
-) {
-  const workbook = await readTemplateWorkbook(CHESSBOARD_TEMPLATE);
-  const sheet = workbook.worksheets[0];
-  clearSheetRows(sheet, 7);
-  let rowNumber = 7;
-  for (const employee of employees) {
-    const totalDays = totalPeriodDays(employee.periods);
-    const summaryRow = sheet.getRow(rowNumber);
-    summaryRow.getCell(3).value = employee.fullName;
-    summaryRow.getCell(4).value = totalDays;
-    rowNumber += 1;
-    for (const period of employee.periods) {
-      const periodRow = sheet.getRow(rowNumber);
-      periodRow.getCell(3).value = employee.fullName;
-      periodRow.getCell(4).value = periodDays(period);
-      const month = Number(period.startsOn.slice(5, 7));
-      periodRow.getCell(monthColumn(month)).value = formatVacationPeriodCell(
-        period.startsOn,
-        period.endsOn,
-      );
-      rowNumber += 1;
-    }
-  }
-  return workbook;
-}
-
 export async function buildVacationExportBundles(
   organizationId: string,
   year: number,
@@ -184,7 +103,10 @@ export async function buildVacationExportBundles(
   for (const [, departmentEmployees] of byDepartment) {
     const departmentName =
       departmentEmployees[0]?.departmentName ?? "Без подразделения";
-    const workbook = await buildVacationChessboardWorkbook(departmentEmployees);
+    const workbook = await buildVacationChessboardWorkbook(
+      departmentEmployees,
+      departmentName,
+    );
     chessboards.push({
       departmentName,
       buffer: Buffer.from(await workbook.xlsx.writeBuffer()),
