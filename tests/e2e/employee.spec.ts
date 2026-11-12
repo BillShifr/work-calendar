@@ -8,6 +8,11 @@ async function login(page: Page, login: string, password: string) {
   await page.getByRole("button", { name: "Войти" }).click();
 }
 
+/** Accessible name with weekday prefix from production calendar UI. */
+function calendarDayName(dayMonth: string, suffix = "") {
+  return new RegExp(`^(?:пн|вт|ср|чт|пт|сб|вс), ${dayMonth}${suffix}`);
+}
+
 async function setEntryWindow(
   page: Page,
   kind: "vacation" | "overtime",
@@ -131,31 +136,41 @@ test("vacation ranges work over internal HTTP in every selection mode", async ({
   const matrixDay = (label: RegExp) =>
     matrix.getByRole("button", { name: label });
 
-  await matrixDay(/^4 января/).click();
-  await expect(matrixDay(/^4 января/)).toHaveClass(/start/);
-  await matrixDay(/^4 января/).click();
-  await expect(matrixDay(/^4 января, период/)).toHaveClass(/segmentStart/);
-  await expect(matrixDay(/^4 января, период/)).toHaveClass(/segmentEnd/);
+  await matrixDay(calendarDayName("4 января")).click();
+  await expect(matrixDay(calendarDayName("4 января"))).toHaveClass(/start/);
+  await matrixDay(calendarDayName("4 января")).click();
+  await expect(matrixDay(calendarDayName("4 января", ", период"))).toHaveClass(
+    /segmentStart/,
+  );
+  await expect(matrixDay(calendarDayName("4 января", ", период"))).toHaveClass(
+    /segmentEnd/,
+  );
 
-  await matrixDay(/^12 января/).click();
-  await matrixDay(/^8 января/).click();
+  await matrixDay(calendarDayName("12 января")).click();
+  await matrixDay(calendarDayName("8 января")).click();
   await expect(
     page.getByRole("button", { name: /Изменить период 8 янв.*12 янв/ }),
   ).toBeVisible();
 
-  await matrixDay(/^30 января/).click();
-  await matrixDay(/^2 февраля/).click();
-  await expect(matrixDay(/^30 января, период/)).toHaveClass(/segmentStart/);
-  await expect(matrixDay(/^2 февраля, период/)).toHaveClass(/segmentEnd/);
+  await matrixDay(calendarDayName("30 января")).click();
+  await matrixDay(calendarDayName("2 февраля")).click();
+  await expect(matrixDay(calendarDayName("30 января", ", период"))).toHaveClass(
+    /segmentStart/,
+  );
+  await expect(matrixDay(calendarDayName("2 февраля", ", период"))).toHaveClass(
+    /segmentEnd/,
+  );
 
-  await matrixDay(/^3 февраля/).click();
-  await matrixDay(/^5 февраля/).click();
+  await matrixDay(calendarDayName("3 февраля")).click();
+  await matrixDay(calendarDayName("5 февраля")).click();
   await expect(
-    matrixDay(/^3 февраля, период/).locator("span[aria-hidden=true]"),
+    matrixDay(calendarDayName("3 февраля", ", период")).locator(
+      "span[aria-hidden=true]",
+    ),
   ).toHaveCount(2);
 
-  await matrixDay(/^10 января, период/).click();
-  await matrixDay(/^15 января/).click();
+  await matrixDay(calendarDayName("10 января", ", период")).click();
+  await matrixDay(calendarDayName("15 января")).click();
   await expect(page.getByRole("status")).toContainText(
     "Этот период пересекается",
   );
@@ -166,7 +181,7 @@ test("vacation ranges work over internal HTTP in every selection mode", async ({
   await page
     .getByRole("button", { name: /Изменить период 8 янв.*12 янв/ })
     .click();
-  await matrixDay(/^14 января/).click();
+  await matrixDay(calendarDayName("14 января")).click();
   await expect(
     page.getByRole("button", { name: /Изменить период 8 янв.*14 янв/ }),
   ).toBeVisible();
@@ -175,37 +190,49 @@ test("vacation ranges work over internal HTTP in every selection mode", async ({
   await expect(page.getByText("Сохранено", { exact: true })).toBeVisible();
   await page.reload();
   await goToVacationYear(page, 2029);
-  await expect(matrixDay(/^30 января, период/)).toBeVisible();
+  await expect(
+    matrixDay(calendarDayName("30 января", ", период")),
+  ).toBeVisible();
 
   await page.setViewportSize({ width: 1366, height: 768 });
   await goToVacationMonth(page, 2);
   const mobileCalendar = page.getByLabel("Календарь отпускных дней");
   const adjacentStart = mobileCalendar.getByRole("button", {
-    name: /^3 февраля, период/,
+    name: calendarDayName("3 февраля", ", период"),
   });
   await expect(adjacentStart.locator("span[aria-hidden=true]")).toHaveCount(2);
   const selectedBackground = await adjacentStart.evaluate(
     (element) => getComputedStyle(element).backgroundColor,
   );
   const emptyBackground = await mobileCalendar
-    .getByRole("button", { name: /^10 февраля/ })
+    .getByRole("button", { name: calendarDayName("10 февраля") })
     .evaluate((element) => getComputedStyle(element).backgroundColor);
   expect(selectedBackground).not.toBe(emptyBackground);
 
   await goToVacationMonth(page, 5);
-  await mobileCalendar.getByRole("button", { name: /^20 мая/ }).click();
-  await mobileCalendar.getByRole("button", { name: /^15 мая/ }).click();
+  await mobileCalendar
+    .getByRole("button", { name: calendarDayName("20 мая") })
+    .click();
+  await mobileCalendar
+    .getByRole("button", { name: calendarDayName("15 мая") })
+    .click();
   await expect(
     page.getByRole("button", { name: /Изменить период 15 мая.*20 мая/ }),
   ).toBeVisible();
 
   await goToVacationMonth(page, 6);
-  await mobileCalendar.getByRole("button", { name: /^1 июня/ }).click();
-  await mobileCalendar.getByRole("button", { name: /^15 июня/ }).click();
+  await mobileCalendar
+    .getByRole("button", { name: calendarDayName("1 июня") })
+    .click();
+  await mobileCalendar
+    .getByRole("button", { name: calendarDayName("15 июня") })
+    .click();
   await expect(page.getByRole("status")).toContainText(
     "Нельзя добавить период",
   );
-  await mobileCalendar.getByRole("button", { name: /^7 июня/ }).click();
+  await mobileCalendar
+    .getByRole("button", { name: calendarDayName("7 июня") })
+    .click();
   await expect(page.getByText("28", { exact: true }).first()).toBeVisible();
   await expect(page.getByText("из 28 дней", { exact: true })).toBeVisible();
 
@@ -216,7 +243,7 @@ test("vacation ranges work over internal HTTP in every selection mode", async ({
   await goToVacationMonth(page, 6);
   await expect(
     page.getByLabel("Календарь отпускных дней").getByRole("button", {
-      name: /^7 июня, период/,
+      name: calendarDayName("7 июня", ", период"),
     }),
   ).toBeVisible();
 });
@@ -240,13 +267,17 @@ test("employee and HR complete a bilateral vacation approval", async ({
   ).toBeVisible();
   await goToOvertimePeriod(page, 2026, 10);
   const availableDay = page
-    .locator('button[aria-label*="не заполнено"]:not([disabled])')
+    .locator(
+      'button[data-calendar-day][aria-label*="не заполнено"]:not([disabled])',
+    )
     .first();
   await expect(availableDay).toBeVisible();
   await availableDay.click();
   await page.getByRole("button", { name: "Добавить 15 минут" }).click();
   const limitDay = page
-    .locator('button[aria-label*="не заполнено"]:not([disabled])')
+    .locator(
+      'button[data-calendar-day][aria-label*="не заполнено"]:not([disabled])',
+    )
     .nth(1);
   await limitDay.click();
   for (let index = 0; index < 4; index += 1) {
@@ -269,7 +300,9 @@ test("employee and HR complete a bilateral vacation approval", async ({
     page.getByText("Заполнение на 2028 год закрыто кадровой службой"),
   ).toBeVisible();
   await goToVacationMonth(page, 5);
-  await expect(page.getByRole("button", { name: /^10 мая/ })).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: calendarDayName("10 мая") }),
+  ).toBeDisabled();
   await expect(
     page.getByRole("button", { name: "Сохранить черновик" }),
   ).toBeDisabled();
@@ -326,21 +359,21 @@ test("employee and HR complete a bilateral vacation approval", async ({
     page.getByRole("button", { name: "Сохранить черновик" }),
   ).toBeInViewport();
   await goToVacationMonth(page, 5);
-  await page.getByRole("button", { name: /^10 мая/ }).click();
+  await page.getByRole("button", { name: calendarDayName("10 мая") }).click();
   await expect(page.getByText(/Начало: 10 мая/i)).toBeVisible();
-  await page.getByRole("button", { name: /^14 мая/ }).click();
-  await page.getByRole("button", { name: /^15 мая/ }).click();
-  await page.getByRole("button", { name: /^20 мая/ }).click();
+  await page.getByRole("button", { name: calendarDayName("14 мая") }).click();
+  await page.getByRole("button", { name: calendarDayName("15 мая") }).click();
+  await page.getByRole("button", { name: calendarDayName("20 мая") }).click();
   const adjacentPeriodStart = page.getByRole("button", {
-    name: /^15 мая, период/,
+    name: calendarDayName("15 мая", ", период"),
   });
   await expect(
     adjacentPeriodStart.locator("span[aria-hidden=true]"),
   ).toHaveCount(2);
   await page.getByRole("button", { name: /Удалить период 15 мая/ }).click();
   await goToVacationMonth(page, 6);
-  await page.getByRole("button", { name: /^1 июня/ }).click();
-  await page.getByRole("button", { name: /^30 июня/ }).click();
+  await page.getByRole("button", { name: calendarDayName("1 июня") }).click();
+  await page.getByRole("button", { name: calendarDayName("30 июня") }).click();
   await expect(page.getByRole("status")).toContainText(
     "Нельзя добавить период",
   );
@@ -352,7 +385,7 @@ test("employee and HR complete a bilateral vacation approval", async ({
   await page.reload();
   await goToVacationMonth(page, 5);
   await expect(
-    page.getByRole("button", { name: /^10 мая, период/ }),
+    page.getByRole("button", { name: calendarDayName("10 мая", ", период") }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Отправить", exact: true }).click();
   await expect(
@@ -454,8 +487,8 @@ test("employee and HR complete a bilateral vacation approval", async ({
   await page.locator('a[href^="/hr/vacations/"]').click();
   await goToVacationMonth(page, 5);
   await page.getByRole("button", { name: /Удалить период/ }).click();
-  await page.getByRole("button", { name: /^12 мая/ }).click();
-  await page.getByRole("button", { name: /^22 мая/ }).click();
+  await page.getByRole("button", { name: calendarDayName("12 мая") }).click();
+  await page.getByRole("button", { name: calendarDayName("22 мая") }).click();
   await page
     .getByLabel("Причина изменений")
     .fill("Устранение пересечения с отпуском дежурного специалиста");
