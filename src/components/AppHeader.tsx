@@ -91,7 +91,7 @@ export function AppHeader({
               <motion.div
                 key={activeGroup?.id}
                 className={styles.fan}
-                initial={reduceMotion ? false : { opacity: 0, y: -10 }}
+                initial={false}
                 animate={{ opacity: 1, y: 0 }}
                 exit={reduceMotion ? undefined : { opacity: 0, y: -8 }}
               >

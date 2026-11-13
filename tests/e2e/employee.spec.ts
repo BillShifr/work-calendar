@@ -8,6 +8,13 @@ async function login(page: Page, login: string, password: string) {
   await page.getByRole("button", { name: "Войти" }).click();
 }
 
+async function openMainNav(page: Page, name: string) {
+  await page
+    .getByRole("navigation", { name: "Основная навигация" })
+    .getByRole("link", { name, exact: true })
+    .click();
+}
+
 /** Accessible name with weekday prefix from production calendar UI. */
 function calendarDayName(dayMonth: string, suffix = "") {
   return new RegExp(`^(?:пн|вт|ср|чт|пт|сб|вс), ${dayMonth}${suffix}`);
@@ -418,7 +425,8 @@ test("employee and HR complete a bilateral vacation approval", async ({
 
   await page.getByRole("button", { name: "Выйти" }).click();
   await login(page, "hr", "CI-only-password-2026!");
-  await page.getByRole("link", { name: "Свод" }).click();
+  await openMainNav(page, "Внеурочное время");
+  await openMainNav(page, "Свод");
   await page.getByLabel("Максимум дней для всех", { exact: true }).fill("11");
   await page.getByRole("button", { name: "Применить", exact: true }).click();
   await expect(page.getByRole("status")).toContainText("Обновлено сотрудников");
@@ -450,9 +458,12 @@ test("employee and HR complete a bilateral vacation approval", async ({
     page.getByRole("heading", { name: "Кабинет кадровика" }),
   ).toBeVisible();
   await expect(page.getByText("Ожидает проверки")).toHaveCount(0);
-  await page.getByRole("link", { name: "Внеурочное время" }).last().click();
+  await page
+    .getByRole("main")
+    .getByRole("link", { name: "Внеурочное время" })
+    .click();
   await expect(page).toHaveURL(/type=overtime/);
-  await page.getByRole("link", { name: "Отпуска" }).last().click();
+  await page.getByRole("main").getByRole("link", { name: "Отпуска" }).click();
   await expect(page).toHaveURL(/type=vacation/);
   const vacationExportPromise = page.waitForEvent("download");
   await page.getByRole("link", { name: "Выгрузить Excel" }).click();
@@ -753,8 +764,8 @@ test("HR screens use the shared readable UI system", async ({
 
 test("employee opens the organization vacation board", async ({ page }) => {
   await login(page, "employee", "Employee-2026!");
-  await page.getByRole("link", { name: "Отпуска" }).click();
-  await page.getByRole("link", { name: "График" }).click();
+  await openMainNav(page, "Отпуска");
+  await openMainNav(page, "График");
   await expect(
     page.getByRole("heading", { name: "График отпусков" }),
   ).toBeVisible();
