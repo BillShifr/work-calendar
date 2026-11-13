@@ -9,6 +9,7 @@ import {
   buildVacationChessboardWorkbook,
   buildVacationTableWorkbook,
 } from "@/domain/vacation-export-workbooks";
+import { sanitizeWorkbookForExcel } from "@/domain/vacation-export-xlsx-sanitize";
 
 const sample: VacationExportEmployee[] = [
   {
@@ -47,7 +48,9 @@ describe("vacation export workbooks", () => {
     expect(sheet.getCell(2, 3).numFmt).toBe("dd.mm.yyyy");
     expect(sheet.getCell(3, 3).numFmt).toBe("dd.mm.yyyy");
     const file = writeTempXlsx(
-      new Uint8Array(await workbook.xlsx.writeBuffer()),
+      await sanitizeWorkbookForExcel(
+        Buffer.from(await workbook.xlsx.writeBuffer()),
+      ),
     );
     expect(unzipXlsxPart(file, "xl/worksheets/sheet1.xml")).not.toContain(
       "4294967295",
@@ -68,11 +71,14 @@ describe("vacation export workbooks", () => {
     expect(String(sheet.getCell(9, 10).value)).toContain("06");
     expect(sheet.getCell(7, 1).value).toBe(sample[0].departmentName);
     const file = writeTempXlsx(
-      new Uint8Array(await workbook.xlsx.writeBuffer()),
+      await sanitizeWorkbookForExcel(
+        Buffer.from(await workbook.xlsx.writeBuffer()),
+      ),
     );
     const xml = unzipXlsxPart(file, "xl/worksheets/sheet1.xml");
     const strings = unzipXlsxPart(file, "xl/sharedStrings.xml");
     expect(xml).not.toContain("4294967295");
+    expect(xml).not.toContain("pane ySplit");
     expect(strings).toContain("Татьянкин");
     expect(strings).toContain("01.06.-14.06");
     const reopened = new ExcelJS.Workbook();

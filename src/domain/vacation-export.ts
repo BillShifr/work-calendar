@@ -5,6 +5,7 @@ import {
   buildVacationChessboardWorkbook,
   buildVacationTableWorkbook,
 } from "./vacation-export-workbooks";
+import { sanitizeWorkbookForExcel } from "./vacation-export-xlsx-sanitize";
 
 export { formatVacationPeriodCell } from "./vacation-export-format";
 export type { VacationExportEmployee } from "./vacation-export-types";
@@ -89,7 +90,9 @@ export async function buildVacationExportBundles(
 ) {
   const employees = await loadVacationExportEmployees(organizationId, year);
   const tableWorkbook = await buildVacationTableWorkbook(employees);
-  const tableBuffer = Buffer.from(await tableWorkbook.xlsx.writeBuffer());
+  const tableBuffer = await sanitizeWorkbookForExcel(
+    Buffer.from(await tableWorkbook.xlsx.writeBuffer()),
+  );
 
   const byDepartment = new Map<string, VacationExportEmployee[]>();
   for (const employee of employees) {
@@ -109,7 +112,9 @@ export async function buildVacationExportBundles(
     );
     chessboards.push({
       departmentName,
-      buffer: Buffer.from(await workbook.xlsx.writeBuffer()),
+      buffer: await sanitizeWorkbookForExcel(
+        Buffer.from(await workbook.xlsx.writeBuffer()),
+      ),
     });
   }
 
