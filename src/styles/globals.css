@@ -112,98 +112,6 @@ a {
 .shell {
   min-height: 100vh;
 }
-.topbar {
-  position: sticky;
-  top: 0;
-  z-index: 20;
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  min-height: 60px;
-  padding: 8px clamp(16px, 2vw, 32px);
-  background: rgba(255, 255, 255, 0.97);
-  border-bottom: 1px solid var(--border);
-}
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  text-decoration: none;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  white-space: nowrap;
-}
-.brandMark {
-  display: grid;
-  place-items: center;
-  width: 38px;
-  height: 38px;
-  border-radius: var(--radius-small);
-  color: white;
-  background: var(--primary);
-}
-.nav {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex: 1;
-  min-width: 0;
-  overflow-x: auto;
-}
-.navGroup {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  padding: 2px;
-  border: 1px solid transparent;
-  border-radius: var(--radius-small);
-}
-.navGroupActive {
-  border-color: var(--border);
-  background: var(--surface-subtle);
-}
-.nav a {
-  min-height: var(--control-height-compact);
-  display: inline-flex;
-  align-items: center;
-  padding: 0 12px;
-  border-radius: var(--radius-small);
-  text-decoration: none;
-  color: var(--text-muted);
-  font-weight: 650;
-  white-space: nowrap;
-}
-.nav a:hover {
-  background: var(--surface-muted);
-  color: var(--text);
-}
-.nav a[aria-current="page"] {
-  box-shadow: inset 0 -2px var(--primary);
-  color: var(--primary-strong);
-}
-.nav a.navSection {
-  color: var(--text);
-}
-.nav a.navChild {
-  padding-inline: 10px;
-  color: var(--text-muted);
-  font-size: var(--text-sm);
-  font-weight: 600;
-}
-.nav a.navChild[aria-current="page"] {
-  color: var(--primary-strong);
-}
-.userBox {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: var(--text-muted);
-  font-size: var(--text-sm);
-}
-.userBox strong {
-  display: block;
-  color: var(--text);
-}
 .plainButton {
   min-height: var(--control-height-compact);
   padding: 0 16px;
@@ -320,7 +228,6 @@ h1 {
 .primaryButton,
 .secondaryButton,
 .plainButton,
-.nav a,
 .sectionTabs a {
   transition:
     color 140ms ease,
@@ -353,53 +260,7 @@ h1 {
   border: 0;
 }
 
-@media (max-width: 1180px) and (min-width: 801px) {
-  .topbar {
-    display: grid;
-    grid-template-columns: auto 1fr auto;
-    gap: 8px 20px;
-  }
-  .nav {
-    grid-column: 1 / -1;
-    grid-row: 2;
-    justify-content: center;
-    overflow-x: auto;
-  }
-  .navGroup {
-    flex: 0 0 auto;
-  }
-  .nav a {
-    flex: 0 0 auto;
-    padding: 0 12px;
-  }
-  .userBox {
-    grid-column: 3;
-    grid-row: 1;
-  }
-}
-
 @media (max-width: 800px) {
-  .topbar {
-    display: flex;
-    align-items: flex-start;
-    flex-wrap: wrap;
-    gap: 8px;
-    padding: 10px 16px;
-  }
-  .nav {
-    order: 3;
-    width: 100%;
-    overflow-x: auto;
-  }
-  .nav a {
-    padding: 0 12px;
-  }
-  .userBox {
-    margin-left: auto;
-  }
-  .userBox span {
-    display: none;
-  }
   .main {
     padding: 24px 16px 48px;
   }

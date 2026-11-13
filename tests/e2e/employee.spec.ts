@@ -750,3 +750,16 @@ test("HR screens use the shared readable UI system", async ({
     .poll(async () => (await queueFilter.boundingBox())?.height ?? 0)
     .toBeGreaterThanOrEqual(40);
 });
+
+test("employee opens the organization vacation board", async ({ page }) => {
+  await login(page, "employee", "Employee-2026!");
+  await page.getByRole("link", { name: "Отпуска" }).click();
+  await page.getByRole("link", { name: "График" }).click();
+  await expect(
+    page.getByRole("heading", { name: "График отпусков" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Календарь отпусков организации" }),
+  ).toBeVisible();
+  await expect(page.getByText("Алексей Морозов").first()).toBeVisible();
+});
