@@ -1,18 +1,20 @@
-"use client";
-
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-
-type NavLink = {
+export type NavLink = {
   href: string;
   label: string;
   match?: (pathname: string) => boolean;
 };
 
-type NavGroup = {
+export type NavGroup = {
   id: string;
   primary: NavLink;
   children?: NavLink[];
+};
+
+const scheduleChild: NavLink = {
+  href: "/vacations/board",
+  label: "График",
+  match: (pathname) =>
+    pathname === "/vacations/board" || pathname.startsWith("/vacations/board/"),
 };
 
 const employeeGroups: NavGroup[] = [
@@ -22,7 +24,12 @@ const employeeGroups: NavGroup[] = [
   },
   {
     id: "vacations",
-    primary: { href: "/vacations", label: "Отпуска" },
+    primary: {
+      href: "/vacations",
+      label: "Отпуска",
+      match: (pathname) => pathname === "/vacations",
+    },
+    children: [scheduleChild],
   },
 ];
 
@@ -32,9 +39,16 @@ const workforcePaths = [
   "/hr/reference-data",
 ];
 
-function isActive(pathname: string, item: NavLink) {
+export function isNavActive(pathname: string, item: NavLink) {
   if (item.match) return item.match(pathname);
   return pathname === item.href || pathname.startsWith(`${item.href}/`);
+}
+
+export function isNavSectionActive(pathname: string, group: NavGroup) {
+  return (
+    isNavActive(pathname, group.primary) ||
+    Boolean(group.children?.some((child) => isNavActive(pathname, child)))
+  );
 }
 
 function hrGroups(canApprove: boolean): NavGroup[] {
@@ -62,10 +76,10 @@ function hrGroups(canApprove: boolean): NavGroup[] {
       primary: {
         href: "/vacations",
         label: "Отпуска",
-        match: (pathname) =>
-          pathname === "/vacations" || pathname.startsWith("/vacations/"),
+        match: (pathname) => pathname === "/vacations",
       },
       children: [
+        scheduleChild,
         {
           href: "/hr/periods",
           label: "Периоды",
@@ -107,64 +121,19 @@ function hrGroups(canApprove: boolean): NavGroup[] {
   ];
 }
 
-export function AppNavigation({
-  isHr,
-  canApprove,
-}: {
-  isHr: boolean;
-  canApprove: boolean;
-}) {
-  const pathname = usePathname();
-  const groups = isHr
-    ? hrGroups(canApprove)
-    : canApprove
-      ? [
-          ...employeeGroups,
-          {
-            id: "approvals",
-            primary: { href: "/approvals", label: "Согласование" },
-          },
-        ]
-      : employeeGroups;
-
-  return (
-    <nav className="nav" aria-label="Основная навигация">
-      {groups.map((group) => {
-        const primaryActive = isActive(pathname, group.primary);
-        const childActive = group.children?.some((child) =>
-          isActive(pathname, child),
-        );
-        const sectionActive = primaryActive || Boolean(childActive);
-        return (
-          <div
-            className={`navGroup${sectionActive ? " navGroupActive" : ""}`}
-            key={group.id}
-          >
-            <Link
-              href={group.primary.href}
-              aria-current={primaryActive ? "page" : undefined}
-              className={
-                sectionActive && !primaryActive ? "navSection" : undefined
-              }
-            >
-              {group.primary.label}
-            </Link>
-            {group.children?.map((child) => {
-              const active = isActive(pathname, child);
-              return (
-                <Link
-                  href={child.href}
-                  aria-current={active ? "page" : undefined}
-                  className="navChild"
-                  key={child.href}
-                >
-                  {child.label}
-                </Link>
-              );
-            })}
-          </div>
-        );
-      })}
-    </nav>
-  );
+export function getAppNavGroups(
+  isHr: boolean,
+  canApprove: boolean,
+): NavGroup[] {
+  if (isHr) return hrGroups(canApprove);
+  if (canApprove) {
+    return [
+      ...employeeGroups,
+      {
+        id: "approvals",
+        primary: { href: "/approvals", label: "Согласование" },
+      },
+    ];
+  }
+  return employeeGroups;
 }
