@@ -63,21 +63,6 @@ function styleCell(
   if (options.numFmt) cell.numFmt = options.numFmt;
 }
 
-function outlineRange(
-  sheet: ExcelJS.Worksheet,
-  fromRow: number,
-  toRow: number,
-  toCol: number,
-) {
-  for (let row = fromRow; row <= toRow; row += 1) {
-    for (let col = 1; col <= toCol; col += 1) {
-      const cell = sheet.getRow(row).getCell(col);
-      cell.border = BORDER;
-      cell.font = cell.font?.name ? cell.font : FONT;
-    }
-  }
-}
-
 export async function buildVacationTableWorkbook(
   employees: VacationExportEmployee[],
 ) {
@@ -91,8 +76,6 @@ export async function buildVacationTableWorkbook(
       fitToPage: true,
       fitToWidth: 1,
       fitToHeight: 0,
-      horizontalDpi: 96,
-      verticalDpi: 96,
     },
   });
   sheet.columns = [{ width: 34 }, { width: 16 }, { width: 16 }, { width: 18 }];
@@ -115,14 +98,15 @@ export async function buildVacationTableWorkbook(
     let firstForEmployee = true;
     for (const period of employee.periods) {
       const row = sheet.getRow(rowNumber);
-      styleCell(row.getCell(1), {
-        value: firstForEmployee ? employee.fullName : null,
-        font: FONT,
-        align: { horizontal: "left", vertical: "middle", wrapText: true },
-      });
-      styleCell(row.getCell(2), {
-        value: firstForEmployee ? "основной" : null,
-      });
+      if (firstForEmployee) {
+        styleCell(row.getCell(1), {
+          value: employee.fullName,
+          font: FONT,
+          align: { horizontal: "left", vertical: "middle", wrapText: true },
+        });
+        styleCell(row.getCell(2), { value: "основной" });
+        firstForEmployee = false;
+      }
       styleCell(row.getCell(3), {
         value: isoToExcelDate(period.startsOn),
         numFmt: TABLE_DATE_FMT,
@@ -131,7 +115,6 @@ export async function buildVacationTableWorkbook(
         value: isoToExcelDate(period.endsOn),
         numFmt: TABLE_DATE_FMT,
       });
-      firstForEmployee = false;
       rowNumber += 1;
     }
     const blockEnd = rowNumber - 1;
@@ -143,32 +126,7 @@ export async function buildVacationTableWorkbook(
   return workbook;
 }
 
-export async function buildVacationChessboardWorkbook(
-  employees: VacationExportEmployee[],
-  departmentName: string,
-) {
-  const workbook = new ExcelJS.Workbook();
-  workbook.creator = "HR";
-  workbook.created = new Date();
-  const sheet = workbook.addWorksheet("Лист_1", {
-    views: [{ state: "frozen", ySplit: 6, zoomScale: 100 }],
-    pageSetup: {
-      paperSize: 9,
-      orientation: "landscape",
-      fitToPage: true,
-      fitToWidth: 1,
-      fitToHeight: 0,
-      scale: 86,
-      horizontalDpi: 96,
-      verticalDpi: 96,
-    },
-    properties: { defaultRowHeight: 16 },
-  });
-  const widths = [
-    14, 16, 22, 12, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 18,
-  ];
-  sheet.columns = widths.map((width) => ({ width }));
-
+function buildChessboardHeader(sheet: ExcelJS.Worksheet) {
   sheet.mergeCells(3, 1, 5, 1);
   sheet.mergeCells(3, 2, 5, 2);
   sheet.mergeCells(3, 3, 5, 3);
@@ -177,15 +135,15 @@ export async function buildVacationChessboardWorkbook(
   sheet.mergeCells(4, 5, 4, 16);
   sheet.mergeCells(3, 17, 5, 17);
 
-  styleCell(sheet.getCell("A3"), { value: "Структурное подразделение" });
-  styleCell(sheet.getCell("B3"), { value: "Должность" });
-  styleCell(sheet.getCell("C3"), { value: "Фамилия, имя, отчество" });
-  styleCell(sheet.getCell("D3"), { value: "ОТПУСК", font: HEADER_FONT });
-  styleCell(sheet.getCell("D4"), {
+  styleCell(sheet.getCell(3, 1), { value: "Структурное подразделение" });
+  styleCell(sheet.getCell(3, 2), { value: "Должность" });
+  styleCell(sheet.getCell(3, 3), { value: "Фамилия, имя, отчество" });
+  styleCell(sheet.getCell(3, 4), { value: "ОТПУСК", font: HEADER_FONT });
+  styleCell(sheet.getCell(4, 4), {
     value: "Количество календарных дней (запланированных)",
   });
-  styleCell(sheet.getCell("E4"), { value: "ОТПУСК", font: HEADER_FONT });
-  styleCell(sheet.getCell("Q3"), {
+  styleCell(sheet.getCell(4, 5), { value: "ОТПУСК", font: HEADER_FONT });
+  styleCell(sheet.getCell(3, 17), {
     value: "Примечание (лицо заменяющее)",
   });
   MONTHS.forEach((name, index) => {
@@ -201,7 +159,31 @@ export async function buildVacationChessboardWorkbook(
   sheet.getRow(4).height = 22;
   sheet.getRow(5).height = 22;
   sheet.getRow(6).height = 16;
-  outlineRange(sheet, 3, 6, CHESSBOARD_COLS);
+}
+
+export async function buildVacationChessboardWorkbook(
+  employees: VacationExportEmployee[],
+  departmentName: string,
+) {
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = "HR";
+  workbook.created = new Date();
+  const sheet = workbook.addWorksheet("Лист_1", {
+    pageSetup: {
+      paperSize: 9,
+      orientation: "landscape",
+      fitToPage: true,
+      fitToWidth: 1,
+      fitToHeight: 0,
+    },
+    properties: { defaultRowHeight: 16 },
+  });
+  const widths = [
+    14, 16, 22, 12, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 18,
+  ];
+  sheet.columns = widths.map((width) => ({ width }));
+
+  buildChessboardHeader(sheet);
 
   let rowNumber = CHESSBOARD_DATA_START;
   for (const employee of employees) {
@@ -219,16 +201,10 @@ export async function buildVacationChessboardWorkbook(
       value: totalPeriodDays(employee.periods),
       font: SUMMARY_FONT,
     });
-    for (let col = 5; col <= CHESSBOARD_COLS; col += 1)
-      styleCell(summaryRow.getCell(col));
     rowNumber += 1;
     for (const period of employee.periods) {
       const periodRow = sheet.getRow(rowNumber);
-      styleCell(periodRow.getCell(2));
-      styleCell(periodRow.getCell(3));
       styleCell(periodRow.getCell(4), { value: periodDays(period) });
-      for (let col = 5; col <= CHESSBOARD_COLS; col += 1)
-        styleCell(periodRow.getCell(col));
       const month = Number(period.startsOn.slice(5, 7));
       styleCell(periodRow.getCell(monthColumn(month)), {
         value: formatVacationPeriodCell(period.startsOn, period.endsOn),
@@ -236,7 +212,7 @@ export async function buildVacationChessboardWorkbook(
       });
       rowNumber += 1;
     }
-    const blockEnd = Math.max(rowNumber - 1, blockStart);
+    const blockEnd = rowNumber - 1;
     if (blockEnd > blockStart) {
       sheet.mergeCells(blockStart, 2, blockEnd, 2);
       sheet.mergeCells(blockStart, 3, blockEnd, 3);
@@ -250,7 +226,6 @@ export async function buildVacationChessboardWorkbook(
       value: departmentName,
       align: { horizontal: "center", vertical: "middle", wrapText: true },
     });
-    outlineRange(sheet, CHESSBOARD_DATA_START, lastRow, CHESSBOARD_COLS);
   }
   return workbook;
 }
