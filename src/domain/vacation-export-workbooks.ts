@@ -1,4 +1,3 @@
-import path from "node:path";
 import ExcelJS from "exceljs";
 import {
   formatVacationPeriodCell,
@@ -7,75 +6,128 @@ import {
 import { periodDays, totalPeriodDays } from "./vacation";
 import type { VacationExportEmployee } from "./vacation-export-types";
 
-const TEMPLATE_DIR = path.join(process.cwd(), "templates", "vacation-export");
-const TABLE_TEMPLATE = path.join(TEMPLATE_DIR, "appendix-1-table.xlsx");
-const CHESSBOARD_TEMPLATE = path.join(
-  TEMPLATE_DIR,
-  "appendix-2-chessboard.xlsx",
-);
-
 const TABLE_DATE_FMT = "dd.mm.yyyy";
 const CHESSBOARD_DATA_START = 7;
-const CHESSBOARD_DATA_COLS = 17;
-const TEMPLATE_SAMPLE_END = 17;
+const CHESSBOARD_COLS = 17;
+const FONT: Partial<ExcelJS.Font> = {
+  name: "Times New Roman",
+  size: 9,
+  charset: 204,
+};
+const HEADER_FONT: Partial<ExcelJS.Font> = { ...FONT, bold: true };
+const SUMMARY_FONT: Partial<ExcelJS.Font> = { ...FONT, bold: true };
+const THIN: ExcelJS.Border = { style: "thin", color: { argb: "FF000000" } };
+const BORDER: Partial<ExcelJS.Borders> = {
+  top: THIN,
+  left: THIN,
+  bottom: THIN,
+  right: THIN,
+};
+const MONTHS = [
+  "январь",
+  "февраль",
+  "март",
+  "апрель",
+  "май",
+  "июнь",
+  "июль",
+  "август",
+  "сентябрь",
+  "октябрь",
+  "ноябрь",
+  "декабрь",
+];
 
 function monthColumn(month: number) {
   return 4 + month;
 }
 
-async function readTemplateWorkbook(templatePath: string) {
-  const workbook = new ExcelJS.Workbook();
-  await workbook.xlsx.readFile(templatePath);
-  return workbook;
+function styleCell(
+  cell: ExcelJS.Cell,
+  options: {
+    value?: ExcelJS.CellValue;
+    font?: Partial<ExcelJS.Font>;
+    align?: Partial<ExcelJS.Alignment>;
+    numFmt?: string;
+  } = {},
+) {
+  if (options.value !== undefined) cell.value = options.value;
+  cell.font = options.font ?? FONT;
+  cell.alignment = {
+    horizontal: "center",
+    vertical: "middle",
+    wrapText: true,
+    ...options.align,
+  };
+  cell.border = BORDER;
+  if (options.numFmt) cell.numFmt = options.numFmt;
 }
 
-function unmergeFromRow(sheet: ExcelJS.Worksheet, fromRow: number) {
-  const merges = [
-    ...(sheet.model.merges ?? []),
-    ...Object.keys(
-      (sheet as { _merges?: Record<string, unknown> })._merges ?? {},
-    ),
-  ];
-  for (const range of new Set(merges)) {
-    const top = Number(
-      String(range).split(":")[0]?.replace(/[A-Z]/gi, "") ?? 0,
-    );
-    if (top >= fromRow) sheet.unMergeCells(range);
-  }
-}
-
-function clearRect(
+function outlineRange(
   sheet: ExcelJS.Worksheet,
   fromRow: number,
   toRow: number,
   toCol: number,
 ) {
   for (let row = fromRow; row <= toRow; row += 1) {
-    for (let col = 1; col <= toCol; col += 1)
-      sheet.getRow(row).getCell(col).value = null;
+    for (let col = 1; col <= toCol; col += 1) {
+      const cell = sheet.getRow(row).getCell(col);
+      cell.border = BORDER;
+      cell.font = cell.font?.name ? cell.font : FONT;
+    }
   }
-}
-
-function setTableDate(cell: ExcelJS.Cell, iso: string) {
-  cell.value = isoToExcelDate(iso);
-  cell.numFmt = TABLE_DATE_FMT;
 }
 
 export async function buildVacationTableWorkbook(
   employees: VacationExportEmployee[],
 ) {
-  const workbook = await readTemplateWorkbook(TABLE_TEMPLATE);
-  const sheet = workbook.worksheets[0];
-  clearRect(sheet, 2, Math.max(sheet.rowCount, 48), 4);
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = "HR";
+  workbook.created = new Date();
+  const sheet = workbook.addWorksheet("Лист_1", {
+    pageSetup: {
+      paperSize: 9,
+      orientation: "portrait",
+      fitToPage: true,
+      fitToWidth: 1,
+      fitToHeight: 0,
+      horizontalDpi: 96,
+      verticalDpi: 96,
+    },
+  });
+  sheet.columns = [{ width: 34 }, { width: 16 }, { width: 16 }, { width: 18 }];
+  for (const [col, title] of [
+    [1, "Сотрудник"],
+    [2, "Вид отпуска"],
+    [3, "Дата начала"],
+    [4, "Дата окончания"],
+  ] as const) {
+    styleCell(sheet.getCell(1, col), {
+      value: title,
+      font: HEADER_FONT,
+    });
+  }
+  sheet.getRow(1).height = 22;
+
   let rowNumber = 2;
   for (const employee of employees) {
     let firstForEmployee = true;
     for (const period of employee.periods) {
       const row = sheet.getRow(rowNumber);
-      row.getCell(1).value = firstForEmployee ? employee.fullName : null;
-      row.getCell(2).value = "основной";
-      setTableDate(row.getCell(3), period.startsOn);
-      setTableDate(row.getCell(4), period.endsOn);
+      styleCell(row.getCell(1), {
+        value: firstForEmployee ? employee.fullName : null,
+        font: FONT,
+        align: { horizontal: "left", vertical: "middle", wrapText: true },
+      });
+      styleCell(row.getCell(2), { value: "основной" });
+      styleCell(row.getCell(3), {
+        value: isoToExcelDate(period.startsOn),
+        numFmt: TABLE_DATE_FMT,
+      });
+      styleCell(row.getCell(4), {
+        value: isoToExcelDate(period.endsOn),
+        numFmt: TABLE_DATE_FMT,
+      });
       firstForEmployee = false;
       rowNumber += 1;
     }
@@ -87,50 +139,110 @@ export async function buildVacationChessboardWorkbook(
   employees: VacationExportEmployee[],
   departmentName: string,
 ) {
-  const workbook = await readTemplateWorkbook(CHESSBOARD_TEMPLATE);
-  const sheet = workbook.worksheets[0];
-  unmergeFromRow(sheet, CHESSBOARD_DATA_START);
-  clearRect(
-    sheet,
-    CHESSBOARD_DATA_START,
-    Math.max(sheet.rowCount, TEMPLATE_SAMPLE_END),
-    CHESSBOARD_DATA_COLS,
-  );
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = "HR";
+  workbook.created = new Date();
+  const sheet = workbook.addWorksheet("Лист_1", {
+    views: [{ state: "frozen", ySplit: 6, zoomScale: 100 }],
+    pageSetup: {
+      paperSize: 9,
+      orientation: "landscape",
+      fitToPage: true,
+      fitToWidth: 1,
+      fitToHeight: 0,
+      scale: 86,
+      horizontalDpi: 96,
+      verticalDpi: 96,
+    },
+    properties: { defaultRowHeight: 16 },
+  });
+  const widths = [
+    14, 16, 22, 12, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 18,
+  ];
+  sheet.columns = widths.map((width) => ({ width }));
+
+  sheet.mergeCells(3, 1, 5, 1);
+  sheet.mergeCells(3, 2, 5, 2);
+  sheet.mergeCells(3, 3, 5, 3);
+  sheet.mergeCells(3, 4, 3, 16);
+  sheet.mergeCells(4, 4, 5, 4);
+  sheet.mergeCells(4, 5, 4, 16);
+  sheet.mergeCells(3, 17, 5, 17);
+
+  styleCell(sheet.getCell("A3"), { value: "Структурное подразделение" });
+  styleCell(sheet.getCell("B3"), { value: "Должность" });
+  styleCell(sheet.getCell("C3"), { value: "Фамилия, имя, отчество" });
+  styleCell(sheet.getCell("D3"), { value: "ОТПУСК", font: HEADER_FONT });
+  styleCell(sheet.getCell("D4"), {
+    value: "Количество календарных дней (запланированных)",
+  });
+  styleCell(sheet.getCell("E4"), { value: "ОТПУСК", font: HEADER_FONT });
+  styleCell(sheet.getCell("Q3"), {
+    value: "Примечание (лицо заменяющее)",
+  });
+  MONTHS.forEach((name, index) => {
+    styleCell(sheet.getCell(5, monthColumn(index + 1)), { value: name });
+  });
+  for (let col = 1; col <= CHESSBOARD_COLS; col += 1) {
+    styleCell(sheet.getCell(6, col), {
+      value: col,
+      font: { ...FONT, size: 10 },
+    });
+  }
+  sheet.getRow(3).height = 20;
+  sheet.getRow(4).height = 22;
+  sheet.getRow(5).height = 22;
+  sheet.getRow(6).height = 16;
+  outlineRange(sheet, 3, 6, CHESSBOARD_COLS);
 
   let rowNumber = CHESSBOARD_DATA_START;
   for (const employee of employees) {
     const blockStart = rowNumber;
     const summaryRow = sheet.getRow(rowNumber);
-    summaryRow.getCell(3).value = employee.fullName;
-    summaryRow.getCell(4).value = totalPeriodDays(employee.periods);
-    if (employee.jobTitle) summaryRow.getCell(2).value = employee.jobTitle;
+    styleCell(summaryRow.getCell(2), {
+      value: employee.jobTitle ?? "",
+      align: { horizontal: "center", vertical: "middle", wrapText: true },
+    });
+    styleCell(summaryRow.getCell(3), {
+      value: employee.fullName,
+      align: { horizontal: "center", vertical: "middle", wrapText: true },
+    });
+    styleCell(summaryRow.getCell(4), {
+      value: totalPeriodDays(employee.periods),
+      font: SUMMARY_FONT,
+    });
+    for (let col = 5; col <= CHESSBOARD_COLS; col += 1)
+      styleCell(summaryRow.getCell(col));
     rowNumber += 1;
     for (const period of employee.periods) {
       const periodRow = sheet.getRow(rowNumber);
-      periodRow.getCell(4).value = periodDays(period);
+      styleCell(periodRow.getCell(2));
+      styleCell(periodRow.getCell(3));
+      styleCell(periodRow.getCell(4), { value: periodDays(period) });
+      for (let col = 5; col <= CHESSBOARD_COLS; col += 1)
+        styleCell(periodRow.getCell(col));
       const month = Number(period.startsOn.slice(5, 7));
-      periodRow.getCell(monthColumn(month)).value = formatVacationPeriodCell(
-        period.startsOn,
-        period.endsOn,
-      );
+      styleCell(periodRow.getCell(monthColumn(month)), {
+        value: formatVacationPeriodCell(period.startsOn, period.endsOn),
+        align: { horizontal: "left", vertical: "middle", wrapText: true },
+      });
       rowNumber += 1;
     }
-    const blockEnd = rowNumber - 1;
+    const blockEnd = Math.max(rowNumber - 1, blockStart);
     if (blockEnd > blockStart) {
+      sheet.mergeCells(blockStart, 2, blockEnd, 2);
       sheet.mergeCells(blockStart, 3, blockEnd, 3);
-      if (employee.jobTitle) sheet.mergeCells(blockStart, 2, blockEnd, 2);
     }
   }
 
-  const lastRow = rowNumber - 1;
-  if (lastRow >= CHESSBOARD_DATA_START) {
+  const lastRow = Math.max(rowNumber - 1, CHESSBOARD_DATA_START);
+  if (employees.length) {
     sheet.mergeCells(CHESSBOARD_DATA_START, 1, lastRow, 1);
-    sheet.getCell(CHESSBOARD_DATA_START, 1).value = departmentName;
-    sheet.getCell(CHESSBOARD_DATA_START, 1).alignment = {
-      vertical: "middle",
-      horizontal: "center",
-      wrapText: true,
-    };
+    styleCell(sheet.getCell(CHESSBOARD_DATA_START, 1), {
+      value: departmentName,
+      align: { horizontal: "center", vertical: "middle", wrapText: true },
+    });
+    outlineRange(sheet, CHESSBOARD_DATA_START, lastRow, CHESSBOARD_COLS);
   }
   return workbook;
 }
