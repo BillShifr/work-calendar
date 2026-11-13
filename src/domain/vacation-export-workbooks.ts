@@ -111,6 +111,7 @@ export async function buildVacationTableWorkbook(
 
   let rowNumber = 2;
   for (const employee of employees) {
+    const blockStart = rowNumber;
     let firstForEmployee = true;
     for (const period of employee.periods) {
       const row = sheet.getRow(rowNumber);
@@ -119,7 +120,9 @@ export async function buildVacationTableWorkbook(
         font: FONT,
         align: { horizontal: "left", vertical: "middle", wrapText: true },
       });
-      styleCell(row.getCell(2), { value: "основной" });
+      styleCell(row.getCell(2), {
+        value: firstForEmployee ? "основной" : null,
+      });
       styleCell(row.getCell(3), {
         value: isoToExcelDate(period.startsOn),
         numFmt: TABLE_DATE_FMT,
@@ -130,6 +133,11 @@ export async function buildVacationTableWorkbook(
       });
       firstForEmployee = false;
       rowNumber += 1;
+    }
+    const blockEnd = rowNumber - 1;
+    if (blockEnd > blockStart) {
+      sheet.mergeCells(blockStart, 1, blockEnd, 1);
+      sheet.mergeCells(blockStart, 2, blockEnd, 2);
     }
   }
   return workbook;

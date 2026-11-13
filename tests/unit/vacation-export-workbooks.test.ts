@@ -40,7 +40,10 @@ describe("vacation export workbooks", () => {
     const workbook = await buildVacationTableWorkbook(sample);
     const sheet = workbook.worksheets[0];
     expect(sheet.getCell(2, 1).value).toBe(sample[0].fullName);
-    expect(sheet.getCell(3, 1).value).toBeNull();
+    expect(sheet.getCell(2, 2).value).toBe("основной");
+    expect(sheet.model.merges).toEqual(
+      expect.arrayContaining(["A2:A3", "B2:B3"]),
+    );
     expect(sheet.getCell(2, 3).numFmt).toBe("dd.mm.yyyy");
     expect(sheet.getCell(3, 3).numFmt).toBe("dd.mm.yyyy");
     const file = writeTempXlsx(
