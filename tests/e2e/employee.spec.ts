@@ -1,9 +1,19 @@
 import { readFile } from "node:fs/promises";
 import { expect, test, type Page } from "@playwright/test";
 
-async function login(page: Page, login: string, password: string) {
-  await page.goto("/login");
-  await page.getByLabel("Логин").fill(login);
+async function logout(page: Page) {
+  await Promise.all([
+    page.waitForURL(/\/login/, { waitUntil: "domcontentloaded" }),
+    page.getByRole("button", { name: "Выйти" }).click(),
+  ]);
+}
+
+async function login(page: Page, loginName: string, password: string) {
+  if (!/\/login/.test(page.url())) {
+    await page.goto("/login", { waitUntil: "domcontentloaded" });
+  }
+  await expect(page).toHaveURL(/\/login/);
+  await page.getByLabel("Логин").fill(loginName);
   await page.getByLabel("Пароль").fill(password);
   await page.getByRole("button", { name: "Войти" }).click();
 }
@@ -133,7 +143,7 @@ test("vacation ranges work over internal HTTP in every selection mode", async ({
 
   await login(page, "hr", "CI-only-password-2026!");
   await setEntryWindow(page, "vacation", 2029, 0, true);
-  await page.getByRole("button", { name: "Выйти" }).click();
+  await logout(page);
   await login(page, "employee", "Employee-2026!");
   await page.getByRole("link", { name: "Отпуска" }).click();
   await goToVacationYear(page, 2029);
@@ -269,7 +279,7 @@ test("employee and HR complete a bilateral vacation approval", async ({
   await setEntryWindow(page, "overtime", 2026, 10, true);
   await setEntryWindow(page, "vacation", 2027, 0, true);
   await setEntryWindow(page, "vacation", 2028, 0, false);
-  await page.getByRole("button", { name: "Выйти" }).click();
+  await logout(page);
   await login(page, "employee", "Employee-2026!");
   await expect(
     page.getByRole("heading", { name: "Внеурочное время" }),
@@ -405,7 +415,7 @@ test("employee and HR complete a bilateral vacation approval", async ({
     page.getByText("План отправлен руководителю", { exact: true }),
   ).toBeVisible();
 
-  await page.getByRole("button", { name: "Выйти" }).click();
+  await logout(page);
   await login(page, "manager", "Manager-2026!");
   await expect(page.getByText("Руководитель подразделения")).toBeVisible();
   await page.getByRole("link", { name: "Согласование" }).click();
@@ -423,7 +433,7 @@ test("employee and HR complete a bilateral vacation approval", async ({
   await fourthQuarter.getByRole("button", { name: "Согласовано" }).click();
   await expect(page.getByRole("status")).toContainText("Согласован 4 квартал");
 
-  await page.getByRole("button", { name: "Выйти" }).click();
+  await logout(page);
   await login(page, "hr", "CI-only-password-2026!");
   await openMainNav(page, "Внеурочное время");
   await openMainNav(page, "Свод");
@@ -535,7 +545,7 @@ test("employee and HR complete a bilateral vacation approval", async ({
     vacationHistory.getByText("Требуется решение → Ожидает сотрудника"),
   ).toBeVisible();
 
-  await page.getByRole("button", { name: "Выйти" }).click();
+  await logout(page);
   await login(page, "employee", "Employee-2026!");
   await goToOvertimePeriod(page, 2026, 10);
   await expect(
@@ -552,7 +562,7 @@ test("employee and HR complete a bilateral vacation approval", async ({
     page.getByText("Предложение кадровика утверждено", { exact: true }),
   ).toBeVisible();
 
-  await page.getByRole("button", { name: "Выйти" }).click();
+  await logout(page);
   await login(page, "hr", "CI-only-password-2026!");
   await page.getByRole("link", { name: "Структура и штат" }).click();
   await page.getByRole("link", { name: "Подразделения", exact: true }).click();
@@ -611,7 +621,7 @@ test("employee and HR complete a bilateral vacation approval", async ({
   await page.getByLabel("Дней отпуска для всех", { exact: true }).fill("30");
   await page.getByRole("button", { name: "Применить ко всем" }).click();
   await expect(page.getByRole("status")).toContainText("Лимит обновлён");
-  await page.getByRole("button", { name: "Выйти" }).click();
+  await logout(page);
   await login(page, "manager", "Manager-2026!");
   await page.getByRole("link", { name: "Согласование" }).click();
   const reopenedQuarter = page
@@ -642,7 +652,7 @@ test("monthly overtime calendar remains usable on mobile", async ({
   test.skip(testInfo.project.name !== "mobile", "Mobile-only layout check");
   await login(page, "hr", "CI-only-password-2026!");
   await setEntryWindow(page, "overtime", 2026, 9, true);
-  await page.getByRole("button", { name: "Выйти" }).click();
+  await logout(page);
   await login(page, "employee", "Employee-2026!");
   await expect(
     page.getByRole("heading", { name: "Внеурочное время" }),
