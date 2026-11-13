@@ -23,6 +23,7 @@ export default async function VacationBoardPage({
   return (
     <AppShell>
       <OrgVacationMatrix
+        key={year}
         year={year}
         actorUserId={user.id}
         departments={departments}

@@ -3,12 +3,46 @@ import {
   clipPeriodToYear,
   dayIndex,
   daysInYear,
-  monthStarts,
-  periodTrack,
+  defaultDepartmentIds,
+  employeeAbsentDates,
+  filterBoardPeople,
+  firstOverlapOrBusyMonth,
+  orgOccupancyByDate,
+  peakOccupancyByMonth,
 } from "@/domain/org-vacation-matrix-shared";
 import { getAppNavGroups, isNavActive } from "@/components/AppNavigation";
 
-describe("org vacation matrix layout", () => {
+const departments = [
+  {
+    id: "it",
+    name: "ИТ",
+    employees: [
+      {
+        userId: "a",
+        fullName: "Анна",
+        periods: [{ startsOn: "2027-05-10", endsOn: "2027-05-14", days: 5 }],
+      },
+      {
+        userId: "b",
+        fullName: "Борис",
+        periods: [{ startsOn: "2027-05-13", endsOn: "2027-05-16", days: 4 }],
+      },
+    ],
+  },
+  {
+    id: "hr",
+    name: "Кадры",
+    employees: [
+      {
+        userId: "c",
+        fullName: "Кира",
+        periods: [{ startsOn: "2027-05-14", endsOn: "2027-05-14", days: 1 }],
+      },
+    ],
+  },
+];
+
+describe("org vacation occupancy", () => {
   it("counts leap years and day indexes from January 1", () => {
     expect(daysInYear(2027)).toBe(365);
     expect(daysInYear(2028)).toBe(366);
@@ -16,24 +50,64 @@ describe("org vacation matrix layout", () => {
     expect(dayIndex("2027-12-31")).toBe(364);
   });
 
-  it("clips periods to the requested year and places a one-day bar", () => {
+  it("clips periods to the requested year", () => {
     expect(
       clipPeriodToYear({ startsOn: "2026-12-20", endsOn: "2027-01-10" }, 2027),
     ).toEqual({ startsOn: "2027-01-01", endsOn: "2027-01-10" });
     expect(
       clipPeriodToYear({ startsOn: "2026-01-01", endsOn: "2026-01-10" }, 2027),
     ).toBeNull();
-    const track = periodTrack(
-      { startsOn: "2027-01-01", endsOn: "2027-01-01" },
-      2027,
-    );
-    expect(track?.leftPct).toBe(0);
-    expect(track?.widthPct).toBeCloseTo(100 / 365, 5);
   });
 
-  it("puts July after the first half of a common year", () => {
-    const july = monthStarts(2027).find((month) => month.month === 7);
-    expect(july?.leftPct).toBeCloseTo((dayIndex("2027-07-01") / 365) * 100, 5);
+  it("marks overlap days when several selected people are off", () => {
+    const occupancy = orgOccupancyByDate(
+      departments.flatMap((department) => department.employees),
+      2027,
+    );
+    expect(occupancy.get("2027-05-12")?.map((item) => item.fullName)).toEqual([
+      "Анна",
+    ]);
+    expect(occupancy.get("2027-05-13")?.map((item) => item.fullName)).toEqual([
+      "Анна",
+      "Борис",
+    ]);
+    expect(occupancy.get("2027-05-14")?.map((item) => item.fullName)).toEqual([
+      "Анна",
+      "Борис",
+      "Кира",
+    ]);
+    expect(
+      employeeAbsentDates(departments[0].employees[1], 2027).has("2027-05-16"),
+    ).toBe(true);
+  });
+
+  it("filters by several departments or by named people", () => {
+    expect(
+      filterBoardPeople(departments, new Set(["it"]), new Set(["a", "b"])).map(
+        (person) => person.fullName,
+      ),
+    ).toEqual(["Анна", "Борис"]);
+    expect(
+      filterBoardPeople(
+        departments,
+        new Set(["it", "hr"]),
+        new Set(["a", "c"]),
+      ).map((person) => person.fullName),
+    ).toEqual(["Анна", "Кира"]);
+    expect(
+      filterBoardPeople(departments, new Set(["hr"]), new Set(["a"])),
+    ).toEqual([]);
+  });
+
+  it("defaults the board to the actor department and opens the first overlap month", () => {
+    expect(defaultDepartmentIds(departments, "c")).toEqual(["hr"]);
+    expect(defaultDepartmentIds(departments, "missing")).toEqual(["it"]);
+    const occupancy = orgOccupancyByDate(
+      departments.flatMap((department) => department.employees),
+      2027,
+    );
+    expect(peakOccupancyByMonth(occupancy, 2027)[4]).toBe(3);
+    expect(firstOverlapOrBusyMonth(occupancy, 2027)).toBe(5);
   });
 });
 

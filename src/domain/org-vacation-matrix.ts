@@ -16,13 +16,20 @@ import {
 
 export {
   ORG_VACATION_MATRIX_STATUSES,
+  allDepartmentIds,
   clipPeriodToYear,
   dayIndex,
   daysInYear,
-  monthStarts,
-  periodTrack,
+  defaultDepartmentIds,
+  employeeAbsentDates,
+  filterBoardPeople,
+  firstOverlapOrBusyMonth,
+  orgOccupancyByDate,
+  peakOccupancyByMonth,
+  peopleInDepartments,
 } from "./org-vacation-matrix-shared";
 export type {
+  OrgVacationBoardPerson,
   OrgVacationMatrixDepartment,
   OrgVacationMatrixEmployee,
   OrgVacationMatrixPeriod,

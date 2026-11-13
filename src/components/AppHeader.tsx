@@ -64,13 +64,13 @@ export function AppHeader({
                     reduceMotion
                       ? { y: 0, scale: 1, rotateX: 0 }
                       : {
-                          y: sectionActive ? -10 : 0,
+                          y: sectionActive ? -8 : 0,
                           rotateX: sectionActive ? 0 : 8,
                           scale: sectionActive ? 1.04 : 1,
                         }
                   }
                   whileHover={
-                    reduceMotion ? undefined : { y: sectionActive ? -12 : -6 }
+                    reduceMotion ? undefined : { y: sectionActive ? -10 : -5 }
                   }
                   transition={spring}
                 >
@@ -95,17 +95,25 @@ export function AppHeader({
                 animate={{ opacity: 1, y: 0 }}
                 exit={reduceMotion ? undefined : { opacity: 0, y: -8 }}
               >
-                {fanChildren.map((child) => {
+                {fanChildren.map((child, index) => {
                   const active = isNavActive(pathname, child);
                   return (
-                    <Link
-                      href={child.href}
-                      aria-current={active ? "page" : undefined}
-                      className={styles.fanPlate}
+                    <motion.div
                       key={child.href}
+                      initial={
+                        reduceMotion ? false : { opacity: 0, rotate: -6, y: -8 }
+                      }
+                      animate={{ opacity: 1, rotate: 0, y: 0 }}
+                      transition={{ ...spring, delay: index * 0.05 }}
                     >
-                      {child.label}
-                    </Link>
+                      <Link
+                        href={child.href}
+                        aria-current={active ? "page" : undefined}
+                        className={styles.fanPlate}
+                      >
+                        {child.label}
+                      </Link>
+                    </motion.div>
                   );
                 })}
               </motion.div>
