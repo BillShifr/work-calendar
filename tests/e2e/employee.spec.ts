@@ -769,8 +769,9 @@ test("employee opens the organization vacation board", async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: "График отпусков" }),
   ).toBeVisible();
-  await expect(
-    page.getByRole("region", { name: "Календарь отпусков организации" }),
-  ).toBeVisible();
-  await expect(page.getByText("Алексей Морозов").first()).toBeVisible();
+  const board = page.getByRole("region", {
+    name: "Календарь отпусков организации",
+  });
+  await expect(board).toBeVisible();
+  await expect(board.getByText("Алексей Морозов")).toBeVisible();
 });
