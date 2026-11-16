@@ -14,7 +14,11 @@ import {
   peakOccupancyByMonth,
   sortBoardPeopleForMonth,
 } from "@/domain/org-vacation-matrix-shared";
-import { getAppNavGroups, isNavActive } from "@/components/AppNavigation";
+import {
+  getAppNavGroups,
+  isNavActive,
+  isNavSectionActive,
+} from "@/components/AppNavigation";
 
 const departments = [
   {
@@ -187,5 +191,21 @@ describe("vacation schedule navigation", () => {
     expect(vacations?.primary.match?.("/vacations")).toBe(true);
     expect(vacations?.primary.match?.("/vacations/board")).toBe(false);
     expect(isNavActive("/vacations/board", vacations!.children![0])).toBe(true);
+  });
+
+  it("places entry windows under the HR cabinet", () => {
+    const vacations = getAppNavGroups(true, false).find(
+      (group) => group.id === "vacations",
+    );
+    const cabinet = getAppNavGroups(true, false).find(
+      (group) => group.id === "hr-cabinet",
+    );
+    expect(vacations?.children?.map((child) => child.href)).toEqual([
+      "/vacations/board",
+    ]);
+    expect(cabinet?.children?.[0].href).toBe("/hr/periods");
+    expect(isNavActive("/hr/periods", cabinet!.children![0])).toBe(true);
+    expect(isNavSectionActive("/hr/periods", cabinet!)).toBe(true);
+    expect(isNavSectionActive("/hr/periods", vacations!)).toBe(false);
   });
 });
