@@ -567,9 +567,9 @@ test("employee and HR complete a bilateral vacation approval", async ({
   await page.getByRole("link", { name: "Структура и штат" }).click();
   await page.getByRole("link", { name: "Подразделения", exact: true }).click();
   await page.getByRole("button", { name: "Добавить подразделение" }).click();
-  const createDepartment = page
-    .locator("section")
-    .filter({ has: page.getByRole("heading", { name: "Новое подразделение" }) });
+  const createDepartment = page.locator("section").filter({
+    has: page.getByRole("heading", { name: "Новое подразделение" }),
+  });
   await createDepartment.getByLabel("Название").fill("Финансовое управление");
   await createDepartment.getByLabel("Штат", { exact: true }).fill("8");
   await Promise.all([
