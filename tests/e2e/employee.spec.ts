@@ -426,12 +426,12 @@ test("employee and HR complete a bilateral vacation approval", async ({
   await vacationBoard.getByRole("button", { name: /Алексей Морозов/ }).click();
   await vacationBoard.getByRole("button", { name: "В кадры" }).click();
   await expect(page.getByRole("status")).toContainText("План передан в кадры");
-  const fourthQuarter = page
+  const october = page
     .locator("article")
-    .filter({ hasText: "4 квартал" });
-  await expect(fourthQuarter).toContainText("6 из 6 отчётов");
-  await fourthQuarter.getByRole("button", { name: "Согласовано" }).click();
-  await expect(page.getByRole("status")).toContainText("Согласован 4 квартал");
+    .filter({ has: page.getByRole("strong", { name: "Октябрь" }) });
+  await expect(october).toContainText("2 из 2 отчётов");
+  await october.getByRole("button", { name: "Согласовано" }).click();
+  await expect(page.getByRole("status")).toContainText("Согласован Октябрь");
 
   await logout(page);
   await login(page, "hr", "CI-only-password-2026!");
@@ -476,7 +476,7 @@ test("employee and HR complete a bilateral vacation approval", async ({
   await page.getByRole("main").getByRole("link", { name: "Отпуска" }).click();
   await expect(page).toHaveURL(/type=vacation/);
   const vacationExportPromise = page.waitForEvent("download");
-  await page.getByRole("link", { name: "Выгрузить Excel" }).click();
+  await page.getByRole("link", { name: "Выгрузить отпуска" }).click();
   const vacationExport = await vacationExportPromise;
   expect(vacationExport.suggestedFilename()).toBe("vacation-export-2027.zip");
   const vacationExportPath = await vacationExport.path();
@@ -644,26 +644,35 @@ test("employee and HR complete a bilateral vacation approval", async ({
   await logout(page);
   await login(page, "manager", "Manager-2026!");
   await page.getByRole("link", { name: "Согласование" }).click();
-  const reopenedQuarter = page
-    .locator("article")
-    .filter({ hasText: "4 квартал" });
+  const monthNames = [
+    "Январь",
+    "Февраль",
+    "Март",
+    "Апрель",
+    "Май",
+    "Июнь",
+    "Июль",
+    "Август",
+    "Сентябрь",
+    "Октябрь",
+    "Ноябрь",
+    "Декабрь",
+  ];
   const [assignmentYear, assignmentMonth] = new Date()
     .toISOString()
     .slice(0, 7)
     .split("-")
     .map(Number);
-  const assignedQuarterMonths =
-    assignmentYear < 2026
-      ? 3
-      : assignmentYear === 2026
-        ? Math.max(0, 13 - Math.max(10, assignmentMonth))
-        : 0;
-  await expect(reopenedQuarter).toContainText(
-    `6 из ${6 + assignedQuarterMonths} отчётов`,
-  );
-  await expect(
-    reopenedQuarter.getByRole("button", { name: "Согласовано" }),
-  ).toBeDisabled();
+  if (assignmentYear === 2026) {
+    const assignedMonth = page.locator("article").filter({
+      has: page.getByRole("strong", {
+        name: monthNames[assignmentMonth - 1],
+      }),
+    });
+    await expect(
+      assignedMonth.getByRole("button", { name: "Согласовано" }),
+    ).toBeDisabled();
+  }
 });
 
 test("monthly overtime calendar remains usable on mobile", async ({

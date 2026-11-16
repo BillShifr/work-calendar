@@ -84,9 +84,11 @@ type InitialReport = {
 export function OvertimeCalendar({
   initial,
   mode = "employee",
+  directApprove = false,
 }: {
   initial: InitialReport;
   mode?: Mode;
+  directApprove?: boolean;
 }) {
   const router = useRouter();
   const [period, setPeriod] = useState({
@@ -260,7 +262,9 @@ export function OvertimeCalendar({
       to === "approved"
         ? mode === "hr"
           ? "Отчёт утверждён"
-          : "Предложение кадровика утверждено"
+          : directApprove
+            ? "Отчёт утверждён"
+            : "Предложение кадровика утверждено"
         : "Отправлено на согласование",
     );
     if (to === "submitted") {
@@ -283,7 +287,8 @@ export function OvertimeCalendar({
     }
   }
   async function saveAndSubmit() {
-    if (await save()) await transition("submitted");
+    if (await save())
+      await transition(directApprove ? "approved" : "submitted");
   }
 
   return (
@@ -384,7 +389,7 @@ export function OvertimeCalendar({
                 }
                 onClick={saveAndSubmit}
               >
-                Отправить на согласование
+                {directApprove ? "Утвердить" : "Отправить на согласование"}
               </ActionButton>
             </>
           )}

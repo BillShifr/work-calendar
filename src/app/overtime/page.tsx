@@ -28,7 +28,10 @@ export default async function OvertimePage() {
         <h1>Внеурочное время</h1>
         <span className="statusPill">{labels[report.status]}</span>
       </header>
-      <OvertimeCalendar initial={report} />
+      <OvertimeCalendar
+        initial={report}
+        directApprove={["hr", "hr_lead"].includes(user.role)}
+      />
     </AppShell>
   );
 }

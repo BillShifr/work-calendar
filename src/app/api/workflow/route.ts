@@ -9,6 +9,7 @@ import {
   vacationPeriods,
   vacationPlans,
 } from "@/db/schema";
+import { reopenApprovedMonths } from "@/domain/department-approval-service";
 import { actorApprovesUser, vacationSubmitTarget } from "@/domain/manager-gate";
 import { assertVacationAllowance } from "@/domain/vacation";
 import {
@@ -35,7 +36,6 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   const { aggregate, id, to, comment } = parsed.data;
-  const isOwnerRole = ["employee", "department_head"].includes(actor.role);
   const isHr = ["hr", "hr_lead"].includes(actor.role);
   if (["hr_proposed", "rejected", "reopened"].includes(to) && isHr && !comment)
     return NextResponse.json(
@@ -55,7 +55,7 @@ export async function POST(request: Request) {
         .limit(1);
       if (!item) throw new Error("NOT_FOUND");
 
-      const isOwner = isOwnerRole && item.userId === actor.id;
+      const isOwner = item.userId === actor.id;
       const isManagerForOwner =
         aggregate === "vacation_plan" &&
         (await actorApprovesUser(tx, actor, item.userId));
@@ -78,13 +78,19 @@ export async function POST(request: Request) {
       let nextStatus = to as WorkflowStatus;
       if (
         isOwner &&
+        isHr &&
+        ["draft", "reopened"].includes(item.status) &&
+        ["submitted", "manager_review", "approved"].includes(to)
+      ) {
+        nextStatus = "approved";
+      } else if (
+        isOwner &&
         aggregate === "vacation_plan" &&
         ["draft", "reopened"].includes(item.status) &&
         to === "submitted"
       ) {
         nextStatus = await vacationSubmitTarget(tx, actor);
-      }
-      if (
+      } else if (
         isOwner &&
         aggregate === "vacation_plan" &&
         to === "manager_review" &&
@@ -95,7 +101,9 @@ export async function POST(request: Request) {
 
       if (
         isOwner &&
-        ["submitted", "manager_review", "draft"].includes(nextStatus)
+        ["submitted", "manager_review", "draft", "approved"].includes(
+          nextStatus,
+        )
       ) {
         const kind = aggregate === "overtime_report" ? "overtime" : "vacation";
         const month =
@@ -110,21 +118,11 @@ export async function POST(request: Request) {
       if (
         aggregate === "overtime_report" &&
         isHr &&
+        !isOwner &&
         ["hr_proposed", "approved", "rejected", "reopened"].includes(nextStatus)
       ) {
         const report = item as typeof overtimeReports.$inferSelect;
-        const [managerApproval] = await tx.execute<{ approved: boolean }>(sql`
-          SELECT EXISTS (
-            SELECT 1 FROM department_quarter_approvals approval
-            WHERE approval.organization_id = ${actor.organizationId}
-              AND approval.department_id = ${report.departmentId}
-              AND approval.year = ${report.year}
-              AND approval.quarter = ${Math.ceil(report.month / 3)}
-              AND approval.status = 'approved'
-          ) AS approved
-        `);
-        if (!managerApproval?.approved)
-          throw new Error("MANAGER_APPROVAL_REQUIRED");
+        if (!report.departmentId) throw new Error("NOT_FOUND");
       }
       const transitionRole: ActorRole =
         isManagerForOwner && !isOwner
@@ -183,25 +181,15 @@ export async function POST(request: Request) {
         nextStatus === "reopened"
       ) {
         const report = item as typeof overtimeReports.$inferSelect;
-        const [reopenedApproval] = await tx.execute<{ id: string }>(sql`
-          UPDATE department_quarter_approvals
-          SET status = 'reopened', approved_by = NULL, approved_at = NULL,
-            version = version + 1, updated_at = now()
-          WHERE organization_id = ${actor.organizationId}
-            AND department_id = ${report.departmentId}
-            AND year = ${report.year}
-            AND quarter = ${Math.ceil(report.month / 3)}
-            AND status = 'approved'
-          RETURNING id
-        `);
-        if (reopenedApproval)
-          await tx.insert(auditEvents).values({
+        if (report.departmentId)
+          await reopenApprovedMonths(tx, {
             organizationId: actor.organizationId,
             actorId: actor.id,
-            action: "department_quarter.reopened",
-            objectType: "department_quarter_approval",
-            objectId: reopenedApproval.id,
-            metadata: { reason: "hr_reopened_report", reportId: id },
+            departmentIds: [report.departmentId],
+            year: report.year,
+            month: report.month,
+            reason: "hr_reopened_report",
+            metadata: { reportId: id },
           });
       }
       return { status: nextStatus, version: updated.version };

@@ -16,6 +16,7 @@ export { vacationBoardStatusLabel } from "./department-vacation-board-shared";
 export async function getDepartmentVacationBoard(
   actor: { id: string; organizationId: string },
   year: number,
+  scope: "approver" | "organization" = "approver",
 ) {
   const ownedDepartments = await db
     .select({ id: departments.id, name: departments.name })
@@ -23,8 +24,10 @@ export async function getDepartmentVacationBoard(
     .where(
       and(
         eq(departments.organizationId, actor.organizationId),
-        eq(departments.approverUserId, actor.id),
         eq(departments.isActive, true),
+        ...(scope === "approver"
+          ? [eq(departments.approverUserId, actor.id)]
+          : []),
       ),
     )
     .orderBy(departments.name);

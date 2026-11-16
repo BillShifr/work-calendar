@@ -97,10 +97,10 @@ export async function buildOvertimeSummaryWorkbook(
       SELECT report.user_id::text AS "userId", report.year, report.month,
         COALESCE(SUM(entry.minutes), 0)::int AS "totalMinutes"
       FROM overtime_reports report
-      INNER JOIN department_quarter_approvals approval
+      INNER JOIN department_month_approvals approval
         ON approval.department_id = report.department_id
         AND approval.year = report.year
-        AND approval.quarter = CEIL(report.month / 3.0)::int
+        AND approval.month = report.month
         AND approval.status = 'approved'
       LEFT JOIN overtime_entries entry ON entry.report_id = report.id
       WHERE report.organization_id = ${organizationId}
