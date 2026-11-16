@@ -4,6 +4,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./tests/e2e",
+  globalSetup: "./scripts/playwright-global-setup.ts",
   outputDir: join(tmpdir(), "hr-playwright"),
   fullyParallel: false,
   workers: 1,

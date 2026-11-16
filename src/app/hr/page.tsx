@@ -18,19 +18,11 @@ import {
   vacationPlans,
 } from "@/db/schema";
 import { getOrganizationAbsenceRisks } from "@/domain/absence-risk-service";
+import { HrAbsenceOverlapPanel } from "@/components/HrAbsenceOverlapPanel";
 import { requireHr } from "@/lib/auth";
 import styles from "./hr.module.css";
 
 export const metadata: Metadata = { title: "Кабинет кадровика" };
-const formatShortDate = (value: string) =>
-  new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "short" }).format(
-    new Date(`${value}T00:00:00Z`),
-  );
-const formatRange = (startsOn: string, endsOn: string) =>
-  startsOn === endsOn
-    ? formatShortDate(startsOn)
-    : `${formatShortDate(startsOn)} — ${formatShortDate(endsOn)}`;
-
 export default async function HrPage({
   searchParams,
 }: {
@@ -165,6 +157,16 @@ export default async function HrPage({
     hr.organizationId,
     currentYear,
   );
+  const organizationDepartments = await db
+    .select({ id: departments.id, name: departments.name })
+    .from(departments)
+    .where(
+      and(
+        eq(departments.organizationId, hr.organizationId),
+        eq(departments.isActive, true),
+      ),
+    )
+    .orderBy(departments.name);
   const departmentsWithOverlaps = new Set(
     absenceRisks.map((risk) => risk.departmentId),
   ).size;
@@ -301,42 +303,10 @@ export default async function HrPage({
           <div className={styles.sectionHeader}>
             <h2>Пересечения отпусков</h2>
           </div>
-          {absenceRisks.length ? (
-            <div className={styles.overlapList}>
-              {absenceRisks.slice(0, 6).map((risk) => (
-                <article
-                  className={styles.overlap}
-                  key={`${risk.departmentId}-${risk.startsOn}`}
-                >
-                  <div className={styles.overlapHead}>
-                    <strong>
-                      {risk.criticalAbsent
-                        ? "Критичная роль в отпуске"
-                        : `${risk.peakAbsent} сотрудников одновременно`}
-                    </strong>
-                    <span>{formatRange(risk.startsOn, risk.endsOn)}</span>
-                  </div>
-                  <h3>{risk.departmentName}</h3>
-                  <p>
-                    {risk.reason}. Штат подразделения: {risk.headcount}.
-                  </p>
-                  <small>{risk.employeeNames.join(", ")}</small>
-                  <span className={styles.riskDays}>
-                    {risk.days.length} дн. пересечения
-                  </span>
-                </article>
-              ))}
-            </div>
-          ) : (
-            <div className={styles.noOverlap}>
-              <span aria-hidden="true">✓</span>
-              <strong>Пересечений нет</strong>
-              <p>
-                В отправленных и утверждённых планах нет одновременных отпусков
-                внутри подразделений.
-              </p>
-            </div>
-          )}
+          <HrAbsenceOverlapPanel
+            risks={absenceRisks}
+            departments={organizationDepartments}
+          />
         </aside>
       </div>
     </AppShell>

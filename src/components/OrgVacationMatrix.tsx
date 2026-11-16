@@ -8,7 +8,7 @@ import {
   type CSSProperties,
 } from "react";
 import { useRouter } from "next/navigation";
-import { Check, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { Dialog } from "radix-ui";
 import { daysInMonth } from "@/domain/overtime";
 import {
@@ -30,7 +30,8 @@ import {
   sortBoardPeopleForMonth,
   type OrgVacationMatrixDepartment,
 } from "@/domain/org-vacation-matrix-shared";
-import { IconButton, SearchControl, SegmentedControl } from "./FormControls";
+import { IconButton, SegmentedControl } from "./FormControls";
+import { OptionPicker } from "./OptionPicker";
 import { useOrgBoardDisplayMode } from "./useOrgBoardDisplayMode";
 import styles from "./OrgVacationMatrix.module.css";
 
@@ -94,69 +95,6 @@ function daysWord(count: number) {
   if (mod10 === 1 && mod100 !== 11) return "день";
   if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return "дня";
   return "дней";
-}
-
-function OptionPicker({
-  label,
-  items,
-  selected,
-  onToggle,
-  onToggleAll,
-}: {
-  label: string;
-  items: Array<{ id: string; label: string }>;
-  selected: ReadonlySet<string>;
-  onToggle: (id: string, on: boolean) => void;
-  onToggleAll: (on: boolean) => void;
-}) {
-  const [query, setQuery] = useState("");
-  const visible = query.trim()
-    ? items.filter((item) =>
-        item.label.toLowerCase().includes(query.trim().toLowerCase()),
-      )
-    : items;
-  const allOn =
-    items.length > 0 && items.every((item) => selected.has(item.id));
-  return (
-    <details className={styles.picker}>
-      <summary>
-        {label} · {selected.size}
-      </summary>
-      <div className={styles.pickerPanel}>
-        {items.length > 8 ? (
-          <SearchControl
-            value={query}
-            onChange={setQuery}
-            placeholder="Найти"
-          />
-        ) : null}
-        <button
-          type="button"
-          className={styles.option}
-          aria-pressed={allOn}
-          onClick={() => onToggleAll(!allOn)}
-        >
-          {allOn ? <Check aria-hidden="true" size={18} /> : <span />}
-          Все
-        </button>
-        {visible.map((item) => {
-          const on = selected.has(item.id);
-          return (
-            <button
-              type="button"
-              className={styles.option}
-              aria-pressed={on}
-              key={item.id}
-              onClick={() => onToggle(item.id, !on)}
-            >
-              {on ? <Check aria-hidden="true" size={18} /> : <span />}
-              {item.label}
-            </button>
-          );
-        })}
-      </div>
-    </details>
-  );
 }
 
 export function OrgVacationMatrix({
