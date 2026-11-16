@@ -6,9 +6,13 @@ import {
   defaultDepartmentIds,
   employeeAbsentDates,
   filterBoardPeople,
+  assignBoardLayerColors,
+  firstOverlapDayInMonth,
   firstOverlapOrBusyMonth,
   orgOccupancyByDate,
+  overlapDetailsForDate,
   peakOccupancyByMonth,
+  sortBoardPeopleForMonth,
 } from "@/domain/org-vacation-matrix-shared";
 import { getAppNavGroups, isNavActive } from "@/components/AppNavigation";
 
@@ -108,6 +112,70 @@ describe("org vacation occupancy", () => {
     );
     expect(peakOccupancyByMonth(occupancy, 2027)[4]).toBe(3);
     expect(firstOverlapOrBusyMonth(occupancy, 2027)).toBe(5);
+    expect(firstOverlapDayInMonth(occupancy, 2027, 5, 31)).toBe("2027-05-13");
+  });
+
+  it("sorts people with overlap first, without vacation in the month last", () => {
+    const people = [
+      {
+        userId: "x",
+        fullName: "Холостой",
+        departmentId: "it",
+        departmentName: "ИТ",
+        periods: [],
+      },
+      {
+        userId: "a",
+        fullName: "Анна",
+        departmentId: "it",
+        departmentName: "ИТ",
+        periods: [{ startsOn: "2027-05-10", endsOn: "2027-05-14", days: 5 }],
+      },
+      {
+        userId: "b",
+        fullName: "Борис",
+        departmentId: "it",
+        departmentName: "ИТ",
+        periods: [{ startsOn: "2027-05-13", endsOn: "2027-05-16", days: 4 }],
+      },
+    ];
+    const absentByPerson = new Map(
+      people.map((person) => [
+        person.userId,
+        employeeAbsentDates(person, 2027),
+      ]),
+    );
+    const occupancy = orgOccupancyByDate(people, 2027);
+    expect(
+      sortBoardPeopleForMonth(
+        people,
+        absentByPerson,
+        occupancy,
+        2027,
+        5,
+        31,
+      ).map((person) => person.userId),
+    ).toEqual(["a", "b", "x"]);
+    expect(assignBoardLayerColors(["a", "b"]).get("a")).not.toBe(
+      assignBoardLayerColors(["a", "b"]).get("b"),
+    );
+  });
+
+  it("lists people and the shared span of an overlap day", () => {
+    const people = filterBoardPeople(
+      departments,
+      new Set(["it", "hr"]),
+      new Set(["a", "b", "c"]),
+    );
+    expect(overlapDetailsForDate(people, "2027-05-13")).toMatchObject({
+      people: [{ fullName: "Анна" }, { fullName: "Борис" }],
+      span: { startsOn: "2027-05-13", endsOn: "2027-05-14" },
+      spanDays: 2,
+    });
+    expect(overlapDetailsForDate(people, "2027-05-14").span).toEqual({
+      startsOn: "2027-05-14",
+      endsOn: "2027-05-14",
+    });
   });
 });
 

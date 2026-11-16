@@ -1,4 +1,4 @@
-import { shiftIsoDate } from "./vacation";
+import { periodDays, shiftIsoDate } from "./vacation";
 
 export const ORG_VACATION_MATRIX_STATUSES = [
   "manager_review",
@@ -164,4 +164,127 @@ export function firstOverlapOrBusyMonth(
   if (overlap >= 0) return overlap + 1;
   const busy = peaks.findIndex((peak) => peak > 0);
   return busy >= 0 ? busy + 1 : 1;
+}
+
+export function firstOverlapDayInMonth(
+  occupancy: Map<string, Array<{ userId: string }>>,
+  year: number,
+  month: number,
+  monthLength: number,
+) {
+  for (let day = 1; day <= monthLength; day += 1) {
+    const monthPart = String(month).padStart(2, "0");
+    const dayPart = String(day).padStart(2, "0");
+    const date = `${year}-${monthPart}-${dayPart}`;
+    if ((occupancy.get(date)?.length ?? 0) > 1) return date;
+  }
+  return null;
+}
+
+export const BOARD_LAYER_COLORS = [
+  "#176b87",
+  "#6b56a5",
+  "#b07a12",
+  "#237553",
+  "#c45b4a",
+  "#2f6f9f",
+  "#8a4b78",
+  "#3d7a5a",
+  "#9a5b2f",
+  "#4a6b8a",
+  "#a04040",
+  "#5c6b3a",
+] as const;
+
+export function assignBoardLayerColors(userIds: readonly string[]) {
+  const colors = new Map<string, string>();
+  userIds.forEach((userId, index) => {
+    colors.set(userId, BOARD_LAYER_COLORS[index % BOARD_LAYER_COLORS.length]!);
+  });
+  return colors;
+}
+
+export function sortBoardPeopleForMonth(
+  people: OrgVacationBoardPerson[],
+  absentByPerson: Map<string, Set<string>>,
+  occupancy: Map<string, Array<{ userId: string }>>,
+  year: number,
+  month: number,
+  monthLength: number,
+) {
+  const monthPrefix = `${year}-${String(month).padStart(2, "0")}-`;
+  function rank(person: OrgVacationBoardPerson) {
+    const dates = absentByPerson.get(person.userId) ?? new Set<string>();
+    let inMonth = false;
+    let overlap = false;
+    for (let day = 1; day <= monthLength; day += 1) {
+      const date = `${monthPrefix}${String(day).padStart(2, "0")}`;
+      if (!dates.has(date)) continue;
+      inMonth = true;
+      if ((occupancy.get(date)?.length ?? 0) > 1) overlap = true;
+    }
+    if (!inMonth) return 2;
+    return overlap ? 0 : 1;
+  }
+  return [...people].sort((left, right) => {
+    const byRank = rank(left) - rank(right);
+    if (byRank !== 0) return byRank;
+    return left.fullName.localeCompare(right.fullName, "ru");
+  });
+}
+
+export function periodCoveringDate(
+  periods: OrgVacationMatrixPeriod[],
+  date: string,
+) {
+  return (
+    periods.find(
+      (period) => period.startsOn <= date && date <= period.endsOn,
+    ) ?? null
+  );
+}
+
+export function intersectDateRange(
+  ranges: Array<Pick<OrgVacationMatrixPeriod, "startsOn" | "endsOn">>,
+) {
+  if (ranges.length === 0) return null;
+  let startsOn = ranges[0]!.startsOn;
+  let endsOn = ranges[0]!.endsOn;
+  for (const range of ranges.slice(1)) {
+    if (range.startsOn > startsOn) startsOn = range.startsOn;
+    if (range.endsOn < endsOn) endsOn = range.endsOn;
+  }
+  if (startsOn > endsOn) return null;
+  return { startsOn, endsOn };
+}
+
+export type OverlapPersonDetail = {
+  userId: string;
+  fullName: string;
+  departmentName: string;
+  period: OrgVacationMatrixPeriod;
+};
+
+export function overlapDetailsForDate(
+  people: OrgVacationBoardPerson[],
+  date: string,
+) {
+  const details: OverlapPersonDetail[] = [];
+  for (const person of people) {
+    const period = periodCoveringDate(person.periods, date);
+    if (!period) continue;
+    details.push({
+      userId: person.userId,
+      fullName: person.fullName,
+      departmentName: person.departmentName,
+      period,
+    });
+  }
+  const span = intersectDateRange(details.map((item) => item.period));
+  return {
+    date,
+    people: details,
+    span,
+    spanDays: span ? periodDays(span) : 0,
+  };
 }

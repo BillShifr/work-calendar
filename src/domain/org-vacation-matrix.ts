@@ -17,22 +17,28 @@ import {
 export {
   ORG_VACATION_MATRIX_STATUSES,
   allDepartmentIds,
+  assignBoardLayerColors,
   clipPeriodToYear,
   dayIndex,
   daysInYear,
   defaultDepartmentIds,
   employeeAbsentDates,
   filterBoardPeople,
+  firstOverlapDayInMonth,
   firstOverlapOrBusyMonth,
   orgOccupancyByDate,
+  overlapDetailsForDate,
   peakOccupancyByMonth,
   peopleInDepartments,
+  periodCoveringDate,
+  sortBoardPeopleForMonth,
 } from "./org-vacation-matrix-shared";
 export type {
   OrgVacationBoardPerson,
   OrgVacationMatrixDepartment,
   OrgVacationMatrixEmployee,
   OrgVacationMatrixPeriod,
+  OverlapPersonDetail,
 } from "./org-vacation-matrix-shared";
 
 export async function getOrgVacationMatrix(
