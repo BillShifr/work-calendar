@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Check,
   ChevronDown,
@@ -89,7 +89,6 @@ export function DepartmentApprovalDashboard({
   audience = "manager",
   group = "department",
   canDelete = false,
-  yearHref,
 }: {
   departments: OvertimeDepartment[];
   vacationDepartments: VacationDepartment[];
@@ -97,9 +96,15 @@ export function DepartmentApprovalDashboard({
   audience?: "manager" | "hr";
   group?: "department" | "employee" | "all";
   canDelete?: boolean;
-  yearHref?: (nextYear: number) => string;
 }) {
-  const hrefForYear = yearHref ?? ((nextYear: number) => `?year=${nextYear}`);
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const hrefForYear = (nextYear: number) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("year", String(nextYear));
+    const query = params.toString();
+    return query ? `${pathname}?${query}` : `${pathname}?year=${nextYear}`;
+  };
   const router = useRouter();
   const [saving, setSaving] = useState<string | null>(null);
   const [message, setMessage] = useState("");

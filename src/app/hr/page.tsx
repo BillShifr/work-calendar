@@ -238,7 +238,6 @@ export default async function HrPage({
             audience="hr"
             group={selectedGroup}
             canDelete
-            yearHref={(nextYear) => hrefBase({ year: nextYear })}
           />
         </section>
         <aside className={`card ${styles.section}`}>

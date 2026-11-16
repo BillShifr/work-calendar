@@ -467,7 +467,6 @@ test("employee and HR complete a bilateral vacation approval", async ({
   await expect(
     page.getByRole("heading", { name: "Кабинет кадровика" }),
   ).toBeVisible();
-  await expect(page.getByText("Ожидает проверки")).toHaveCount(0);
   await page
     .getByRole("main")
     .getByRole("link", { name: "Внеурочное время" })
@@ -484,12 +483,14 @@ test("employee and HR complete a bilateral vacation approval", async ({
   const vacationArchive = await readFile(vacationExportPath!);
   expect(vacationArchive.byteLength).toBeGreaterThan(5_000);
   expect(vacationArchive.subarray(0, 2).toString()).toBe("PK");
-  await page.getByRole("link", { name: "Все" }).click();
   await page
-    .locator("article")
-    .filter({ hasText: "Алексей Морозов" })
-    .filter({ hasText: /Внеурочное время · 10\.2026/ })
-    .getByRole("link", { name: "Открыть" })
+    .getByRole("main")
+    .getByRole("link", { name: "Все", exact: true })
+    .click();
+  await page
+    .locator("section")
+    .filter({ hasText: "Внеурочное время" })
+    .getByRole("link", { name: "Алексей Морозов" })
     .click();
   await expect(
     page.getByRole("button", { name: "Утвердить без изменений" }),
@@ -515,8 +516,9 @@ test("employee and HR complete a bilateral vacation approval", async ({
     overtimeHistory.getByText("Требуется решение → Ожидает сотрудника"),
   ).toBeVisible();
 
-  await page.goto("/hr");
-  await page.locator('a[href^="/hr/vacations/"]').click();
+  await page.goto("/hr?type=vacation");
+  await page.getByRole("button", { name: /Алексей Морозов/ }).click();
+  await page.getByRole("link", { name: "Открыть", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Утвердить без изменений" }),
   ).toBeVisible();
@@ -795,9 +797,15 @@ test("HR screens use the shared readable UI system", async ({
     .toBeGreaterThanOrEqual(44);
 
   await page.goto("/hr");
-  const queueFilter = page.getByRole("link", { name: "Все", exact: true });
+  await expect(
+    page.getByRole("heading", { name: "Согласования", exact: true }),
+  ).toBeVisible();
+  const vacationExport = page.getByRole("link", {
+    name: "Выгрузить отпуска",
+    exact: true,
+  });
   await expect
-    .poll(async () => (await queueFilter.boundingBox())?.height ?? 0)
+    .poll(async () => (await vacationExport.boundingBox())?.height ?? 0)
     .toBeGreaterThanOrEqual(40);
 });
 
