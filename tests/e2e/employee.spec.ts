@@ -567,11 +567,31 @@ test("employee and HR complete a bilateral vacation approval", async ({
   await page.getByRole("link", { name: "Структура и штат" }).click();
   await page.getByRole("link", { name: "Подразделения", exact: true }).click();
   await page.getByRole("button", { name: "Добавить подразделение" }).click();
-  await page.getByLabel("Название").first().fill("Финансовое управление");
-  await page.getByLabel("Штат", { exact: true }).fill("8");
-  await page.getByRole("button", { name: "Создать" }).click();
+  const createDepartment = page
+    .locator("section")
+    .filter({ has: page.getByRole("heading", { name: "Новое подразделение" }) });
+  await createDepartment.getByLabel("Название").fill("Финансовое управление");
+  await createDepartment.getByLabel("Штат", { exact: true }).fill("8");
+  await Promise.all([
+    page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/api/hr/departments") &&
+        response.request().method() === "POST" &&
+        response.ok(),
+    ),
+    createDepartment.getByRole("button", { name: "Создать" }).click(),
+  ]);
+  await expect(page).toHaveURL(/focus=/);
   await expect(
-    page.getByRole("heading", { name: "Финансовое управление", exact: true }),
+    page
+      .locator("article")
+      .filter({
+        has: page.getByRole("heading", {
+          name: "Финансовое управление",
+          exact: true,
+        }),
+      })
+      .first(),
   ).toBeVisible();
   await page.getByRole("link", { name: "Должности", exact: true }).click();
   await page.getByRole("button", { name: "Добавить должность" }).click();

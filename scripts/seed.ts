@@ -38,9 +38,9 @@ const employeeHash = await hash(employeePassword, {
   parallelism: 1,
 });
 const [hr] =
-  await sql`INSERT INTO users(organization_id,login,full_name,password_hash,role) VALUES (${orgId},'hr','Елена Соколова',${hrHash},'hr_lead') ON CONFLICT(organization_id,login) DO UPDATE SET full_name=EXCLUDED.full_name RETURNING id`;
+  await sql`INSERT INTO users(organization_id,login,full_name,password_hash,role) VALUES (${orgId},'hr','Елена Соколова',${hrHash},'hr_lead') ON CONFLICT(organization_id,login) DO UPDATE SET full_name=EXCLUDED.full_name, password_hash=EXCLUDED.password_hash, role=EXCLUDED.role RETURNING id`;
 const [employee] =
-  await sql`INSERT INTO users(organization_id,login,full_name,password_hash,role) VALUES (${orgId},'employee','Алексей Морозов',${employeeHash},'employee') ON CONFLICT(organization_id,login) DO UPDATE SET full_name=EXCLUDED.full_name RETURNING id`;
+  await sql`INSERT INTO users(organization_id,login,full_name,password_hash,role) VALUES (${orgId},'employee','Алексей Морозов',${employeeHash},'employee') ON CONFLICT(organization_id,login) DO UPDATE SET full_name=EXCLUDED.full_name, password_hash=EXCLUDED.password_hash, role=EXCLUDED.role RETURNING id`;
 const managerPassword = process.env.INITIAL_MANAGER_PASSWORD ?? "Manager-2026!";
 const managerHash = await hash(managerPassword, {
   memoryCost: 19456,
@@ -49,7 +49,7 @@ const managerHash = await hash(managerPassword, {
 });
 await sql`INSERT INTO job_titles(organization_id,name) VALUES (${orgId},'Начальник управления') ON CONFLICT(organization_id,name) DO UPDATE SET is_active=true`;
 const [manager] =
-  await sql`INSERT INTO users(organization_id,login,full_name,password_hash,role) VALUES (${orgId},'manager','Ирина Васильева',${managerHash},'department_head') ON CONFLICT(organization_id,login) DO UPDATE SET full_name=EXCLUDED.full_name, role='department_head' RETURNING id`;
+  await sql`INSERT INTO users(organization_id,login,full_name,password_hash,role) VALUES (${orgId},'manager','Ирина Васильева',${managerHash},'department_head') ON CONFLICT(organization_id,login) DO UPDATE SET full_name=EXCLUDED.full_name, password_hash=EXCLUDED.password_hash, role=EXCLUDED.role RETURNING id`;
 await sql`
   UPDATE departments
   SET head_user_id=${manager.id}, approver_user_id=${manager.id}, updated_at=now()
