@@ -31,6 +31,7 @@ export default async function ApprovalsPage({
         departments={departments}
         vacationDepartments={vacationDepartments}
         year={year}
+        canDelete
       />
     </AppShell>
   );

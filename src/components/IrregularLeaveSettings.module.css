@@ -77,20 +77,20 @@
 }
 .approvalTable {
   display: grid;
+  overflow-x: auto;
 }
 .approvalTableHead,
 .approvalRow {
   display: grid;
-  grid-template-columns: minmax(160px, 1fr) repeat(4, 34px);
+  grid-template-columns: minmax(160px, 1fr) repeat(12, 28px);
   align-items: center;
-  gap: 7px;
+  gap: 4px;
   min-height: 38px;
   padding: 0 10px;
   border-right: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
 }
 .approvalTableHead {
-  grid-template-columns: minmax(160px, 1fr) repeat(4, 34px);
   min-height: 34px;
   background: var(--surface-subtle);
 }
@@ -204,8 +204,9 @@
   .commandBar > a {
     margin-left: 0;
   }
-  .approvalTableHead {
-    grid-template-columns: minmax(160px, 1fr) repeat(4, 34px);
+  .approvalTableHead,
+  .approvalRow {
+    grid-template-columns: minmax(140px, 1fr) repeat(12, 26px);
   }
   .tableHead {
     display: none;

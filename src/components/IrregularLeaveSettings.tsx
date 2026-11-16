@@ -33,7 +33,7 @@ export function IrregularLeaveSettings({
   approvals: Array<{
     departmentId: string;
     departmentName: string;
-    approvedQuarterNumbers: number[];
+    approvedMonthNumbers: number[];
   }>;
 }) {
   const router = useRouter();
@@ -186,13 +186,13 @@ export function IrregularLeaveSettings({
         {message}
       </span>
 
-      <section className={styles.approvals} aria-label="Согласование кварталов">
+      <section className={styles.approvals} aria-label="Согласование месяцев">
         <div className={styles.approvalHeading}>
           <strong>Готовность подразделений</strong>
           <span>
             {
               approvals.filter(
-                (item) => item.approvedQuarterNumbers.length === 4,
+                (item) => item.approvedMonthNumbers.length === 12,
               ).length
             }{" "}
             из {approvals.length} завершили год
@@ -201,26 +201,23 @@ export function IrregularLeaveSettings({
         <div className={styles.approvalTable}>
           <div className={styles.approvalTableHead} aria-hidden="true">
             <span>Подразделение</span>
-            {[1, 2, 3, 4].map((quarter) => (
-              <span key={quarter}>К{quarter}</span>
+            {Array.from({ length: 12 }, (_, index) => (
+              <span key={index + 1}>{index + 1}</span>
             ))}
           </div>
           {pagedApprovals.map((item) => (
             <div className={styles.approvalRow} key={item.departmentId}>
               <span>{item.departmentName}</span>
-              {[1, 2, 3, 4].map((quarter) => {
-                const approved = item.approvedQuarterNumbers.includes(quarter);
+              {Array.from({ length: 12 }, (_, index) => {
+                const month = index + 1;
+                const approved = item.approvedMonthNumbers.includes(month);
                 return (
                   <i
                     className={approved ? styles.quarterApproved : ""}
-                    aria-label={`Квартал ${quarter}: ${approved ? "согласован" : "не согласован"}`}
-                    key={quarter}
+                    aria-label={`Месяц ${month}: ${approved ? "согласован" : "не согласован"}`}
+                    key={month}
                   >
-                    {approved ? (
-                      <Check aria-hidden="true" size={15} />
-                    ) : (
-                      quarter
-                    )}
+                    {approved ? <Check aria-hidden="true" size={15} /> : month}
                   </i>
                 );
               })}

@@ -12,6 +12,7 @@ import {
   users,
   vacationPlans,
 } from "@/db/schema";
+import { reopenApprovedMonths } from "@/domain/department-approval-service";
 import { ensureDepartmentApprover } from "@/domain/manager-gate";
 import { requireHr } from "@/lib/auth";
 
@@ -183,33 +184,15 @@ export async function PUT(
       if (input.isActive && assignmentChanged)
         affectedDepartmentIds.add(input.departmentId);
       if (affectedDepartmentIds.size) {
-        const reopenedApprovals = await tx.execute<{ id: string }>(sql`
-          UPDATE department_quarter_approvals
-          SET status='reopened', approved_by=NULL, approved_at=NULL,
-            version=version + 1, updated_at=now()
-          WHERE organization_id=${actor.organizationId}
-            AND department_id IN (${sql.join(
-              [...affectedDepartmentIds].map(
-                (departmentId) => sql`${departmentId}`,
-              ),
-              sql`, `,
-            )})
-            AND status='approved'
-            AND make_date(year, (quarter - 1) * 3 + 1, 1) <= ${today}
-            AND (make_date(year, quarter * 3, 1) + interval '1 month - 1 day')::date >= ${today}
-          RETURNING id
-        `);
-        if (reopenedApprovals.length)
-          await tx.insert(auditEvents).values(
-            reopenedApprovals.map((approval) => ({
-              organizationId: actor.organizationId,
-              actorId: actor.id,
-              action: "department_quarter.reopened",
-              objectType: "department_quarter_approval",
-              objectId: approval.id,
-              metadata: { reason: "employee_assignment_changed", userId: id },
-            })),
-          );
+        await reopenApprovedMonths(tx, {
+          organizationId: actor.organizationId,
+          actorId: actor.id,
+          departmentIds: [...affectedDepartmentIds],
+          fromDate: today,
+          throughDate: today,
+          reason: "employee_assignment_changed",
+          metadata: { userId: id },
+        });
       }
       await tx
         .insert(vacationPlans)

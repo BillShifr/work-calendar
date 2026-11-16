@@ -8,6 +8,8 @@ import {
   overtimeReports,
   revisions,
 } from "@/db/schema";
+import { actorApprovesDepartment } from "./manager-gate";
+import { reopenApprovedMonths } from "./department-approval-service";
 import { isOvertimeTotal } from "./overtime";
 import { isEntryWindowOpen } from "./entry-window-service";
 
@@ -177,29 +179,15 @@ export async function saveOvertimeReport(input: {
     });
     if (locked.status === "hr_proposed") {
       if (locked.departmentId) {
-        const [reopenedApproval] = await tx.execute<{ id: string }>(sql`
-          UPDATE department_quarter_approvals
-          SET status = 'reopened', approved_by = NULL, approved_at = NULL,
-            version = version + 1, updated_at = now()
-          WHERE organization_id = ${input.user.organizationId}
-            AND department_id = ${locked.departmentId}
-            AND year = ${input.year}
-            AND quarter = ${Math.ceil(input.month / 3)}
-            AND status = 'approved'
-          RETURNING id
-        `);
-        if (reopenedApproval)
-          await tx.insert(auditEvents).values({
-            organizationId: input.user.organizationId,
-            actorId: input.user.id,
-            action: "department_quarter.reopened",
-            objectType: "department_quarter_approval",
-            objectId: reopenedApproval.id,
-            metadata: {
-              reason: "employee_counter_proposal",
-              reportId: locked.id,
-            },
-          });
+        await reopenApprovedMonths(tx, {
+          organizationId: input.user.organizationId,
+          actorId: input.user.id,
+          departmentIds: [locked.departmentId],
+          year: input.year,
+          month: input.month,
+          reason: "employee_counter_proposal",
+          metadata: { reportId: locked.id },
+        });
       }
       await tx.insert(approvalEvents).values({
         aggregateType: "overtime_report",
@@ -217,5 +205,76 @@ export async function saveOvertimeReport(input: {
       sources: snapshot.sources,
       zeroConfirmed: report.zeroConfirmed,
     };
+  });
+}
+
+const deletableStatuses = [
+  "draft",
+  "submitted",
+  "withdrawn",
+  "rejected",
+  "reopened",
+  "hr_proposed",
+] as const;
+
+export async function deleteOvertimeReport(input: {
+  actor: { id: string; organizationId: string; role: string };
+  reportId: string;
+}) {
+  return db.transaction(async (tx) => {
+    const [report] = await tx
+      .select()
+      .from(overtimeReports)
+      .where(
+        and(
+          eq(overtimeReports.id, input.reportId),
+          eq(overtimeReports.organizationId, input.actor.organizationId),
+        ),
+      )
+      .limit(1);
+    if (!report) throw new Error("NOT_FOUND");
+    const isHr = ["hr", "hr_lead"].includes(input.actor.role);
+    const isManager = report.departmentId
+      ? await actorApprovesDepartment(
+          tx,
+          input.actor.id,
+          input.actor.organizationId,
+          report.departmentId,
+        )
+      : false;
+    if (!isHr && !isManager) throw new Error("FORBIDDEN");
+    if (report.status === "approved" && !isHr) throw new Error("READ_ONLY");
+    if (
+      !deletableStatuses.includes(
+        report.status as (typeof deletableStatuses)[number],
+      ) &&
+      !(isHr && report.status === "approved")
+    )
+      throw new Error("READ_ONLY");
+    await tx.delete(overtimeReports).where(eq(overtimeReports.id, report.id));
+    if (report.departmentId)
+      await reopenApprovedMonths(tx, {
+        organizationId: input.actor.organizationId,
+        actorId: input.actor.id,
+        departmentIds: [report.departmentId],
+        year: report.year,
+        month: report.month,
+        reason: "overtime_report_deleted",
+        metadata: { reportId: report.id, userId: report.userId },
+      });
+    await tx.insert(auditEvents).values({
+      organizationId: input.actor.organizationId,
+      actorId: input.actor.id,
+      action: "overtime.deleted",
+      objectType: "overtime_report",
+      objectId: report.id,
+      metadata: {
+        year: report.year,
+        month: report.month,
+        status: report.status,
+        userId: report.userId,
+      },
+    });
+    return { ok: true };
   });
 }

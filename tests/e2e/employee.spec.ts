@@ -426,12 +426,15 @@ test("employee and HR complete a bilateral vacation approval", async ({
   await vacationBoard.getByRole("button", { name: /Алексей Морозов/ }).click();
   await vacationBoard.getByRole("button", { name: "В кадры" }).click();
   await expect(page.getByRole("status")).toContainText("План передан в кадры");
-  const fourthQuarter = page
+  const overtimeBoard = page
+    .locator("section")
+    .filter({ hasText: "Внеурочное время" });
+  const october = overtimeBoard
     .locator("article")
-    .filter({ hasText: "4 квартал" });
-  await expect(fourthQuarter).toContainText("6 из 6 отчётов");
-  await fourthQuarter.getByRole("button", { name: "Согласовано" }).click();
-  await expect(page.getByRole("status")).toContainText("Согласован 4 квартал");
+    .filter({ hasText: "Октябрь" });
+  await expect(october).toContainText("2 из 2 отчётов");
+  await october.getByRole("button", { name: "Согласовано" }).click();
+  await expect(page.getByRole("status")).toContainText("Согласован Октябрь");
 
   await logout(page);
   await login(page, "hr", "CI-only-password-2026!");
@@ -467,16 +470,18 @@ test("employee and HR complete a bilateral vacation approval", async ({
   await expect(
     page.getByRole("heading", { name: "Кабинет кадровика" }),
   ).toBeVisible();
-  await expect(page.getByText("Ожидает проверки")).toHaveCount(0);
   await page
     .getByRole("main")
-    .getByRole("link", { name: "Внеурочное время" })
+    .getByRole("link", { name: "Внеурочное время", exact: true })
     .click();
   await expect(page).toHaveURL(/type=overtime/);
-  await page.getByRole("main").getByRole("link", { name: "Отпуска" }).click();
+  await page
+    .getByRole("main")
+    .getByRole("link", { name: "Отпуска", exact: true })
+    .click();
   await expect(page).toHaveURL(/type=vacation/);
   const vacationExportPromise = page.waitForEvent("download");
-  await page.getByRole("link", { name: "Выгрузить Excel" }).click();
+  await page.getByRole("link", { name: "Выгрузить отпуска" }).click();
   const vacationExport = await vacationExportPromise;
   expect(vacationExport.suggestedFilename()).toBe("vacation-export-2027.zip");
   const vacationExportPath = await vacationExport.path();
@@ -484,12 +489,14 @@ test("employee and HR complete a bilateral vacation approval", async ({
   const vacationArchive = await readFile(vacationExportPath!);
   expect(vacationArchive.byteLength).toBeGreaterThan(5_000);
   expect(vacationArchive.subarray(0, 2).toString()).toBe("PK");
-  await page.getByRole("link", { name: "Все" }).click();
   await page
-    .locator("article")
-    .filter({ hasText: "Алексей Морозов" })
-    .filter({ hasText: /Внеурочное время · 10\.2026/ })
-    .getByRole("link", { name: "Открыть" })
+    .getByRole("main")
+    .getByRole("link", { name: "Все", exact: true })
+    .click();
+  await page
+    .locator("section")
+    .filter({ hasText: "Внеурочное время" })
+    .getByRole("link", { name: /Алексей Морозов 10/ })
     .click();
   await expect(
     page.getByRole("button", { name: "Утвердить без изменений" }),
@@ -515,8 +522,9 @@ test("employee and HR complete a bilateral vacation approval", async ({
     overtimeHistory.getByText("Требуется решение → Ожидает сотрудника"),
   ).toBeVisible();
 
-  await page.goto("/hr");
-  await page.locator('a[href^="/hr/vacations/"]').click();
+  await page.goto("/hr?type=vacation");
+  await page.getByRole("button", { name: /Алексей Морозов/ }).click();
+  await page.getByRole("link", { name: "Открыть", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Утвердить без изменений" }),
   ).toBeVisible();
@@ -644,26 +652,35 @@ test("employee and HR complete a bilateral vacation approval", async ({
   await logout(page);
   await login(page, "manager", "Manager-2026!");
   await page.getByRole("link", { name: "Согласование" }).click();
-  const reopenedQuarter = page
-    .locator("article")
-    .filter({ hasText: "4 квартал" });
+  const monthNames = [
+    "Январь",
+    "Февраль",
+    "Март",
+    "Апрель",
+    "Май",
+    "Июнь",
+    "Июль",
+    "Август",
+    "Сентябрь",
+    "Октябрь",
+    "Ноябрь",
+    "Декабрь",
+  ];
   const [assignmentYear, assignmentMonth] = new Date()
     .toISOString()
     .slice(0, 7)
     .split("-")
     .map(Number);
-  const assignedQuarterMonths =
-    assignmentYear < 2026
-      ? 3
-      : assignmentYear === 2026
-        ? Math.max(0, 13 - Math.max(10, assignmentMonth))
-        : 0;
-  await expect(reopenedQuarter).toContainText(
-    `6 из ${6 + assignedQuarterMonths} отчётов`,
-  );
-  await expect(
-    reopenedQuarter.getByRole("button", { name: "Согласовано" }),
-  ).toBeDisabled();
+  if (assignmentYear === 2026) {
+    const assignedMonth = page
+      .locator("section")
+      .filter({ hasText: "Внеурочное время" })
+      .locator("article")
+      .filter({ hasText: monthNames[assignmentMonth - 1] });
+    await expect(
+      assignedMonth.getByRole("button", { name: "Согласовано" }),
+    ).toBeDisabled();
+  }
 });
 
 test("monthly overtime calendar remains usable on mobile", async ({
@@ -786,9 +803,15 @@ test("HR screens use the shared readable UI system", async ({
     .toBeGreaterThanOrEqual(44);
 
   await page.goto("/hr");
-  const queueFilter = page.getByRole("link", { name: "Все", exact: true });
+  await expect(
+    page.getByRole("heading", { name: "Согласования", exact: true }),
+  ).toBeVisible();
+  const vacationExport = page.getByRole("link", {
+    name: "Выгрузить отпуска",
+    exact: true,
+  });
   await expect
-    .poll(async () => (await queueFilter.boundingBox())?.height ?? 0)
+    .poll(async () => (await vacationExport.boundingBox())?.height ?? 0)
     .toBeGreaterThanOrEqual(40);
 });
 

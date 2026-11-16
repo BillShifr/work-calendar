@@ -201,6 +201,7 @@ const VacationDayButton = memo(function VacationDayButton({
 export function VacationMatrix({
   initial,
   mode = "employee",
+  directApprove = false,
 }: {
   initial: {
     id: string;
@@ -212,6 +213,7 @@ export function VacationMatrix({
     entryWindowOpen?: boolean;
   };
   mode?: "employee" | "hr";
+  directApprove?: boolean;
 }) {
   const router = useRouter();
   const compact = useCompactCalendar();
@@ -558,14 +560,14 @@ export function VacationMatrix({
     if (!(await save())) return;
     setSaving(true);
     setConfirmSubmit(false);
-    setMessage("Отправляем…");
+    setMessage(directApprove ? "Утверждаем…" : "Отправляем…");
     const response = await fetch("/api/workflow", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         aggregate: "vacation_plan",
         id: planId,
-        to: "submitted",
+        to: directApprove ? "approved" : "submitted",
       }),
     });
     const data = await response.json();
@@ -577,9 +579,11 @@ export function VacationMatrix({
     setStatus(data.status);
     setVersion(data.version);
     setMessage(
-      data.status === "manager_review"
-        ? "План отправлен руководителю"
-        : "План отправлен кадровой службе",
+      data.status === "approved"
+        ? "План утверждён"
+        : data.status === "manager_review"
+          ? "План отправлен руководителю"
+          : "План отправлен кадровой службе",
     );
     const button = document.querySelector<HTMLElement>(
       "[data-vacation-submit]",
@@ -695,8 +699,9 @@ export function VacationMatrix({
               {remainingDays > 0 ? ` · останется ${remainingDays}` : ""}
             </strong>
             <span>
-              Сначала проверит руководитель подразделения, затем кадровая
-              служба. Пока план на проверке, даты нельзя менять без отзыва.
+              {directApprove
+                ? "План будет утверждён сразу, без отправки на согласование."
+                : "Сначала проверит руководитель подразделения, затем кадровая служба. Пока план на проверке, даты нельзя менять без отзыва."}
             </span>
           </div>
           <div className={styles.confirmActions}>
@@ -826,9 +831,11 @@ export function VacationMatrix({
                   !periods.length ||
                   total > allowanceDays
                 }
-                onClick={() => setConfirmSubmit(true)}
+                onClick={() =>
+                  directApprove ? void submit() : setConfirmSubmit(true)
+                }
               >
-                Отправить
+                {directApprove ? "Утвердить" : "Отправить"}
               </ActionButton>
             )}
           {mode === "employee" &&

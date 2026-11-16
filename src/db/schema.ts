@@ -253,8 +253,8 @@ export const employeeIrregularLeaveTerms = pgTable(
   ],
 );
 
-export const departmentQuarterApprovals = pgTable(
-  "department_quarter_approvals",
+export const departmentMonthApprovals = pgTable(
+  "department_month_approvals",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     organizationId: uuid("organization_id")
@@ -264,7 +264,7 @@ export const departmentQuarterApprovals = pgTable(
       .notNull()
       .references(() => departments.id),
     year: integer("year").notNull(),
-    quarter: integer("quarter").notNull(),
+    month: integer("month").notNull(),
     status: text("status")
       .$type<"draft" | "approved" | "reopened">()
       .notNull()
@@ -275,15 +275,15 @@ export const departmentQuarterApprovals = pgTable(
     ...auditColumns,
   },
   (table) => [
-    uniqueIndex("department_quarter_approvals_period_uq").on(
+    uniqueIndex("department_month_approvals_period_uq").on(
       table.departmentId,
       table.year,
-      table.quarter,
+      table.month,
     ),
-    index("department_quarter_approvals_queue_idx").on(
+    index("department_month_approvals_queue_idx").on(
       table.organizationId,
       table.year,
-      table.quarter,
+      table.month,
       table.status,
     ),
   ],

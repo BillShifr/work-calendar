@@ -59,14 +59,6 @@ export async function PUT(
         sql`SELECT report.id, report.version, report.status, report.year, report.month
           FROM overtime_reports report
           WHERE report.id=${id} AND report.organization_id=${actor.organizationId}
-            AND EXISTS (
-              SELECT 1 FROM department_quarter_approvals approval
-              WHERE approval.organization_id = ${actor.organizationId}
-                AND approval.department_id = report.department_id
-                AND approval.year = report.year
-                AND approval.quarter = CEIL(report.month / 3.0)::int
-                AND approval.status = 'approved'
-            )
           FOR UPDATE`,
       );
       if (!report) throw new Error("NOT_FOUND");

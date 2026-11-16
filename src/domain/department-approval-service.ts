@@ -2,30 +2,104 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import {
   auditEvents,
-  departmentQuarterApprovals,
+  departmentMonthApprovals,
   departments,
   overtimeEntries,
   overtimeReports,
 } from "@/db/schema";
-import { monthsForQuarter } from "./department-approval";
 
 const submittedStatuses = ["submitted", "hr_proposed", "approved"] as const;
+const hrRoles = ["hr", "hr_lead"] as const;
 
-export async function getDepartmentApprovalDashboard(
-  actor: { id: string; organizationId: string },
-  year: number,
+type Actor = {
+  id: string;
+  organizationId: string;
+  role?: string;
+};
+
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+async function loadDepartments(
+  actor: Actor,
+  scope: "approver" | "organization",
 ) {
-  const ownedDepartments = await db
+  return db
     .select({ id: departments.id, name: departments.name })
     .from(departments)
     .where(
       and(
         eq(departments.organizationId, actor.organizationId),
-        eq(departments.approverUserId, actor.id),
         eq(departments.isActive, true),
+        ...(scope === "approver"
+          ? [eq(departments.approverUserId, actor.id)]
+          : []),
       ),
     )
     .orderBy(departments.name);
+}
+
+export async function reopenApprovedMonths(
+  tx: Tx,
+  input: {
+    organizationId: string;
+    actorId: string;
+    departmentIds: string[];
+    reason: string;
+    year?: number;
+    month?: number;
+    fromDate?: string;
+    throughDate?: string;
+    metadata?: Record<string, unknown>;
+  },
+) {
+  if (!input.departmentIds.length) return [];
+  const reopened = await tx.execute<{ id: string }>(sql`
+    UPDATE department_month_approvals
+    SET status = 'reopened', approved_by = NULL, approved_at = NULL,
+      version = version + 1, updated_at = now()
+    WHERE organization_id = ${input.organizationId}
+      AND department_id IN (${sql.join(
+        input.departmentIds.map((departmentId) => sql`${departmentId}`),
+        sql`, `,
+      )})
+      AND status = 'approved'
+      ${
+        input.year != null && input.month != null
+          ? sql`AND year = ${input.year} AND month = ${input.month}`
+          : sql``
+      }
+      ${
+        input.fromDate
+          ? sql`AND (make_date(year, month, 1) + interval '1 month - 1 day')::date >= ${input.fromDate}`
+          : sql``
+      }
+      ${
+        input.throughDate
+          ? sql`AND make_date(year, month, 1) <= ${input.throughDate}`
+          : sql``
+      }
+    RETURNING id
+  `);
+  if (reopened.length)
+    await tx.insert(auditEvents).values(
+      reopened.map((approval) => ({
+        organizationId: input.organizationId,
+        actorId: input.actorId,
+        action: "department_month.reopened",
+        objectType: "department_month_approval",
+        objectId: approval.id,
+        metadata: { reason: input.reason, ...input.metadata },
+      })),
+    );
+  return reopened;
+}
+
+export async function getDepartmentApprovalDashboard(
+  actor: Actor,
+  year: number,
+  scope: "approver" | "organization" = "approver",
+) {
+  const ownedDepartments = await loadDepartments(actor, scope);
   if (!ownedDepartments.length) return [];
   const departmentIds = ownedDepartments.map((department) => department.id);
   const [employees, reports, approvals] = await Promise.all([
@@ -81,83 +155,66 @@ export async function getDepartmentApprovalDashboard(
       .groupBy(overtimeReports.id),
     db
       .select()
-      .from(departmentQuarterApprovals)
+      .from(departmentMonthApprovals)
       .where(
         and(
-          eq(departmentQuarterApprovals.organizationId, actor.organizationId),
-          eq(departmentQuarterApprovals.year, year),
-          inArray(departmentQuarterApprovals.departmentId, departmentIds),
+          eq(departmentMonthApprovals.organizationId, actor.organizationId),
+          eq(departmentMonthApprovals.year, year),
+          inArray(departmentMonthApprovals.departmentId, departmentIds),
         ),
       ),
   ]);
 
   return ownedDepartments.map((department) => ({
     ...department,
-    quarters: [1, 2, 3, 4].map((quarter) => {
-      const months = monthsForQuarter(quarter);
-      const assignedInMonth = (
-        employee: (typeof employees)[number],
-        month: number,
-      ) => employee.departmentId === department.id && employee.month === month;
-      const departmentEmployees = employees.filter((employee) =>
-        months.some((month) => assignedInMonth(employee, month)),
+    months: Array.from({ length: 12 }, (_, index) => {
+      const month = index + 1;
+      const assigned = employees.filter(
+        (employee) =>
+          employee.departmentId === department.id && employee.month === month,
       );
-      const expectedReports = months.reduce(
-        (total, month) =>
-          total +
-          new Set(
-            departmentEmployees
-              .filter((employee) => assignedInMonth(employee, month))
-              .map((employee) => employee.userId),
-          ).size,
-        0,
-      );
-      const quarterReports = reports.filter(
+      const expectedReports = new Set(
+        assigned.map((employee) => employee.userId),
+      ).size;
+      const monthReports = reports.filter(
         (report) =>
           report.departmentId === department.id &&
-          months.includes(report.month) &&
-          departmentEmployees.some(
-            (employee) =>
-              employee.userId === report.userId &&
-              assignedInMonth(employee, report.month),
-          ),
+          report.month === month &&
+          assigned.some((employee) => employee.userId === report.userId),
       );
-      const readyReports = quarterReports.filter((report) =>
+      const readyReports = monthReports.filter((report) =>
         submittedStatuses.includes(
           report.status as (typeof submittedStatuses)[number],
         ),
       );
       const approval = approvals.find(
-        (item) =>
-          item.departmentId === department.id && item.quarter === quarter,
+        (item) => item.departmentId === department.id && item.month === month,
       );
       return {
-        quarter,
-        employeeCount: new Set(
-          departmentEmployees.map((employee) => employee.userId),
-        ).size,
+        month,
+        employeeCount: expectedReports,
         expectedReports,
         readyReports: readyReports.length,
         status: approval?.status ?? "draft",
-        reports: quarterReports.map((report) => ({
+        reports: monthReports.map((report) => ({
           ...report,
           fullName:
-            departmentEmployees.find(
-              (employee) => employee.userId === report.userId,
-            )?.fullName ?? "Сотрудник",
+            assigned.find((employee) => employee.userId === report.userId)
+              ?.fullName ?? "Сотрудник",
         })),
       };
-    }),
+    }).filter((month) => month.expectedReports > 0 || month.reports.length > 0),
   }));
 }
 
-export async function approveDepartmentQuarter(input: {
-  actor: { id: string; organizationId: string };
+export async function approveDepartmentMonth(input: {
+  actor: Actor;
   departmentId: string;
   year: number;
-  quarter: number;
+  month: number;
 }) {
   return db.transaction(async (tx) => {
+    const isHr = hrRoles.includes(input.actor.role as (typeof hrRoles)[number]);
     const [department] = await tx
       .select({ id: departments.id })
       .from(departments)
@@ -165,28 +222,21 @@ export async function approveDepartmentQuarter(input: {
         and(
           eq(departments.id, input.departmentId),
           eq(departments.organizationId, input.actor.organizationId),
-          eq(departments.approverUserId, input.actor.id),
           eq(departments.isActive, true),
+          ...(isHr ? [] : [eq(departments.approverUserId, input.actor.id)]),
         ),
       )
       .limit(1);
     if (!department) throw new Error("FORBIDDEN");
-    const months = monthsForQuarter(input.quarter);
-    const firstMonth = months[0];
-    const lastMonth = months[2];
     const [expectedRow] = await tx.execute<{ count: number }>(sql`
-      WITH months AS (
-        SELECT generate_series(${firstMonth}::int, ${lastMonth}::int)::int AS month
-      )
       SELECT COUNT(*)::int AS count
       FROM users employee
-      CROSS JOIN months
       CROSS JOIN LATERAL (
         SELECT assignment.department_id
         FROM department_assignments assignment
         WHERE assignment.user_id = employee.id
-          AND assignment.valid_from <= (make_date(${input.year}, months.month, 1) + interval '1 month - 1 day')::date
-          AND (assignment.valid_to IS NULL OR assignment.valid_to >= make_date(${input.year}, months.month, 1))
+          AND assignment.valid_from <= (make_date(${input.year}, ${input.month}, 1) + interval '1 month - 1 day')::date
+          AND (assignment.valid_to IS NULL OR assignment.valid_to >= make_date(${input.year}, ${input.month}, 1))
         ORDER BY assignment.valid_from DESC, assignment.created_at DESC
         LIMIT 1
       ) owned_assignment
@@ -197,18 +247,15 @@ export async function approveDepartmentQuarter(input: {
       readyCount: number;
       missingCount: number;
     }>(sql`
-      WITH months AS (
-        SELECT generate_series(${firstMonth}::int, ${lastMonth}::int)::int AS month
-      ), expected AS (
-        SELECT employee.id AS user_id, months.month
+      WITH expected AS (
+        SELECT employee.id AS user_id
         FROM users employee
-        CROSS JOIN months
         CROSS JOIN LATERAL (
           SELECT assignment.department_id
           FROM department_assignments assignment
           WHERE assignment.user_id = employee.id
-            AND assignment.valid_from <= (make_date(${input.year}, months.month, 1) + interval '1 month - 1 day')::date
-            AND (assignment.valid_to IS NULL OR assignment.valid_to >= make_date(${input.year}, months.month, 1))
+            AND assignment.valid_from <= (make_date(${input.year}, ${input.month}, 1) + interval '1 month - 1 day')::date
+            AND (assignment.valid_to IS NULL OR assignment.valid_to >= make_date(${input.year}, ${input.month}, 1))
           ORDER BY assignment.valid_from DESC, assignment.created_at DESC
           LIMIT 1
         ) owned_assignment
@@ -224,7 +271,7 @@ export async function approveDepartmentQuarter(input: {
         AND report.organization_id = ${input.actor.organizationId}
         AND report.department_id = ${input.departmentId}
         AND report.year = ${input.year}
-        AND report.month = expected.month
+        AND report.month = ${input.month}
         AND report.status IN ('submitted','hr_proposed','approved')
     `);
     const expected = expectedRow?.count ?? 0;
@@ -236,27 +283,27 @@ export async function approveDepartmentQuarter(input: {
       throw new Error("INCOMPLETE");
     const now = new Date();
     const [approval] = await tx
-      .insert(departmentQuarterApprovals)
+      .insert(departmentMonthApprovals)
       .values({
         organizationId: input.actor.organizationId,
         departmentId: input.departmentId,
         year: input.year,
-        quarter: input.quarter,
+        month: input.month,
         status: "approved",
         approvedBy: input.actor.id,
         approvedAt: now,
       })
       .onConflictDoUpdate({
         target: [
-          departmentQuarterApprovals.departmentId,
-          departmentQuarterApprovals.year,
-          departmentQuarterApprovals.quarter,
+          departmentMonthApprovals.departmentId,
+          departmentMonthApprovals.year,
+          departmentMonthApprovals.month,
         ],
         set: {
           status: "approved",
           approvedBy: input.actor.id,
           approvedAt: now,
-          version: sql`${departmentQuarterApprovals.version} + 1`,
+          version: sql`${departmentMonthApprovals.version} + 1`,
           updatedAt: now,
         },
       })
@@ -264,13 +311,13 @@ export async function approveDepartmentQuarter(input: {
     await tx.insert(auditEvents).values({
       organizationId: input.actor.organizationId,
       actorId: input.actor.id,
-      action: "department_quarter.approved",
-      objectType: "department_quarter_approval",
+      action: "department_month.approved",
+      objectType: "department_month_approval",
       objectId: approval.id,
       metadata: {
         departmentId: input.departmentId,
         year: input.year,
-        quarter: input.quarter,
+        month: input.month,
         reports: expected,
       },
     });

@@ -27,7 +27,10 @@ export default async function VacationsPage() {
           {statusLabels[plan.status]} · {plan.allowanceDays} дней
         </span>
       </header>
-      <VacationMatrix initial={plan} />
+      <VacationMatrix
+        initial={plan}
+        directApprove={["hr", "hr_lead"].includes(user.role)}
+      />
     </AppShell>
   );
 }

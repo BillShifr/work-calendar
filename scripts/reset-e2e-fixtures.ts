@@ -24,7 +24,7 @@ try {
       vacation_periods,
       vacation_plans,
       entry_windows,
-      department_quarter_approvals,
+      department_month_approvals,
       revisions,
       sessions,
       audit_events,

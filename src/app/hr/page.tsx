@@ -7,29 +7,57 @@ import {
   Download,
   UsersRound,
 } from "lucide-react";
-import { and, count, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, count, eq, sql } from "drizzle-orm";
 import { AppShell } from "@/components/AppShell";
+import { DepartmentApprovalDashboard } from "@/components/DepartmentApprovalDashboard";
 import { db } from "@/db/client";
 import {
-  departmentAssignments,
   departments,
   overtimeReports,
   users,
   vacationPlans,
 } from "@/db/schema";
 import { getOrganizationAbsenceRisks } from "@/domain/absence-risk-service";
+import { getDepartmentApprovalDashboard } from "@/domain/department-approval-service";
+import { getDepartmentVacationBoard } from "@/domain/department-vacation-board";
 import { HrAbsenceOverlapPanel } from "@/components/HrAbsenceOverlapPanel";
 import { requireHr } from "@/lib/auth";
 import styles from "./hr.module.css";
 
 export const metadata: Metadata = { title: "Кабинет кадровика" };
+
+const groups = [
+  { id: "department", label: "По отделам" },
+  { id: "employee", label: "По сотрудникам" },
+  { id: "all", label: "Все скопом" },
+] as const;
+
 export default async function HrPage({
   searchParams,
 }: {
-  searchParams: Promise<{ type?: string }>;
+  searchParams: Promise<{ type?: string; group?: string; year?: string }>;
 }) {
-  const selectedType = (await searchParams).type;
+  const params = await searchParams;
+  const selectedType = params.type;
+  const selectedGroup =
+    params.group === "employee" || params.group === "all"
+      ? params.group
+      : "department";
   const hr = await requireHr();
+  const requestedYear = Number(params.year);
+  const currentYear = Number(
+    new Intl.DateTimeFormat("en", {
+      timeZone: "Asia/Yekaterinburg",
+      year: "numeric",
+    }).format(new Date()),
+  );
+  const year =
+    Number.isInteger(requestedYear) &&
+    requestedYear >= 2020 &&
+    requestedYear <= 2100
+      ? requestedYear
+      : currentYear;
+  const vacationYear = year + 1;
   const [actionableCounts] = await db.execute<{
     overtime: number;
     vacations: number;
@@ -37,14 +65,7 @@ export default async function HrPage({
     SELECT
       (SELECT COUNT(*)::int FROM overtime_reports
        WHERE overtime_reports.organization_id = ${hr.organizationId}
-         AND overtime_reports.status IN ('submitted', 'reopened')
-         AND EXISTS (
-           SELECT 1 FROM department_quarter_approvals approval
-           WHERE approval.department_id = overtime_reports.department_id
-             AND approval.year = overtime_reports.year
-             AND approval.quarter = CEIL(overtime_reports.month / 3.0)::int
-             AND approval.status = 'approved'
-         )) AS overtime,
+         AND overtime_reports.status IN ('submitted', 'reopened')) AS overtime,
       (SELECT COUNT(*)::int FROM vacation_plans
        WHERE organization_id = ${hr.organizationId}
          AND status IN ('submitted', 'reopened')) AS vacations
@@ -58,76 +79,6 @@ export default async function HrPage({
         eq(users.isActive, true),
       ),
     );
-  const overtime = await db
-    .select({
-      id: overtimeReports.id,
-      status: overtimeReports.status,
-      year: overtimeReports.year,
-      month: overtimeReports.month,
-      updatedAt: overtimeReports.updatedAt,
-      fullName: users.fullName,
-      departmentName: departments.name,
-      totalMinutes: sql<number>`COALESCE((SELECT SUM(entry.minutes) FROM overtime_entries entry WHERE entry.report_id = ${overtimeReports.id}), 0)::int`,
-    })
-    .from(overtimeReports)
-    .innerJoin(users, eq(users.id, overtimeReports.userId))
-    .leftJoin(
-      departmentAssignments,
-      and(
-        eq(departmentAssignments.userId, users.id),
-        isNull(departmentAssignments.validTo),
-      ),
-    )
-    .leftJoin(
-      departments,
-      eq(departments.id, departmentAssignments.departmentId),
-    )
-    .where(
-      and(
-        eq(overtimeReports.organizationId, hr.organizationId),
-        inArray(overtimeReports.status, ["submitted", "reopened"]),
-        sql`EXISTS (
-          SELECT 1 FROM department_quarter_approvals approval
-          WHERE approval.department_id = ${overtimeReports.departmentId}
-            AND approval.year = ${overtimeReports.year}
-            AND approval.quarter = CEIL(${overtimeReports.month} / 3.0)::int
-            AND approval.status = 'approved'
-        )`,
-      ),
-    )
-    .orderBy(overtimeReports.updatedAt)
-    .limit(8);
-  const vacations = await db
-    .select({
-      id: vacationPlans.id,
-      status: vacationPlans.status,
-      year: vacationPlans.year,
-      updatedAt: vacationPlans.updatedAt,
-      fullName: users.fullName,
-      departmentName: departments.name,
-      totalDays: sql<number>`COALESCE((SELECT SUM((period.ends_on - period.starts_on) + 1) FROM vacation_periods period WHERE period.plan_id = ${vacationPlans.id}), 0)::int`,
-    })
-    .from(vacationPlans)
-    .innerJoin(users, eq(users.id, vacationPlans.userId))
-    .leftJoin(
-      departmentAssignments,
-      and(
-        eq(departmentAssignments.userId, users.id),
-        isNull(departmentAssignments.validTo),
-      ),
-    )
-    .leftJoin(
-      departments,
-      eq(departments.id, departmentAssignments.departmentId),
-    )
-    .where(
-      and(
-        eq(vacationPlans.organizationId, hr.organizationId),
-        inArray(vacationPlans.status, ["submitted", "reopened"]),
-      ),
-    )
-    .orderBy(vacationPlans.updatedAt)
-    .limit(8);
   const [{ value: waitingEmployee }] = await db
     .select({ value: count() })
     .from(vacationPlans)
@@ -147,52 +98,33 @@ export default async function HrPage({
       ),
     );
   const awaiting = actionableCounts.overtime + actionableCounts.vacations;
-  const currentYear = Number(
-    new Intl.DateTimeFormat("en", {
-      timeZone: "Asia/Yekaterinburg",
-      year: "numeric",
-    }).format(new Date()),
-  );
-  const absenceRisks = await getOrganizationAbsenceRisks(
-    hr.organizationId,
-    currentYear,
-  );
-  const organizationDepartments = await db
-    .select({ id: departments.id, name: departments.name })
-    .from(departments)
-    .where(
-      and(
-        eq(departments.organizationId, hr.organizationId),
-        eq(departments.isActive, true),
-      ),
-    )
-    .orderBy(departments.name);
+  const [
+    absenceRisks,
+    organizationDepartments,
+    overtimeDepartments,
+    vacationDepartments,
+  ] = await Promise.all([
+    getOrganizationAbsenceRisks(hr.organizationId, currentYear),
+    db
+      .select({ id: departments.id, name: departments.name })
+      .from(departments)
+      .where(
+        and(
+          eq(departments.organizationId, hr.organizationId),
+          eq(departments.isActive, true),
+        ),
+      )
+      .orderBy(departments.name),
+    selectedType === "vacation"
+      ? Promise.resolve([])
+      : getDepartmentApprovalDashboard(hr, year, "organization"),
+    selectedType === "overtime"
+      ? Promise.resolve([])
+      : getDepartmentVacationBoard(hr, vacationYear, "organization"),
+  ]);
   const departmentsWithOverlaps = new Set(
     absenceRisks.map((risk) => risk.departmentId),
   ).size;
-  const allItems = [
-    ...vacations.map((item) => ({
-      ...item,
-      kind: "vacation" as const,
-      title: `План отпуска · ${item.year}`,
-      summary: `${item.totalDays} дн. выбрано`,
-      href: `/hr/vacations/${item.id}`,
-    })),
-    ...overtime.map((item) => ({
-      ...item,
-      kind: "overtime" as const,
-      title: `Внеурочное время · ${String(item.month).padStart(2, "0")}.${item.year}`,
-      summary: `${item.totalMinutes} мин. указано`,
-      href: `/hr/overtime/${item.id}`,
-    })),
-  ];
-  const items = allItems.filter((item) =>
-    selectedType === "overtime"
-      ? item.kind === "overtime"
-      : selectedType === "vacation"
-        ? item.kind === "vacation"
-        : true,
-  );
   const [exportYearRow] = await db.execute<{ year: number }>(sql`
     SELECT COALESCE(MAX(plan.year), ${currentYear + 1})::int AS year
     FROM vacation_plans plan
@@ -209,7 +141,17 @@ export default async function HrPage({
       )
   `);
   const vacationExportYear = exportYearRow?.year ?? currentYear + 1;
-  const showVacationExport = selectedType !== "overtime";
+  const hrefBase = (next: { type?: string; group?: string; year?: number }) => {
+    const search = new URLSearchParams();
+    const type = next.type ?? selectedType;
+    const group = next.group ?? selectedGroup;
+    const nextYear = next.year ?? year;
+    if (type) search.set("type", type);
+    if (group !== "department") search.set("group", group);
+    if (nextYear !== currentYear) search.set("year", String(nextYear));
+    const query = search.toString();
+    return query ? `/hr?${query}` : "/hr";
+  };
   return (
     <AppShell>
       <header className="pageHeader">
@@ -240,64 +182,63 @@ export default async function HrPage({
       <div className={styles.dashboard}>
         <section className={`card ${styles.section}`}>
           <div className={styles.sectionHeader}>
-            <h2>Очередь согласования</h2>
+            <h2>Согласования</h2>
             <div className={styles.sectionActions}>
               <div className={styles.filters}>
                 <Link
-                  href="/hr"
+                  href={hrefBase({ type: "" })}
                   className={`${styles.filter} ${!selectedType ? styles.filterActive : ""}`}
                 >
                   Все
                 </Link>
                 <Link
-                  href="/hr?type=overtime"
+                  href={hrefBase({ type: "overtime" })}
                   className={`${styles.filter} ${selectedType === "overtime" ? styles.filterActive : ""}`}
                 >
                   Внеурочное время
                 </Link>
                 <Link
-                  href="/hr?type=vacation"
+                  href={hrefBase({ type: "vacation" })}
                   className={`${styles.filter} ${selectedType === "vacation" ? styles.filterActive : ""}`}
                 >
                   Отпуска
                 </Link>
               </div>
-              {showVacationExport ? (
-                <a
-                  className={styles.export}
-                  href={`/api/hr/export/vacations?year=${vacationExportYear}`}
-                >
-                  <Download aria-hidden="true" size={19} />
-                  Выгрузить Excel
-                </a>
-              ) : null}
+              <div className={styles.filters}>
+                {groups.map((group) => (
+                  <Link
+                    key={group.id}
+                    href={hrefBase({ group: group.id })}
+                    className={`${styles.filter} ${selectedGroup === group.id ? styles.filterActive : ""}`}
+                  >
+                    {group.label}
+                  </Link>
+                ))}
+              </div>
+              <a
+                className={styles.export}
+                href={`/api/hr/export/vacations?year=${vacationExportYear}`}
+              >
+                <Download aria-hidden="true" size={19} />
+                Выгрузить отпуска
+              </a>
+              <a
+                className={styles.export}
+                href={`/api/hr/export/overtime?year=${year}`}
+              >
+                <Download aria-hidden="true" size={19} />
+                Выгрузить внеурочное время
+              </a>
             </div>
           </div>
-          <div className={styles.queue}>
-            {items.map((item) => (
-              <article className={styles.item} key={item.id}>
-                <div className={styles.person}>
-                  <strong>{item.fullName}</strong>
-                  <span>{item.departmentName ?? "Без подразделения"}</span>
-                </div>
-                <div className={styles.detail}>
-                  {item.title}
-                  <br />
-                  {item.summary} · отправлено{" "}
-                  {item.updatedAt.toLocaleDateString("ru-RU")}
-                </div>
-                <Link className={styles.open} href={item.href}>
-                  Открыть
-                  <ArrowRight aria-hidden="true" size={18} />
-                </Link>
-              </article>
-            ))}
-            {!items.length && (
-              <p className={styles.emptyQueue}>
-                Новых решений от вас не требуется.
-              </p>
-            )}
-          </div>
+          <DepartmentApprovalDashboard
+            departments={overtimeDepartments}
+            vacationDepartments={vacationDepartments}
+            year={year}
+            audience="hr"
+            group={selectedGroup}
+            canDelete
+          />
         </section>
         <aside className={`card ${styles.section}`}>
           <div className={styles.sectionHeader}>

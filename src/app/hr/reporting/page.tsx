@@ -52,17 +52,17 @@ export default async function ReportingPage({
     db.execute<{
       departmentId: string;
       departmentName: string;
-      approvedQuarterNumbers: number[];
+      approvedMonthNumbers: number[];
     }>(sql`
       SELECT department.id::text AS "departmentId",
         department.name AS "departmentName",
         COALESCE(
-          ARRAY_AGG(approval.quarter ORDER BY approval.quarter)
+          ARRAY_AGG(approval.month ORDER BY approval.month)
             FILTER (WHERE approval.status = 'approved'),
           '{}'::int[]
-        ) AS "approvedQuarterNumbers"
+        ) AS "approvedMonthNumbers"
       FROM departments department
-      LEFT JOIN department_quarter_approvals approval
+      LEFT JOIN department_month_approvals approval
         ON approval.department_id = department.id AND approval.year = ${year}
       WHERE department.organization_id = ${actor.organizationId}
         AND department.is_active = true

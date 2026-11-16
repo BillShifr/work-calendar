@@ -20,6 +20,8 @@ const transitions: Record<
   draft: {
     employee: ["manager_review", "submitted"],
     department_head: ["manager_review", "submitted"],
+    hr: ["approved"],
+    hr_lead: ["approved"],
   },
   manager_review: {
     employee: ["draft", "withdrawn"],
