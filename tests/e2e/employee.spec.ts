@@ -426,9 +426,12 @@ test("employee and HR complete a bilateral vacation approval", async ({
   await vacationBoard.getByRole("button", { name: /Алексей Морозов/ }).click();
   await vacationBoard.getByRole("button", { name: "В кадры" }).click();
   await expect(page.getByRole("status")).toContainText("План передан в кадры");
-  const october = page
+  const overtimeBoard = page
+    .locator("section")
+    .filter({ hasText: "Внеурочное время" });
+  const october = overtimeBoard
     .locator("article")
-    .filter({ has: page.getByRole("strong", { name: "Октябрь" }) });
+    .filter({ hasText: "Октябрь" });
   await expect(october).toContainText("2 из 2 отчётов");
   await october.getByRole("button", { name: "Согласовано" }).click();
   await expect(page.getByRole("status")).toContainText("Согласован Октябрь");
@@ -469,10 +472,13 @@ test("employee and HR complete a bilateral vacation approval", async ({
   ).toBeVisible();
   await page
     .getByRole("main")
-    .getByRole("link", { name: "Внеурочное время" })
+    .getByRole("link", { name: "Внеурочное время", exact: true })
     .click();
   await expect(page).toHaveURL(/type=overtime/);
-  await page.getByRole("main").getByRole("link", { name: "Отпуска" }).click();
+  await page
+    .getByRole("main")
+    .getByRole("link", { name: "Отпуска", exact: true })
+    .click();
   await expect(page).toHaveURL(/type=vacation/);
   const vacationExportPromise = page.waitForEvent("download");
   await page.getByRole("link", { name: "Выгрузить отпуска" }).click();
@@ -490,7 +496,7 @@ test("employee and HR complete a bilateral vacation approval", async ({
   await page
     .locator("section")
     .filter({ hasText: "Внеурочное время" })
-    .getByRole("link", { name: "Алексей Морозов" })
+    .getByRole("link", { name: /Алексей Морозов 10/ })
     .click();
   await expect(
     page.getByRole("button", { name: "Утвердить без изменений" }),
@@ -666,11 +672,11 @@ test("employee and HR complete a bilateral vacation approval", async ({
     .split("-")
     .map(Number);
   if (assignmentYear === 2026) {
-    const assignedMonth = page.locator("article").filter({
-      has: page.getByRole("strong", {
-        name: monthNames[assignmentMonth - 1],
-      }),
-    });
+    const assignedMonth = page
+      .locator("section")
+      .filter({ hasText: "Внеурочное время" })
+      .locator("article")
+      .filter({ hasText: monthNames[assignmentMonth - 1] });
     await expect(
       assignedMonth.getByRole("button", { name: "Согласовано" }),
     ).toBeDisabled();
