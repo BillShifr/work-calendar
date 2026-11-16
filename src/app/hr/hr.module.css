@@ -168,6 +168,19 @@
   background: var(--warning);
   content: "";
 }
+.overlapToolbar {
+  margin-bottom: 10px;
+}
+
+.overlapFilteredEmpty {
+  margin: 0;
+  padding: 16px 12px;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
 .overlapList {
   display: grid;
   gap: 6px;
