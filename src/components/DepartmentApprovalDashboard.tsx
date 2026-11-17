@@ -163,6 +163,25 @@ export function DepartmentApprovalDashboard({
     router.refresh();
   }
 
+  const overtimeDepartments = useMemo(
+    () =>
+      departments
+        .map((department) => ({
+          ...department,
+          months:
+            audience === "hr"
+              ? department.months.filter((month) => month.reports.length > 0)
+              : department.months,
+        }))
+        .filter((department) => department.months.length > 0),
+    [audience, departments],
+  );
+  const vacationBoards = useMemo(
+    () =>
+      vacationDepartments.filter((department) => department.rows.length > 0),
+    [vacationDepartments],
+  );
+
   const employeeGroups = useMemo(() => {
     const map = new Map<
       string,
@@ -173,7 +192,7 @@ export function DepartmentApprovalDashboard({
         vacations: Array<VacationBoardRow & { departmentName: string }>;
       }
     >();
-    for (const department of departments) {
+    for (const department of overtimeDepartments) {
       for (const month of department.months) {
         for (const report of month.reports) {
           const key = report.userId ?? report.id;
@@ -191,7 +210,7 @@ export function DepartmentApprovalDashboard({
         }
       }
     }
-    for (const department of vacationDepartments) {
+    for (const department of vacationBoards) {
       for (const row of department.rows) {
         const current = map.get(row.userId) ?? {
           userId: row.userId,
@@ -207,7 +226,7 @@ export function DepartmentApprovalDashboard({
     return [...map.values()].sort((left, right) =>
       left.fullName.localeCompare(right.fullName, "ru"),
     );
-  }, [departments, vacationDepartments]);
+  }, [overtimeDepartments, vacationBoards]);
 
   return (
     <div className={styles.workspace}>
@@ -228,6 +247,10 @@ export function DepartmentApprovalDashboard({
         <span role="status">{message}</span>
       </div>
 
+      {vacationBoards.length + overtimeDepartments.length === 0 ? (
+        <p className={styles.empty}>Нет данных за {year} год</p>
+      ) : null}
+
       {group === "employee"
         ? employeeGroups.map((person) => (
             <section className={styles.department} key={person.userId}>
@@ -237,24 +260,25 @@ export function DepartmentApprovalDashboard({
                   <h2>{person.fullName}</h2>
                 </div>
               </div>
-              {person.vacations.map((row) => (
-                <VacationRow
-                  key={`${row.departmentName}:${row.userId}`}
-                  row={row}
-                  expanded={openRow === `${row.departmentName}:${row.userId}`}
-                  onToggle={() =>
-                    setOpenRow((current) =>
-                      current === `${row.departmentName}:${row.userId}`
-                        ? null
-                        : `${row.departmentName}:${row.userId}`,
-                    )
-                  }
-                  saving={saving}
-                  audience={audience}
-                  onTransition={transitionVacation}
-                />
-              ))}
-              <div className={styles.reports}>
+              <div className={styles.rows}>
+                {person.vacations.map((row) => (
+                  <VacationRow
+                    key={`${row.departmentName}:${row.userId}`}
+                    row={row}
+                    expanded={openRow === `${row.departmentName}:${row.userId}`}
+                    onToggle={() =>
+                      setOpenRow((current) =>
+                        current === `${row.departmentName}:${row.userId}`
+                          ? null
+                          : `${row.departmentName}:${row.userId}`,
+                      )
+                    }
+                    saving={saving}
+                    audience={audience}
+                    onTransition={transitionVacation}
+                    subtitle={row.departmentName}
+                  />
+                ))}
                 {person.overtime.map((report) => (
                   <ReportRow
                     key={report.id}
@@ -279,35 +303,35 @@ export function DepartmentApprovalDashboard({
               <h2>Отпуска и внеурочное время</h2>
             </div>
           </div>
-          {vacationDepartments.flatMap((department) =>
-            department.rows.map((row) => (
-              <VacationRow
-                key={`${department.id}:${row.userId}`}
-                row={row}
-                expanded={openRow === `${department.id}:${row.userId}`}
-                onToggle={() =>
-                  setOpenRow((current) =>
-                    current === `${department.id}:${row.userId}`
-                      ? null
-                      : `${department.id}:${row.userId}`,
-                  )
-                }
-                saving={saving}
-                audience={audience}
-                onTransition={transitionVacation}
-                subtitle={department.name}
-              />
-            )),
-          )}
-          <div className={styles.reports}>
-            {departments.flatMap((department) =>
+          <div className={styles.rows}>
+            {vacationBoards.flatMap((department) =>
+              department.rows.map((row) => (
+                <VacationRow
+                  key={`${department.id}:${row.userId}`}
+                  row={row}
+                  expanded={openRow === `${department.id}:${row.userId}`}
+                  onToggle={() =>
+                    setOpenRow((current) =>
+                      current === `${department.id}:${row.userId}`
+                        ? null
+                        : `${department.id}:${row.userId}`,
+                    )
+                  }
+                  saving={saving}
+                  audience={audience}
+                  onTransition={transitionVacation}
+                  subtitle={department.name}
+                />
+              )),
+            )}
+            {overtimeDepartments.flatMap((department) =>
               department.months.flatMap((month) =>
                 month.reports.map((report) => (
                   <ReportRow
                     key={report.id}
                     report={report}
                     href={overtimeHref(report.id, audience)}
-                    extra={`${department.name} · ${monthNames[month.month - 1]}`}
+                    extra={department.name}
                     canDelete={canDelete}
                     saving={saving === report.id}
                     onDelete={() => removeReport(report.id)}
@@ -321,7 +345,7 @@ export function DepartmentApprovalDashboard({
 
       {group === "department" ? (
         <>
-          {vacationDepartments.map((department) => (
+          {vacationBoards.map((department) => (
             <section
               className={styles.department}
               key={`vacation-${department.id}`}
@@ -336,7 +360,7 @@ export function DepartmentApprovalDashboard({
                   {department.total} отправлено
                 </span>
               </div>
-              <div className={styles.vacationRows}>
+              <div className={styles.rows}>
                 {department.rows.map((row) => (
                   <VacationRow
                     key={row.userId}
@@ -358,7 +382,7 @@ export function DepartmentApprovalDashboard({
             </section>
           ))}
 
-          {departments.map((department) => (
+          {overtimeDepartments.map((department) => (
             <section className={styles.department} key={department.id}>
               <div className={styles.sectionHead}>
                 <div>
@@ -366,14 +390,14 @@ export function DepartmentApprovalDashboard({
                   <h2>{department.name}</h2>
                 </div>
               </div>
-              <div className={styles.quarters}>
+              <div className={styles.months}>
                 {department.months.map((month) => {
                   const complete =
                     month.expectedReports > 0 &&
                     month.readyReports === month.expectedReports;
                   return (
-                    <article className={styles.quarter} key={month.month}>
-                      <div className={styles.quarterHead}>
+                    <article className={styles.month} key={month.month}>
+                      <div className={styles.monthHead}>
                         <div>
                           <strong>{monthNames[month.month - 1]}</strong>
                           <span>
@@ -395,7 +419,7 @@ export function DepartmentApprovalDashboard({
                               : "Сбор данных"}
                         </span>
                       </div>
-                      <div className={styles.reports}>
+                      <div className={styles.rows}>
                         {month.reports.map((report) => (
                           <ReportRow
                             key={report.id}
@@ -564,8 +588,11 @@ function ReportRow({
   return (
     <div className={styles.reportRow}>
       <Link href={href}>
-        <span>{report.fullName}</span>
-        <span>{extra ?? String(report.month).padStart(2, "0")}</span>
+        <span className={styles.rowName}>{report.fullName}</span>
+        <span>
+          {monthNames[report.month - 1]}
+          {extra ? ` · ${extra}` : ""}
+        </span>
         <strong>{report.totalMinutes} мин.</strong>
       </Link>
       {canDelete ? (

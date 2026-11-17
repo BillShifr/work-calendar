@@ -1,6 +1,7 @@
 import ExcelJS from "exceljs";
 import { sql } from "drizzle-orm";
 import { db } from "@/db/client";
+import { shouldExportOvertimeMinutes } from "./overtime-export-policy";
 
 type ExportEmployee = {
   id: string;
@@ -19,6 +20,8 @@ type MonthlyTotal = {
   userId: string;
   year: number;
   month: number;
+  status: string;
+  monthStatus: string | null;
   totalMinutes: number;
 };
 
@@ -95,26 +98,33 @@ export async function buildOvertimeSummaryWorkbook(
     `),
     db.execute<MonthlyTotal>(sql`
       SELECT report.user_id::text AS "userId", report.year, report.month,
+        report.status,
+        approval.status AS "monthStatus",
         COALESCE(SUM(entry.minutes), 0)::int AS "totalMinutes"
       FROM overtime_reports report
-      INNER JOIN department_month_approvals approval
+      LEFT JOIN department_month_approvals approval
         ON approval.department_id = report.department_id
         AND approval.year = report.year
         AND approval.month = report.month
-        AND approval.status = 'approved'
       LEFT JOIN overtime_entries entry ON entry.report_id = report.id
       WHERE report.organization_id = ${organizationId}
         AND report.year BETWEEN ${year - 2} AND ${year}
         AND report.status IN ('submitted','hr_proposed','approved')
-      GROUP BY report.id
+      GROUP BY report.id, approval.status
     `),
   ]);
-  const totals = new Map(
-    monthlyTotals.map((item) => [
-      `${item.userId}:${item.year}:${item.month}`,
-      item.totalMinutes,
-    ]),
-  );
+  const totals = new Map<string, number>();
+  for (const item of monthlyTotals) {
+    if (
+      !shouldExportOvertimeMinutes({
+        reportStatus: item.status,
+        monthApproved: item.monthStatus === "approved",
+      })
+    ) {
+      continue;
+    }
+    totals.set(`${item.userId}:${item.year}:${item.month}`, item.totalMinutes);
+  }
 
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "HR";

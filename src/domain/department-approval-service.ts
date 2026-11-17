@@ -165,46 +165,50 @@ export async function getDepartmentApprovalDashboard(
       ),
   ]);
 
-  return ownedDepartments.map((department) => ({
-    ...department,
-    months: Array.from({ length: 12 }, (_, index) => {
-      const month = index + 1;
-      const assigned = employees.filter(
-        (employee) =>
-          employee.departmentId === department.id && employee.month === month,
-      );
-      const expectedReports = new Set(
-        assigned.map((employee) => employee.userId),
-      ).size;
-      const monthReports = reports.filter(
-        (report) =>
-          report.departmentId === department.id &&
-          report.month === month &&
-          assigned.some((employee) => employee.userId === report.userId),
-      );
-      const readyReports = monthReports.filter((report) =>
-        submittedStatuses.includes(
-          report.status as (typeof submittedStatuses)[number],
-        ),
-      );
-      const approval = approvals.find(
-        (item) => item.departmentId === department.id && item.month === month,
-      );
-      return {
-        month,
-        employeeCount: expectedReports,
-        expectedReports,
-        readyReports: readyReports.length,
-        status: approval?.status ?? "draft",
-        reports: monthReports.map((report) => ({
-          ...report,
-          fullName:
-            assigned.find((employee) => employee.userId === report.userId)
-              ?.fullName ?? "Сотрудник",
-        })),
-      };
-    }).filter((month) => month.expectedReports > 0 || month.reports.length > 0),
-  }));
+  return ownedDepartments
+    .map((department) => ({
+      ...department,
+      months: Array.from({ length: 12 }, (_, index) => {
+        const month = index + 1;
+        const assigned = employees.filter(
+          (employee) =>
+            employee.departmentId === department.id && employee.month === month,
+        );
+        const expectedReports = new Set(
+          assigned.map((employee) => employee.userId),
+        ).size;
+        const monthReports = reports.filter(
+          (report) =>
+            report.departmentId === department.id &&
+            report.month === month &&
+            assigned.some((employee) => employee.userId === report.userId),
+        );
+        const readyReports = monthReports.filter((report) =>
+          submittedStatuses.includes(
+            report.status as (typeof submittedStatuses)[number],
+          ),
+        );
+        const approval = approvals.find(
+          (item) => item.departmentId === department.id && item.month === month,
+        );
+        return {
+          month,
+          employeeCount: expectedReports,
+          expectedReports,
+          readyReports: readyReports.length,
+          status: approval?.status ?? "draft",
+          reports: monthReports.map((report) => ({
+            ...report,
+            fullName:
+              assigned.find((employee) => employee.userId === report.userId)
+                ?.fullName ?? "Сотрудник",
+          })),
+        };
+      }).filter(
+        (month) => month.expectedReports > 0 || month.reports.length > 0,
+      ),
+    }))
+    .filter((department) => department.months.length > 0);
 }
 
 export async function approveDepartmentMonth(input: {

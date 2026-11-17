@@ -96,48 +96,50 @@ export async function getDepartmentVacationBoard(
   }
   const planByUser = new Map(plans.map((plan) => [plan.userId, plan]));
 
-  return ownedDepartments.map((department) => {
-    const rows: VacationBoardRow[] = employees
-      .filter((employee) => employee.departmentId === department.id)
-      .map((employee) => {
-        const plan = planByUser.get(employee.userId);
-        const planPeriods = plan
-          ? (periodsByPlan.get(plan.id) ?? []).map((period) => ({
-              startsOn: period.startsOn,
-              endsOn: period.endsOn,
-              days: periodDays(period),
-            }))
-          : [];
-        const usedDays = planPeriods.reduce(
-          (sum, period) => sum + period.days,
-          0,
-        );
-        return {
-          userId: employee.userId,
-          fullName: employee.fullName,
-          planId: plan?.id ?? null,
-          status: plan?.status ?? "missing",
-          allowanceDays: plan?.allowanceDays ?? 0,
-          usedDays,
-          periodCount: planPeriods.length,
-          periods: planPeriods,
-        };
-      });
-    const awaitingManager = rows.filter(
-      (row) => row.status === "manager_review",
-    ).length;
-    const sent = rows.filter((row) =>
-      ["manager_review", "submitted", "hr_proposed", "approved"].includes(
-        row.status,
-      ),
-    ).length;
-    return {
-      ...department,
-      year,
-      awaitingManager,
-      sent,
-      total: rows.length,
-      rows,
-    };
-  });
+  return ownedDepartments
+    .map((department) => {
+      const rows: VacationBoardRow[] = employees
+        .filter((employee) => employee.departmentId === department.id)
+        .map((employee) => {
+          const plan = planByUser.get(employee.userId);
+          const planPeriods = plan
+            ? (periodsByPlan.get(plan.id) ?? []).map((period) => ({
+                startsOn: period.startsOn,
+                endsOn: period.endsOn,
+                days: periodDays(period),
+              }))
+            : [];
+          const usedDays = planPeriods.reduce(
+            (sum, period) => sum + period.days,
+            0,
+          );
+          return {
+            userId: employee.userId,
+            fullName: employee.fullName,
+            planId: plan?.id ?? null,
+            status: plan?.status ?? "missing",
+            allowanceDays: plan?.allowanceDays ?? 0,
+            usedDays,
+            periodCount: planPeriods.length,
+            periods: planPeriods,
+          };
+        });
+      const awaitingManager = rows.filter(
+        (row) => row.status === "manager_review",
+      ).length;
+      const sent = rows.filter((row) =>
+        ["manager_review", "submitted", "hr_proposed", "approved"].includes(
+          row.status,
+        ),
+      ).length;
+      return {
+        ...department,
+        year,
+        awaitingManager,
+        sent,
+        total: rows.length,
+        rows,
+      };
+    })
+    .filter((department) => department.rows.length > 0);
 }
