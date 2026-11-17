@@ -496,7 +496,7 @@ test("employee and HR complete a bilateral vacation approval", async ({
   await page
     .locator("section")
     .filter({ hasText: "Внеурочное время" })
-    .getByRole("link", { name: /Алексей Морозов 10/ })
+    .getByRole("link", { name: /Алексей Морозов Октябрь/ })
     .click();
   await expect(
     page.getByRole("button", { name: "Утвердить без изменений" }),
@@ -813,6 +813,16 @@ test("HR screens use the shared readable UI system", async ({
   await expect
     .poll(async () => (await vacationExport.boundingBox())?.height ?? 0)
     .toBeGreaterThanOrEqual(40);
+  await page
+    .getByRole("main")
+    .getByRole("link", { name: "Внеурочное время", exact: true })
+    .click();
+  await expect(
+    page.locator("article").filter({ hasText: "Октябрь" }).first(),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: /Алексей Морозов Октябрь/ }),
+  ).toBeVisible();
 });
 
 test("employee opens the organization vacation board", async ({ page }) => {
