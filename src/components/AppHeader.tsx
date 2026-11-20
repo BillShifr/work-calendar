@@ -45,9 +45,13 @@ export function AppHeader({
     <header className={styles.header}>
       <div className={styles.bar}>
         <Link className={styles.brand} href="/overtime">
-          <span className={styles.brandMark} aria-hidden="true">
-            T
-          </span>
+          <img
+            className={styles.brandMark}
+            src="/tfoms-yugra-logo.png"
+            alt=""
+            width={40}
+            height={36}
+          />
           <span>HR</span>
         </Link>
         <nav className={styles.nav} aria-label="Основная навигация">

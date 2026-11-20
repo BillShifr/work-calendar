@@ -28,13 +28,10 @@
 }
 
 .brandMark {
-  display: grid;
-  place-items: center;
-  width: 36px;
+  display: block;
+  width: 40px;
   height: 36px;
-  border-radius: 10px;
-  color: #fff;
-  background: var(--primary);
+  object-fit: contain;
 }
 
 .nav {

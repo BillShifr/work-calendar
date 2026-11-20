@@ -12,7 +12,13 @@ export default async function LoginPage({
   return (
     <main className={styles.page}>
       <section className={styles.intro}>
-        <div className={styles.logo}>HR</div>
+        <img
+          className={styles.logo}
+          src="/tfoms-yugra-logo.png"
+          alt="ТФОМС Югры"
+          width={72}
+          height={64}
+        />
         <div>
           <h1>Учёт рабочего времени</h1>
           <p>Внеурочное время и планирование отпусков</p>
