@@ -97,23 +97,48 @@ function daysWord(count: number) {
   return "дней";
 }
 
+function openingDepartmentIds(
+  departments: OrgVacationMatrixDepartment[],
+  actorUserId: string,
+  focusDepartmentId?: string,
+) {
+  if (
+    focusDepartmentId &&
+    departments.some((department) => department.id === focusDepartmentId)
+  ) {
+    return [focusDepartmentId];
+  }
+  return defaultDepartmentIds(departments, actorUserId);
+}
+
 export function OrgVacationMatrix({
   year,
   actorUserId,
   departments,
+  focusDepartmentId,
+  focusMonth,
+  highlightDate,
 }: {
   year: number;
   actorUserId: string;
   departments: OrgVacationMatrixDepartment[];
+  focusDepartmentId?: string;
+  focusMonth?: number;
+  highlightDate?: string;
 }) {
   const router = useRouter();
   const [boardMode, setBoardMode] = useOrgBoardDisplayMode();
   const colored = boardMode === "color";
   const [departmentIds, setDepartmentIds] = useState(
-    () => new Set(defaultDepartmentIds(departments, actorUserId)),
+    () =>
+      new Set(
+        openingDepartmentIds(departments, actorUserId, focusDepartmentId),
+      ),
   );
   const [userIds, setUserIds] = useState(() => {
-    const initial = new Set(defaultDepartmentIds(departments, actorUserId));
+    const initial = new Set(
+      openingDepartmentIds(departments, actorUserId, focusDepartmentId),
+    );
     return new Set(
       peopleInDepartments(departments, initial).map(
         (employee) => employee.userId,
@@ -137,7 +162,9 @@ export function OrgVacationMatrix({
     [occupancy, year],
   );
   const [month, setMonth] = useState(() =>
-    firstOverlapOrBusyMonth(occupancy, year),
+    focusMonth && focusMonth >= 1 && focusMonth <= 12
+      ? focusMonth
+      : firstOverlapOrBusyMonth(occupancy, year),
   );
   const monthLength = daysInMonth(year, month);
   const [modalDay, setModalDay] = useState<string | null>(null);
@@ -197,11 +224,16 @@ export function OrgVacationMatrix({
     : null;
 
   useLayoutEffect(() => {
-    const anchor = defaultOverlapDay ?? focusDate;
+    const highlighted =
+      highlightDate &&
+      highlightDate.startsWith(`${year}-${String(month).padStart(2, "0")}-`)
+        ? highlightDate
+        : null;
+    const anchor = highlighted ?? defaultOverlapDay ?? focusDate;
     if (!anchor) return;
     const cell = scrollerRef.current?.querySelector(`[data-date="${anchor}"]`);
     cell?.scrollIntoView({ inline: "center", block: "nearest" });
-  }, [defaultOverlapDay, focusDate, month]);
+  }, [defaultOverlapDay, focusDate, highlightDate, month, year]);
 
   function toggleDepartment(id: string, on: boolean) {
     const nextDepartments = new Set(departmentIds);
