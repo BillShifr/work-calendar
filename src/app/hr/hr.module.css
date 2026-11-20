@@ -51,33 +51,41 @@
 .section {
   padding: 14px;
 }
-.sectionHeader {
+.sectionHeader,
+.toolbarMain {
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   gap: 12px 16px;
+}
+.sectionHeader {
   margin-bottom: 10px;
 }
+.toolbar {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.toolbar h2,
 .sectionHeader h2 {
   margin: 0;
   font-size: 20px;
+  line-height: 1.2;
 }
-.sectionActions {
+.exports {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
   justify-content: flex-end;
   gap: 8px;
-  flex: 1 1 640px;
 }
 .export {
   display: inline-flex;
-  min-height: var(--control-height-compact);
+  min-height: var(--control-height);
   align-items: center;
   justify-content: center;
-  gap: 9px;
-  padding: 0 16px;
+  gap: 8px;
+  padding: 0 14px;
   border-radius: var(--radius-small);
   background: var(--action);
   color: white;
@@ -86,26 +94,63 @@
   text-decoration: none;
   white-space: nowrap;
 }
-.filters {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+.export:hover {
+  background: var(--action-hover);
 }
-.filter {
+.toolbarMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 14px 24px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.segmentBlock {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.segmentBlock > span {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+.segment {
+  display: flex;
+  width: fit-content;
+  max-width: 100%;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-small);
+  background: var(--surface);
+}
+.segment a {
   display: inline-flex;
   align-items: center;
   min-height: var(--control-height-compact);
-  padding: 0 16px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-small);
-  background: white;
+  padding: 0 14px;
+  border-right: 1px solid var(--border);
   color: var(--text-muted);
-  font-weight: 700;
   font-size: var(--text-sm);
+  font-weight: 700;
+  line-height: 1.2;
   text-decoration: none;
 }
-.filterActive {
-  border-color: var(--primary);
+.segment a:last-child {
+  border-right: 0;
+}
+.segment a:hover {
+  background: var(--surface-muted);
+  color: var(--text);
+}
+.segment a[aria-current="page"] {
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-weight: 800;
+}
+.segment a[aria-current="page"]:hover {
   background: var(--primary-soft);
   color: var(--primary);
 }

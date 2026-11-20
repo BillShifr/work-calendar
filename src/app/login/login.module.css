@@ -14,9 +14,9 @@
   color: var(--text);
 }
 .logo {
-  color: var(--primary-strong);
-  font-weight: 800;
-  font-size: 18px;
+  display: block;
+  width: 72px;
+  height: auto;
 }
 .intro h1 {
   max-width: 650px;

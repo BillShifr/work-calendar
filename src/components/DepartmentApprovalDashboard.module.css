@@ -1,20 +1,20 @@
 .workspace {
   display: grid;
-  gap: 22px;
+  gap: 16px;
 }
 .yearBar {
   display: flex;
   align-items: center;
-  min-height: 72px;
-  padding: 10px 16px;
+  min-height: 60px;
+  padding: 6px 12px;
   border: 1px solid var(--border-strong);
   background: var(--surface);
 }
 .yearBar a,
 .yearBar strong {
   display: grid;
-  min-width: 64px;
-  min-height: 52px;
+  min-width: 52px;
+  min-height: 44px;
   place-items: center;
   color: var(--text);
   text-decoration: none;
@@ -37,7 +37,7 @@
   align-items: start;
   justify-content: space-between;
   gap: 16px;
-  padding: 22px 24px;
+  padding: 16px 20px 14px;
   border-bottom: 1px solid var(--border);
 }
 .sectionHead h2 {
@@ -63,45 +63,72 @@
   border-bottom: 0;
 }
 .vacationMain,
-.reportRow a {
+.reportRow {
   display: grid;
-  gap: 12px;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) 124px 44px;
+  column-gap: 12px;
   align-items: center;
   width: 100%;
   min-height: 56px;
-  padding: 12px 24px;
+  padding: 4px 8px 4px 20px;
   color: var(--text);
   text-align: left;
-  text-decoration: none;
 }
 .vacationMain {
-  grid-template-columns:
-    minmax(180px, 1.5fr) 88px 72px minmax(110px, 0.9fr)
-    28px;
   border: 0;
   background: transparent;
   cursor: pointer;
 }
 .reportRow a {
-  grid-template-columns: minmax(180px, 1.5fr) minmax(160px, 1.2fr) 88px;
+  display: grid;
+  grid-template-columns: subgrid;
+  grid-column: 1 / 4;
+  align-items: center;
+  column-gap: 12px;
+  min-width: 0;
+  min-height: 48px;
+  color: inherit;
+  text-decoration: none;
 }
-.vacationMain:hover,
-.reportRow a:hover {
+.vacationRow:hover .vacationMain,
+.reportRow:hover {
   background: var(--surface-muted);
 }
-.vacationMain span,
-.reportRow a span {
-  color: var(--text-muted);
-  font-size: var(--text-sm);
-}
-.vacationMain .vacationName,
-.reportRow a .rowName {
+.lineName {
+  display: grid;
+  min-width: 0;
   color: var(--text);
   font-weight: 700;
 }
-.vacationName small {
-  font-weight: 650;
+.lineName > span,
+.lineName small,
+.lineMeta {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lineName small,
+.lineMeta {
   color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: 650;
+}
+.lineMetric {
+  justify-self: end;
+  color: var(--text);
+  font-size: var(--text-sm);
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.vacationMain svg,
+.lineTrail {
+  justify-self: center;
+  color: var(--text-muted);
+}
+.vacationMain svg {
+  transition: transform 160ms ease;
 }
 .chevronOpen {
   transform: rotate(180deg);
@@ -109,7 +136,7 @@
 .vacationDetail {
   display: grid;
   gap: 14px;
-  padding: 0 24px 18px;
+  padding: 0 20px 16px 20px;
 }
 .vacationDetail ul {
   display: grid;
@@ -152,7 +179,7 @@
   align-items: start;
   justify-content: space-between;
   gap: 16px;
-  padding: 0 24px;
+  padding: 0 20px;
 }
 .monthHead > div {
   display: grid;
@@ -174,15 +201,6 @@
 .pending {
   color: var(--primary) !important;
 }
-.reportRow {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  padding-right: 16px;
-}
-.reportRow a {
-  min-width: 0;
-}
 .openLink {
   display: inline-flex;
   min-height: 44px;
@@ -192,7 +210,81 @@
 }
 .month > button {
   justify-self: end;
-  margin: 0 24px 0 0;
+  margin: 0 20px 0 0;
+}
+.boardTools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.boardTools input,
+.boardTools select {
+  min-height: var(--control-height-compact);
+  min-width: 0;
+  padding: 0 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-small);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--text-sm);
+}
+.boardTools input {
+  flex: 1 1 220px;
+}
+.boardTools input::placeholder {
+  color: var(--text-faint);
+}
+.boardTools select {
+  flex: 0 1 240px;
+}
+.sectionToggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 20px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--text-base);
+  font-weight: 800;
+  text-align: left;
+  cursor: pointer;
+}
+.sectionToggle:hover {
+  background: var(--surface-muted);
+}
+.sectionToggle small {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.sectionToggle svg {
+  margin-left: auto;
+  color: var(--text-muted);
+  transition: transform 160ms ease;
+}
+.split {
+  border-top: 1px solid var(--border-strong);
+}
+.lineDelete {
+  color: var(--text-muted);
+}
+.reportRow button.lineDelete:hover:not(:disabled) {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+.emptyInline {
+  margin: 0;
+  padding: 14px 20px 16px;
+  color: var(--text-muted);
 }
 .empty {
   margin: 0;
@@ -203,17 +295,8 @@
 }
 @media (max-width: 800px) {
   .vacationMain,
-  .reportRow a {
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 8px 16px;
-  }
-  .vacationMain span:nth-child(n + 2),
-  .reportRow a span:nth-child(n + 2),
-  .reportRow a strong {
-    grid-column: 1;
-  }
-  .vacationMain svg {
-    grid-column: 2;
-    grid-row: 1;
+  .reportRow {
+    padding-left: 12px;
+    column-gap: 8px;
   }
 }

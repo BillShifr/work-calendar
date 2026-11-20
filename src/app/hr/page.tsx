@@ -181,54 +181,71 @@ export default async function HrPage({
       </dl>
       <div className={styles.dashboard}>
         <section className={`card ${styles.section}`}>
-          <div className={styles.sectionHeader}>
-            <h2>Согласования</h2>
-            <div className={styles.sectionActions}>
-              <div className={styles.filters}>
-                <Link
-                  href={hrefBase({ type: "" })}
-                  className={`${styles.filter} ${!selectedType ? styles.filterActive : ""}`}
+          <div className={styles.toolbar}>
+            <div className={styles.toolbarMain}>
+              <h2>Согласования</h2>
+              <div className={styles.exports}>
+                <a
+                  className={styles.export}
+                  href={`/api/hr/export/vacations?year=${vacationExportYear}`}
                 >
-                  Все
-                </Link>
-                <Link
-                  href={hrefBase({ type: "overtime" })}
-                  className={`${styles.filter} ${selectedType === "overtime" ? styles.filterActive : ""}`}
+                  <Download aria-hidden="true" size={18} />
+                  Выгрузить отпуска
+                </a>
+                <a
+                  className={styles.export}
+                  href={`/api/hr/export/overtime?year=${year}`}
                 >
-                  Внеурочное время
-                </Link>
-                <Link
-                  href={hrefBase({ type: "vacation" })}
-                  className={`${styles.filter} ${selectedType === "vacation" ? styles.filterActive : ""}`}
-                >
-                  Отпуска
-                </Link>
+                  <Download aria-hidden="true" size={18} />
+                  Выгрузить внеурочное время
+                </a>
               </div>
-              <div className={styles.filters}>
-                {groups.map((group) => (
-                  <Link
-                    key={group.id}
-                    href={hrefBase({ group: group.id })}
-                    className={`${styles.filter} ${selectedGroup === group.id ? styles.filterActive : ""}`}
-                  >
-                    {group.label}
-                  </Link>
-                ))}
+            </div>
+            <div className={styles.toolbarMeta}>
+              <div className={styles.segmentBlock}>
+                <span>Состав</span>
+                <nav
+                  className={styles.segment}
+                  aria-label="Состав согласований"
+                >
+                  {(
+                    [
+                      ["", "Все"],
+                      ["overtime", "Внеурочное время"],
+                      ["vacation", "Отпуска"],
+                    ] as const
+                  ).map(([type, label]) => (
+                    <Link
+                      key={label}
+                      href={hrefBase({ type })}
+                      aria-current={
+                        (type || undefined) === selectedType ||
+                        (!type && !selectedType)
+                          ? "page"
+                          : undefined
+                      }
+                    >
+                      {label}
+                    </Link>
+                  ))}
+                </nav>
               </div>
-              <a
-                className={styles.export}
-                href={`/api/hr/export/vacations?year=${vacationExportYear}`}
-              >
-                <Download aria-hidden="true" size={19} />
-                Выгрузить отпуска
-              </a>
-              <a
-                className={styles.export}
-                href={`/api/hr/export/overtime?year=${year}`}
-              >
-                <Download aria-hidden="true" size={19} />
-                Выгрузить внеурочное время
-              </a>
+              <div className={styles.segmentBlock}>
+                <span>Вид</span>
+                <nav className={styles.segment} aria-label="Группировка">
+                  {groups.map((group) => (
+                    <Link
+                      key={group.id}
+                      href={hrefBase({ group: group.id })}
+                      aria-current={
+                        selectedGroup === group.id ? "page" : undefined
+                      }
+                    >
+                      {group.label}
+                    </Link>
+                  ))}
+                </nav>
+              </div>
             </div>
           </div>
           <DepartmentApprovalDashboard
