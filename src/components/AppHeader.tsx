@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
@@ -45,12 +46,13 @@ export function AppHeader({
     <header className={styles.header}>
       <div className={styles.bar}>
         <Link className={styles.brand} href="/overtime">
-          <img
+          <Image
             className={styles.brandMark}
             src="/tfoms-yugra-logo.png"
             alt=""
             width={40}
             height={36}
+            priority
           />
           <span>HR</span>
         </Link>

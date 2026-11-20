@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth";
 import styles from "./login.module.css";
@@ -12,12 +13,13 @@ export default async function LoginPage({
   return (
     <main className={styles.page}>
       <section className={styles.intro}>
-        <img
+        <Image
           className={styles.logo}
           src="/tfoms-yugra-logo.png"
           alt="ТФОМС Югры"
           width={72}
           height={64}
+          priority
         />
         <div>
           <h1>Учёт рабочего времени</h1>
