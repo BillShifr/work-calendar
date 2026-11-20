@@ -16,7 +16,7 @@ import {
   vacationBoardStatusLabel,
   type VacationBoardRow,
 } from "@/domain/department-vacation-board-shared";
-import { ActionButton } from "./FormControls";
+import { ActionButton, IconButton } from "./FormControls";
 import styles from "./DepartmentApprovalDashboard.module.css";
 
 const monthNames = [
@@ -654,22 +654,22 @@ function VacationRow({
         aria-expanded={expanded}
         onClick={onToggle}
       >
-        <span className={styles.vacationName}>
-          {row.fullName}
-          {subtitle ? <small> · {subtitle}</small> : null}
+        <span className={styles.lineName}>
+          <span>{row.fullName}</span>
+          {subtitle ? <small>{subtitle}</small> : null}
         </span>
-        <span>
-          {row.usedDays}/{row.allowanceDays || "—"} дн.
+        <span className={styles.lineMeta}>
+          {row.usedDays}/{row.allowanceDays || "—"} дн. · {row.periodCount} пер.
         </span>
-        <span>{row.periodCount} пер.</span>
         <strong
-          className={
+          className={[
+            styles.lineMetric,
             row.status === "manager_review"
               ? styles.pending
               : row.status === "approved"
                 ? styles.approved
-                : undefined
-          }
+                : "",
+          ].join(" ")}
         >
           {vacationBoardStatusLabel(row.status)}
         </strong>
@@ -754,26 +754,31 @@ function ReportRow({
   saving: boolean;
   onDelete: () => void;
 }) {
+  const meta = extra
+    ? `${monthNames[report.month - 1]} · ${extra}`
+    : monthNames[report.month - 1];
   return (
     <div className={styles.reportRow}>
       <Link href={href}>
-        <span className={styles.rowName}>{report.fullName}</span>
-        <span>
-          {monthNames[report.month - 1]}
-          {extra ? ` · ${extra}` : ""}
+        <span className={styles.lineName}>
+          <span>{report.fullName}</span>
         </span>
-        <strong>{report.totalMinutes} мин.</strong>
+        <span className={styles.lineMeta}>{meta}</span>
+        <strong className={styles.lineMetric}>
+          {report.totalMinutes} мин.
+        </strong>
       </Link>
       {canDelete ? (
-        <ActionButton
-          variant="quiet"
+        <IconButton
+          className={styles.lineDelete}
+          label="Удалить"
           icon={Trash2}
           disabled={saving}
           onClick={onDelete}
-        >
-          Удалить
-        </ActionButton>
-      ) : null}
+        />
+      ) : (
+        <span className={styles.lineTrail} />
+      )}
     </div>
   );
 }

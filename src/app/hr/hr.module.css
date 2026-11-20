@@ -64,13 +64,14 @@
 }
 .toolbar {
   display: grid;
-  gap: 12px;
-  margin-bottom: 14px;
+  gap: 10px;
+  margin-bottom: 12px;
 }
 .toolbar h2,
 .sectionHeader h2 {
   margin: 0;
   font-size: 20px;
+  line-height: 1.2;
 }
 .exports {
   display: flex;
@@ -93,30 +94,34 @@
   text-decoration: none;
   white-space: nowrap;
 }
+.export:hover {
+  background: var(--action-hover);
+}
 .toolbarMeta {
   display: flex;
   flex-wrap: wrap;
   align-items: end;
-  gap: 16px 28px;
-  padding-top: 12px;
+  gap: 14px 24px;
+  padding-top: 10px;
   border-top: 1px solid var(--border);
 }
 .segmentBlock {
   display: grid;
   gap: 6px;
+  min-width: 0;
 }
 .segmentBlock > span {
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 750;
   letter-spacing: 0.04em;
+  line-height: 1.2;
   text-transform: uppercase;
 }
 .segment {
   display: flex;
   width: fit-content;
   max-width: 100%;
-  flex-wrap: wrap;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-small);
   background: var(--surface);
@@ -124,18 +129,28 @@
 .segment a {
   display: inline-flex;
   align-items: center;
-  min-height: 36px;
-  padding: 0 12px;
+  min-height: var(--control-height-compact);
+  padding: 0 14px;
   border-right: 1px solid var(--border);
   color: var(--text-muted);
   font-size: var(--text-sm);
   font-weight: 700;
+  line-height: 1.2;
   text-decoration: none;
 }
 .segment a:last-child {
   border-right: 0;
 }
+.segment a:hover {
+  background: var(--surface-muted);
+  color: var(--text);
+}
 .segment a[aria-current="page"] {
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-weight: 800;
+}
+.segment a[aria-current="page"]:hover {
   background: var(--primary-soft);
   color: var(--primary);
 }
