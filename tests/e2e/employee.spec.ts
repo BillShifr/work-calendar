@@ -493,11 +493,7 @@ test("employee and HR complete a bilateral vacation approval", async ({
     .getByRole("main")
     .getByRole("link", { name: "Все", exact: true })
     .click();
-  await page
-    .locator("section")
-    .filter({ hasText: "Внеурочное время" })
-    .getByRole("link", { name: /Алексей Морозов Октябрь/ })
-    .click();
+  await page.getByRole("link", { name: /Алексей Морозов Октябрь/ }).click();
   await expect(
     page.getByRole("button", { name: "Утвердить без изменений" }),
   ).toBeVisible();
@@ -823,6 +819,21 @@ test("HR screens use the shared readable UI system", async ({
   await expect(
     page.getByRole("link", { name: /Алексей Морозов Октябрь/ }),
   ).toBeVisible();
+  await page.getByRole("link", { name: "Все", exact: true }).click();
+  await page.getByRole("link", { name: "Все скопом", exact: true }).click();
+  const vacationSection = page.getByRole("button", { name: /^Отпуска/ });
+  const overtimeSection = page.getByRole("button", {
+    name: /^Внеурочное время/,
+  });
+  await expect(vacationSection).toBeVisible();
+  await expect(overtimeSection).toBeVisible();
+  await vacationSection.click();
+  await expect(vacationSection).toHaveAttribute("aria-expanded", "false");
+  await page.getByLabel("Фильтр по фамилии или отделу").fill("Алексей");
+  await expect(
+    page.getByRole("link", { name: /Алексей Морозов Октябрь/ }),
+  ).toBeVisible();
+  await page.getByLabel("Сортировка").selectOption("department");
 });
 
 test("employee opens the organization vacation board", async ({ page }) => {

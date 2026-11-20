@@ -76,6 +76,35 @@ const formatDay = (value: string) =>
 const formatPeriod = (startsOn: string, endsOn: string) =>
   `${formatDay(startsOn)} — ${formatDay(endsOn)}`;
 
+function matchesQuery(needle: string, name: string, department: string) {
+  if (!needle) return true;
+  return (
+    name.toLocaleLowerCase("ru").includes(needle) ||
+    department.toLocaleLowerCase("ru").includes(needle)
+  );
+}
+
+function attentionRank(status: string) {
+  if (["submitted", "reopened", "manager_review"].includes(status)) return 0;
+  if (status === "hr_proposed") return 1;
+  if (status === "approved") return 3;
+  return 2;
+}
+
+function compareRows(
+  sort: "name" | "department" | "attention",
+  left: { name: string; department: string; rank: number; month: number },
+  right: { name: string; department: string; rank: number; month: number },
+) {
+  const byName =
+    left.name.localeCompare(right.name, "ru") || left.month - right.month;
+  if (sort === "department") {
+    return left.department.localeCompare(right.department, "ru") || byName;
+  }
+  if (sort === "attention") return left.rank - right.rank || byName;
+  return byName;
+}
+
 function overtimeHref(reportId: string, audience: "manager" | "hr") {
   return audience === "hr"
     ? `/hr/overtime/${reportId}`
@@ -109,6 +138,12 @@ export function DepartmentApprovalDashboard({
   const [saving, setSaving] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [openRow, setOpenRow] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<"name" | "department" | "attention">("name");
+  const [openSections, setOpenSections] = useState({
+    vacation: true,
+    overtime: true,
+  });
 
   async function approve(departmentId: string, month: number) {
     const key = `${departmentId}:${month}`;
@@ -228,6 +263,69 @@ export function DepartmentApprovalDashboard({
     );
   }, [overtimeDepartments, vacationBoards]);
 
+  const allVacations = useMemo(() => {
+    const needle = query.trim().toLocaleLowerCase("ru");
+    return vacationBoards
+      .flatMap((department) =>
+        department.rows.map((row) => ({
+          ...row,
+          departmentId: department.id,
+          departmentName: department.name,
+        })),
+      )
+      .filter((row) => matchesQuery(needle, row.fullName, row.departmentName))
+      .sort((left, right) =>
+        compareRows(
+          sort,
+          {
+            name: left.fullName,
+            department: left.departmentName,
+            rank: attentionRank(left.status),
+            month: 0,
+          },
+          {
+            name: right.fullName,
+            department: right.departmentName,
+            rank: attentionRank(right.status),
+            month: 0,
+          },
+        ),
+      );
+  }, [query, sort, vacationBoards]);
+
+  const allOvertime = useMemo(() => {
+    const needle = query.trim().toLocaleLowerCase("ru");
+    return overtimeDepartments
+      .flatMap((department) =>
+        department.months.flatMap((month) =>
+          month.reports.map((report) => ({
+            ...report,
+            departmentName: department.name,
+          })),
+        ),
+      )
+      .filter((report) =>
+        matchesQuery(needle, report.fullName, report.departmentName),
+      )
+      .sort((left, right) =>
+        compareRows(
+          sort,
+          {
+            name: left.fullName,
+            department: left.departmentName,
+            rank: attentionRank(left.status),
+            month: left.month,
+          },
+          {
+            name: right.fullName,
+            department: right.departmentName,
+            rank: attentionRank(right.status),
+            month: right.month,
+          },
+        ),
+      );
+  }, [overtimeDepartments, query, sort]);
+
   return (
     <div className={styles.workspace}>
       <div className={styles.yearBar}>
@@ -297,49 +395,120 @@ export function DepartmentApprovalDashboard({
 
       {group === "all" ? (
         <section className={styles.department}>
-          <div className={styles.sectionHead}>
-            <div>
-              <p className={styles.eyebrow}>Все согласования</p>
-              <h2>Отпуска и внеурочное время</h2>
-            </div>
+          <div className={styles.boardTools}>
+            <input
+              value={query}
+              aria-label="Фильтр по фамилии или отделу"
+              placeholder="ФИО или отдел"
+              onChange={(event) => setQuery(event.target.value)}
+            />
+            <select
+              aria-label="Сортировка"
+              value={sort}
+              onChange={(event) => setSort(event.target.value as typeof sort)}
+            >
+              <option value="name">По фамилии</option>
+              <option value="department">По отделу</option>
+              <option value="attention">Сначала ждут решения</option>
+            </select>
           </div>
-          <div className={styles.rows}>
-            {vacationBoards.flatMap((department) =>
-              department.rows.map((row) => (
-                <VacationRow
-                  key={`${department.id}:${row.userId}`}
-                  row={row}
-                  expanded={openRow === `${department.id}:${row.userId}`}
-                  onToggle={() =>
-                    setOpenRow((current) =>
-                      current === `${department.id}:${row.userId}`
-                        ? null
-                        : `${department.id}:${row.userId}`,
-                    )
+          {vacationBoards.length ? (
+            <section>
+              <button
+                type="button"
+                className={styles.sectionToggle}
+                aria-expanded={openSections.vacation}
+                onClick={() =>
+                  setOpenSections((current) => ({
+                    ...current,
+                    vacation: !current.vacation,
+                  }))
+                }
+              >
+                <span>Отпуска</span>
+                <small>{allVacations.length}</small>
+                <ChevronDown
+                  aria-hidden="true"
+                  size={18}
+                  className={
+                    openSections.vacation ? styles.chevronOpen : undefined
                   }
-                  saving={saving}
-                  audience={audience}
-                  onTransition={transitionVacation}
-                  subtitle={department.name}
                 />
-              )),
-            )}
-            {overtimeDepartments.flatMap((department) =>
-              department.months.flatMap((month) =>
-                month.reports.map((report) => (
-                  <ReportRow
-                    key={report.id}
-                    report={report}
-                    href={overtimeHref(report.id, audience)}
-                    extra={department.name}
-                    canDelete={canDelete}
-                    saving={saving === report.id}
-                    onDelete={() => removeReport(report.id)}
-                  />
-                )),
-              ),
-            )}
-          </div>
+              </button>
+              {openSections.vacation ? (
+                <div className={styles.rows}>
+                  {allVacations.length ? (
+                    allVacations.map((row) => (
+                      <VacationRow
+                        key={`${row.departmentId}:${row.userId}`}
+                        row={row}
+                        expanded={
+                          openRow === `${row.departmentId}:${row.userId}`
+                        }
+                        onToggle={() =>
+                          setOpenRow((current) =>
+                            current === `${row.departmentId}:${row.userId}`
+                              ? null
+                              : `${row.departmentId}:${row.userId}`,
+                          )
+                        }
+                        saving={saving}
+                        audience={audience}
+                        onTransition={transitionVacation}
+                        subtitle={row.departmentName}
+                      />
+                    ))
+                  ) : (
+                    <p className={styles.emptyInline}>Ничего не найдено</p>
+                  )}
+                </div>
+              ) : null}
+            </section>
+          ) : null}
+          {overtimeDepartments.length ? (
+            <section className={styles.split}>
+              <button
+                type="button"
+                className={styles.sectionToggle}
+                aria-expanded={openSections.overtime}
+                onClick={() =>
+                  setOpenSections((current) => ({
+                    ...current,
+                    overtime: !current.overtime,
+                  }))
+                }
+              >
+                <span>Внеурочное время</span>
+                <small>{allOvertime.length}</small>
+                <ChevronDown
+                  aria-hidden="true"
+                  size={18}
+                  className={
+                    openSections.overtime ? styles.chevronOpen : undefined
+                  }
+                />
+              </button>
+              {openSections.overtime ? (
+                <div className={styles.rows}>
+                  {allOvertime.length ? (
+                    allOvertime.map((report) => (
+                      <ReportRow
+                        key={report.id}
+                        report={report}
+                        href={overtimeHref(report.id, audience)}
+                        extra={report.departmentName}
+                        canDelete={canDelete}
+                        saving={saving === report.id}
+                        onDelete={() => removeReport(report.id)}
+                      />
+                    ))
+                  ) : (
+                    <p className={styles.emptyInline}>Ничего не найдено</p>
+                  )}
+                </div>
+              ) : null}
+            </section>
+          ) : null}
         </section>
       ) : null}
 

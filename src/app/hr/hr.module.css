@@ -51,33 +51,40 @@
 .section {
   padding: 14px;
 }
-.sectionHeader {
+.sectionHeader,
+.toolbarMain {
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   gap: 12px 16px;
+}
+.sectionHeader {
   margin-bottom: 10px;
 }
+.toolbar {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.toolbar h2,
 .sectionHeader h2 {
   margin: 0;
   font-size: 20px;
 }
-.sectionActions {
+.exports {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
   justify-content: flex-end;
   gap: 8px;
-  flex: 1 1 640px;
 }
 .export {
   display: inline-flex;
-  min-height: var(--control-height-compact);
+  min-height: var(--control-height);
   align-items: center;
   justify-content: center;
-  gap: 9px;
-  padding: 0 16px;
+  gap: 8px;
+  padding: 0 14px;
   border-radius: var(--radius-small);
   background: var(--action);
   color: white;
@@ -86,26 +93,49 @@
   text-decoration: none;
   white-space: nowrap;
 }
-.filters {
+.toolbarMeta {
   display: flex;
-  gap: 8px;
   flex-wrap: wrap;
+  align-items: end;
+  gap: 16px 28px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
 }
-.filter {
+.segmentBlock {
+  display: grid;
+  gap: 6px;
+}
+.segmentBlock > span {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.segment {
+  display: flex;
+  width: fit-content;
+  max-width: 100%;
+  flex-wrap: wrap;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-small);
+  background: var(--surface);
+}
+.segment a {
   display: inline-flex;
   align-items: center;
-  min-height: var(--control-height-compact);
-  padding: 0 16px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-small);
-  background: white;
+  min-height: 36px;
+  padding: 0 12px;
+  border-right: 1px solid var(--border);
   color: var(--text-muted);
-  font-weight: 700;
   font-size: var(--text-sm);
+  font-weight: 700;
   text-decoration: none;
 }
-.filterActive {
-  border-color: var(--primary);
+.segment a:last-child {
+  border-right: 0;
+}
+.segment a[aria-current="page"] {
   background: var(--primary-soft);
   color: var(--primary);
 }
