@@ -297,9 +297,21 @@ export type OverlapRun = {
   people: OverlapPersonDetail[];
 };
 
+export type OrgOccupancyByDate = Map<
+  string,
+  Array<{ userId: string; fullName: string }>
+>;
+
+type OverlapRunDraft = {
+  key: string;
+  startDay: number;
+  startsOn: string;
+  people: OverlapPersonDetail[];
+};
+
 export function overlapRunsInMonth(
   people: OrgVacationBoardPerson[],
-  occupancy: Map<string, string[]>,
+  occupancy: OrgOccupancyByDate,
   year: number,
   month: number,
   monthLength: number,
@@ -307,23 +319,19 @@ export function overlapRunsInMonth(
   const runs: OverlapRun[] = [];
   const prefix = `${year}-${String(month).padStart(2, "0")}-`;
   const dateFor = (day: number) => `${prefix}${String(day).padStart(2, "0")}`;
-  let open: {
-    key: string;
-    startDay: number;
-    startsOn: string;
-    people: OverlapPersonDetail[];
-  } | null = null;
+  let openRun: OverlapRunDraft | null = null;
 
   const close = (endDay: number) => {
-    if (!open) return;
+    const draft = openRun;
+    if (!draft) return;
     runs.push({
-      startsOn: open.startsOn,
+      startsOn: draft.startsOn,
       endsOn: dateFor(endDay),
-      startDay: open.startDay,
-      dayCount: endDay - open.startDay + 1,
-      people: open.people,
+      startDay: draft.startDay,
+      dayCount: endDay - draft.startDay + 1,
+      people: draft.people,
     });
-    open = null;
+    openRun = null;
   };
 
   for (let day = 1; day <= monthLength; day += 1) {
@@ -337,9 +345,9 @@ export function overlapRunsInMonth(
       .map((person) => person.userId)
       .sort()
       .join("\0");
-    if (open?.key === key) continue;
+    if (openRun !== null && openRun.key === key) continue;
     close(day - 1);
-    open = {
+    openRun = {
       key,
       startDay: day,
       startsOn: date,

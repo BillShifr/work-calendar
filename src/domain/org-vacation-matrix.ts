@@ -29,6 +29,7 @@ export {
   orgOccupancyByDate,
   overlapDetailsForDate,
   overlapRunsInMonth,
+  type OrgOccupancyByDate,
   peakOccupancyByMonth,
   peopleInDepartments,
   periodCoveringDate,
