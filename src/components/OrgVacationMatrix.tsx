@@ -24,7 +24,7 @@ import {
   firstOverlapDayInMonth,
   firstOverlapOrBusyMonth,
   orgOccupancyByDate,
-  overlapDetailsForDate,
+  overlapRunsInMonth,
   peakOccupancyByMonth,
   peopleInDepartments,
   sortBoardPeopleForMonth,
@@ -97,6 +97,21 @@ function daysWord(count: number) {
   return "дней";
 }
 
+function peopleWord(count: number) {
+  const mod10 = count % 10;
+  const mod100 = count % 100;
+  if (mod10 === 1 && mod100 !== 11) return "человек";
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) {
+    return "человека";
+  }
+  return "человек";
+}
+
+function personInitial(fullName: string) {
+  const surname = fullName.trim().split(/\s+/)[0] ?? "";
+  return surname.slice(0, 1).toLocaleUpperCase("ru");
+}
+
 function openingDepartmentIds(
   departments: OrgVacationMatrixDepartment[],
   actorUserId: string,
@@ -167,13 +182,7 @@ export function OrgVacationMatrix({
       : firstOverlapOrBusyMonth(occupancy, year),
   );
   const monthLength = daysInMonth(year, month);
-  const [modalDay, setModalDay] = useState<string | null>(null);
-  const [hoverTip, setHoverTip] = useState<{
-    date: string;
-    days: number;
-    x: number;
-    y: number;
-  } | null>(null);
+  const [selectedStart, setSelectedStart] = useState<string | null>(null);
   const absentByPerson = useMemo(
     () =>
       new Map(
@@ -218,10 +227,29 @@ export function OrgVacationMatrix({
       null
     );
   }, [month, monthLength, occupancy, year]);
-  const activeDay = hoverTip?.date ?? modalDay ?? defaultOverlapDay;
-  const modalDetails = modalDay
-    ? overlapDetailsForDate(people, modalDay)
-    : null;
+  const runs = useMemo(
+    () => overlapRunsInMonth(people, occupancy, year, month, monthLength),
+    [month, monthLength, occupancy, people, year],
+  );
+  const overlapDates = useMemo(() => {
+    const dates = new Set<string>();
+    for (const run of runs) {
+      for (
+        let day = run.startDay;
+        day < run.startDay + run.dayCount;
+        day += 1
+      ) {
+        dates.add(iso(year, month, day));
+      }
+    }
+    return dates;
+  }, [month, runs, year]);
+  const selectedRun =
+    runs.find((run) => run.startsOn === selectedStart) ?? null;
+  const fromCard = Boolean(
+    highlightDate &&
+    highlightDate.startsWith(`${year}-${String(month).padStart(2, "0")}-`),
+  );
 
   useLayoutEffect(() => {
     const highlighted =
@@ -250,8 +278,7 @@ export function OrgVacationMatrix({
     }
     setDepartmentIds(nextDepartments);
     setUserIds(nextUsers);
-    setHoverTip(null);
-    setModalDay(null);
+    setSelectedStart(null);
   }
 
   function dayTone(date: string) {
@@ -264,40 +291,14 @@ export function OrgVacationMatrix({
 
   function pickMonth(next: number) {
     setMonth(next);
-    setHoverTip(null);
-    setModalDay(null);
+    setSelectedStart(null);
   }
 
   function pickDay(date: string) {
-    setHoverTip(null);
-    if ((occupancy.get(date)?.length ?? 0) > 1) setModalDay(date);
-  }
-
-  function inspectDay(date: string, target: HTMLElement) {
-    const details = overlapDetailsForDate(people, date);
-    if (details.people.length < 2 || details.spanDays < 1) {
-      setHoverTip(null);
-      return;
-    }
-    const rect = target.getBoundingClientRect();
-    setHoverTip({
-      date,
-      days: details.spanDays,
-      x: rect.left + rect.width / 2,
-      y: rect.top,
-    });
-  }
-
-  function overlapRun(date: string, day: number) {
-    const count = occupancy.get(date)?.length ?? 0;
-    if (count < 2) return { overlap: false, start: false, end: false };
-    const prev = day > 1 ? iso(year, month, day - 1) : "";
-    const next = day < monthLength ? iso(year, month, day + 1) : "";
-    return {
-      overlap: true,
-      start: (occupancy.get(prev)?.length ?? 0) < 2,
-      end: (occupancy.get(next)?.length ?? 0) < 2,
-    };
+    const run = runs.find(
+      (item) => item.startsOn <= date && date <= item.endsOn,
+    );
+    setSelectedStart(run?.startsOn ?? null);
   }
 
   function personPeriodClass(
@@ -307,6 +308,7 @@ export function OrgVacationMatrix({
     nextAbsent: boolean,
   ) {
     const classes = [styles.cell, dayTone(date)];
+    if (overlapDates.has(date)) classes.push(styles.overlapShaft);
     if (absent) {
       classes.push(styles.period);
       if (!prevAbsent) classes.push(styles.periodStart);
@@ -353,8 +355,7 @@ export function OrgVacationMatrix({
                 ),
               ),
             );
-            setHoverTip(null);
-            setModalDay(null);
+            setSelectedStart(null);
           }}
         />
         <OptionPicker
@@ -369,8 +370,7 @@ export function OrgVacationMatrix({
             if (on) next.add(id);
             else next.delete(id);
             setUserIds(next);
-            setHoverTip(null);
-            setModalDay(null);
+            setSelectedStart(null);
           }}
           onToggleAll={(on) => {
             setUserIds(
@@ -378,8 +378,7 @@ export function OrgVacationMatrix({
                 on ? peopleOptions.map((employee) => employee.userId) : [],
               ),
             );
-            setHoverTip(null);
-            setModalDay(null);
+            setSelectedStart(null);
           }}
         />
         <div className={styles.mode}>
@@ -426,22 +425,53 @@ export function OrgVacationMatrix({
         <div
           className={styles.board}
           data-mode={boardMode}
+          data-arrive={fromCard ? "true" : "false"}
           role="region"
           aria-label="Календарь отпусков организации"
         >
-          <div
-            className={styles.scroll}
-            ref={scrollerRef}
-            onPointerLeave={() => setHoverTip(null)}
-            onScroll={() => setHoverTip(null)}
-          >
+          <div className={styles.scroll} ref={scrollerRef}>
             <div
               className={styles.table}
               style={{ gridTemplateColumns: columns }}
               role="table"
               aria-label={`Сотрудники за ${MONTHS[month - 1]}`}
             >
-              <div className={styles.row} role="row">
+              <div className={`${styles.row} ${styles.bracketRow}`} role="row">
+                <div className={styles.nameHead} />
+                {runs.map((run) => {
+                  const shown = run.people.slice(0, 3);
+                  const extra = run.people.length - shown.length;
+                  return (
+                    <button
+                      key={run.startsOn}
+                      type="button"
+                      className={styles.bracket}
+                      data-short={run.dayCount < 3 ? "true" : "false"}
+                      style={{
+                        gridColumn: `${run.startDay + 1} / span ${run.dayCount}`,
+                      }}
+                      aria-pressed={selectedStart === run.startsOn}
+                      aria-label={`${run.people.length} ${peopleWord(run.people.length)}, ${run.dayCount} ${daysWord(run.dayCount)}, ${formatRange(run.startsOn, run.endsOn)}`}
+                      onClick={() => setSelectedStart(run.startsOn)}
+                    >
+                      <span className={styles.pile} aria-hidden="true">
+                        {shown.map((person) => (
+                          <span className={styles.avatar} key={person.userId}>
+                            {personInitial(person.fullName)}
+                          </span>
+                        ))}
+                        {extra > 0 ? (
+                          <span className={styles.pileMore}>+{extra}</span>
+                        ) : null}
+                      </span>
+                      <span className={styles.bracketText}>
+                        {run.dayCount} {daysWord(run.dayCount)}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className={`${styles.row} ${styles.dayRow}`} role="row">
                 <div className={styles.nameHead}>Сотрудник</div>
                 {Array.from({ length: monthLength }, (_, index) => {
                   const day = index + 1;
@@ -453,7 +483,11 @@ export function OrgVacationMatrix({
                         styles.dayHead,
                         dayTone(date),
                         count > 1 ? styles.colOverlap : "",
-                        activeDay === date ? styles.activeDay : "",
+                        selectedRun &&
+                        date >= selectedRun.startsOn &&
+                        date <= selectedRun.endsOn
+                          ? styles.activeDay
+                          : "",
                       ].join(" ")}
                       data-overlap={count > 1}
                       role="columnheader"
@@ -462,65 +496,6 @@ export function OrgVacationMatrix({
                       <span>{day}</span>
                       <small>{weekdayShortLabel(date)}</small>
                     </div>
-                  );
-                })}
-              </div>
-              <div className={`${styles.row} ${styles.stackRow}`} role="row">
-                <div className={styles.nameHead}>Наложение</div>
-                {Array.from({ length: monthLength }, (_, index) => {
-                  const day = index + 1;
-                  const date = iso(year, month, day);
-                  const stacked = occupancy.get(date) ?? [];
-                  const count = stacked.length;
-                  const run = overlapRun(date, day);
-                  return (
-                    <button
-                      className={[
-                        styles.cell,
-                        styles.stackCell,
-                        dayTone(date),
-                        run.overlap ? styles.stackOverlap : "",
-                        run.start ? styles.periodStart : "",
-                        run.end ? styles.periodEnd : "",
-                      ].join(" ")}
-                      type="button"
-                      data-date={date}
-                      data-count={count}
-                      aria-label={
-                        count > 1
-                          ? `${day} ${MONTHS[month - 1]}: пересечение ${stacked
-                              .map((item) => item.fullName)
-                              .join(", ")}`
-                          : `${day} ${MONTHS[month - 1]}: ${
-                              stacked[0]?.fullName ?? "никто"
-                            }`
-                      }
-                      key={day}
-                      onClick={() => pickDay(date)}
-                      onPointerEnter={(event) =>
-                        inspectDay(date, event.currentTarget)
-                      }
-                      onFocus={(event) => inspectDay(date, event.currentTarget)}
-                    >
-                      {colored && run.overlap ? (
-                        <span className={styles.stack} aria-hidden="true">
-                          {stacked.map((item) => (
-                            <i
-                              className={styles.slice}
-                              style={
-                                {
-                                  "--layer": layerColors.get(item.userId),
-                                } as CSSProperties
-                              }
-                              key={item.userId}
-                            />
-                          ))}
-                        </span>
-                      ) : null}
-                      {run.overlap ? (
-                        <span className={styles.stackCount}>{count}</span>
-                      ) : null}
-                    </button>
                   );
                 })}
               </div>
@@ -577,12 +552,6 @@ export function OrgVacationMatrix({
                           }`}
                           key={`${person.userId}-${day}`}
                           onClick={() => pickDay(date)}
-                          onPointerEnter={(event) =>
-                            inspectDay(date, event.currentTarget)
-                          }
-                          onFocus={(event) =>
-                            inspectDay(date, event.currentTarget)
-                          }
                         />
                       );
                     })}
@@ -594,40 +563,26 @@ export function OrgVacationMatrix({
         </div>
       )}
 
-      {hoverTip ? (
-        <div
-          className={styles.tooltip}
-          style={{ left: hoverTip.x, top: hoverTip.y }}
-          role="tooltip"
-        >
-          Пересечение · {hoverTip.days} {daysWord(hoverTip.days)}
-        </div>
-      ) : null}
-
       <Dialog.Root
-        open={modalDay !== null && (modalDetails?.people.length ?? 0) > 1}
+        open={selectedRun !== null}
         onOpenChange={(open) => {
-          if (!open) setModalDay(null);
+          if (!open) setSelectedStart(null);
         }}
       >
         <Dialog.Portal>
           <Dialog.Overlay className={styles.modalScrim} />
-          <Dialog.Content className={styles.modal} data-mode={boardMode}>
-            {modalDetails && modalDetails.people.length > 1 ? (
+          <Dialog.Content className={styles.panel} data-mode={boardMode}>
+            {selectedRun ? (
               <>
                 <div className={styles.modalHead}>
                   <div>
                     <Dialog.Title className={styles.modalTitle}>
-                      Пересечение · {modalDetails.spanDays}{" "}
-                      {daysWord(modalDetails.spanDays)}
+                      {selectedRun.people.length}{" "}
+                      {peopleWord(selectedRun.people.length)} ·{" "}
+                      {selectedRun.dayCount} {daysWord(selectedRun.dayCount)}
                     </Dialog.Title>
                     <Dialog.Description className={styles.modalSpan}>
-                      {modalDetails.span
-                        ? formatRange(
-                            modalDetails.span.startsOn,
-                            modalDetails.span.endsOn,
-                          )
-                        : formatDay(modalDetails.date)}
+                      {formatRange(selectedRun.startsOn, selectedRun.endsOn)}
                     </Dialog.Description>
                   </div>
                   <Dialog.Close
@@ -638,18 +593,11 @@ export function OrgVacationMatrix({
                   </Dialog.Close>
                 </div>
                 <ul className={styles.modalList}>
-                  {modalDetails.people.map((item) => (
+                  {selectedRun.people.map((item) => (
                     <li key={item.userId}>
-                      {colored ? (
-                        <i
-                          className={styles.personSwatch}
-                          style={
-                            {
-                              "--layer": layerColors.get(item.userId),
-                            } as CSSProperties
-                          }
-                        />
-                      ) : null}
+                      <span className={styles.avatar} aria-hidden="true">
+                        {personInitial(item.fullName)}
+                      </span>
                       <div>
                         <strong>{item.fullName}</strong>
                         <small>
