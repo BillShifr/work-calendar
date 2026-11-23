@@ -288,3 +288,72 @@ export function overlapDetailsForDate(
     spanDays: span ? periodDays(span) : 0,
   };
 }
+
+export type OverlapRun = {
+  startsOn: string;
+  endsOn: string;
+  startDay: number;
+  dayCount: number;
+  people: OverlapPersonDetail[];
+};
+
+export type OrgOccupancyByDate = Map<
+  string,
+  Array<{ userId: string; fullName: string }>
+>;
+
+type OverlapRunDraft = {
+  key: string;
+  startDay: number;
+  startsOn: string;
+  people: OverlapPersonDetail[];
+};
+
+export function overlapRunsInMonth(
+  people: OrgVacationBoardPerson[],
+  occupancy: OrgOccupancyByDate,
+  year: number,
+  month: number,
+  monthLength: number,
+) {
+  const runs: OverlapRun[] = [];
+  const prefix = `${year}-${String(month).padStart(2, "0")}-`;
+  const dateFor = (day: number) => `${prefix}${String(day).padStart(2, "0")}`;
+  let openRun: OverlapRunDraft | null = null;
+
+  const close = (endDay: number) => {
+    const draft = openRun;
+    if (!draft) return;
+    runs.push({
+      startsOn: draft.startsOn,
+      endsOn: dateFor(endDay),
+      startDay: draft.startDay,
+      dayCount: endDay - draft.startDay + 1,
+      people: draft.people,
+    });
+    openRun = null;
+  };
+
+  for (let day = 1; day <= monthLength; day += 1) {
+    const date = dateFor(day);
+    if ((occupancy.get(date)?.length ?? 0) < 2) {
+      close(day - 1);
+      continue;
+    }
+    const details = overlapDetailsForDate(people, date);
+    const key = details.people
+      .map((person) => person.userId)
+      .sort()
+      .join("\0");
+    if (openRun !== null && openRun.key === key) continue;
+    close(day - 1);
+    openRun = {
+      key,
+      startDay: day,
+      startsOn: date,
+      people: details.people,
+    };
+  }
+  close(monthLength);
+  return runs;
+}

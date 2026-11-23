@@ -11,6 +11,7 @@ import {
   firstOverlapOrBusyMonth,
   orgOccupancyByDate,
   overlapDetailsForDate,
+  overlapRunsInMonth,
   peakOccupancyByMonth,
   sortBoardPeopleForMonth,
 } from "@/domain/org-vacation-matrix-shared";
@@ -163,6 +164,23 @@ describe("org vacation occupancy", () => {
     expect(assignBoardLayerColors(["a", "b"]).get("a")).not.toBe(
       assignBoardLayerColors(["a", "b"]).get("b"),
     );
+  });
+
+  it("groups consecutive overlap days with the same people into one run", () => {
+    const people = filterBoardPeople(
+      departments,
+      new Set(["it"]),
+      new Set(["a", "b"]),
+    );
+    const occupancy = orgOccupancyByDate(people, 2027);
+    expect(overlapRunsInMonth(people, occupancy, 2027, 5, 31)).toEqual([
+      expect.objectContaining({
+        startsOn: "2027-05-13",
+        endsOn: "2027-05-14",
+        startDay: 13,
+        dayCount: 2,
+      }),
+    ]);
   });
 
   it("lists people and the shared span of an overlap day", () => {
