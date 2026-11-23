@@ -158,22 +158,25 @@ export default async function HrPage({
         <h1>Кабинет кадровика</h1>
       </header>
       <dl className={styles.summaryBar} aria-label="Оперативная сводка">
-        <div>
+        <div className={styles.summaryItem}>
           <Clock3 aria-hidden="true" size={19} />
           <dt>На рассмотрении</dt>
           <dd>{awaiting}</dd>
         </div>
-        <div>
+        <a className={styles.summaryItem} href="/hr/employees">
           <UsersRound aria-hidden="true" size={19} />
           <dt>Сотрудников</dt>
           <dd>{employees.value}</dd>
-        </div>
-        <div className={departmentsWithOverlaps ? styles.attention : ""}>
+        </a>
+        <a
+          className={`${styles.summaryItem} ${departmentsWithOverlaps ? styles.attention : ""}`}
+          href="#vacation-overlaps"
+        >
           <CalendarRange aria-hidden="true" size={19} />
           <dt>Отделов с пересечениями</dt>
           <dd>{departmentsWithOverlaps}</dd>
-        </div>
-        <div>
+        </a>
+        <div className={styles.summaryItem}>
           <ArrowRight aria-hidden="true" size={19} />
           <dt>Ответ сотрудника</dt>
           <dd>{waitingEmployee + waitingOvertimeEmployee}</dd>
@@ -257,7 +260,7 @@ export default async function HrPage({
             canDelete
           />
         </section>
-        <aside className={`card ${styles.section}`}>
+        <aside className={`card ${styles.section}`} id="vacation-overlaps">
           <div className={styles.sectionHeader}>
             <h2>Пересечения отпусков</h2>
           </div>
