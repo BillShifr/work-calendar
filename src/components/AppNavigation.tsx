@@ -61,15 +61,6 @@ function hrGroups(canApprove: boolean): NavGroup[] {
         match: (pathname) =>
           pathname === "/overtime" || pathname.startsWith("/overtime/"),
       },
-      children: [
-        {
-          href: "/hr/reporting",
-          label: "Свод",
-          match: (pathname) =>
-            pathname === "/hr/reporting" ||
-            pathname.startsWith("/hr/reporting/"),
-        },
-      ],
     },
     {
       id: "vacations",
@@ -96,6 +87,13 @@ function hrGroups(canApprove: boolean): NavGroup[] {
           label: "Периоды",
           match: (pathname) =>
             pathname === "/hr/periods" || pathname.startsWith("/hr/periods/"),
+        },
+        {
+          href: "/hr/reporting",
+          label: "Свод",
+          match: (pathname) =>
+            pathname === "/hr/reporting" ||
+            pathname.startsWith("/hr/reporting/"),
         },
       ],
     },
