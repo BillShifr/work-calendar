@@ -115,6 +115,7 @@ export function DepartmentApprovalDashboard({
   departments,
   vacationDepartments,
   year,
+  labelYear,
   audience = "manager",
   group = "department",
   canDelete = false,
@@ -122,12 +123,14 @@ export function DepartmentApprovalDashboard({
   departments: OvertimeDepartment[];
   vacationDepartments: VacationDepartment[];
   year: number;
+  labelYear?: number;
   audience?: "manager" | "hr";
   group?: "department" | "employee" | "all";
   canDelete?: boolean;
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const shownYear = labelYear ?? year;
   const hrefForYear = (nextYear: number) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set("year", String(nextYear));
@@ -330,14 +333,14 @@ export function DepartmentApprovalDashboard({
     <div className={styles.workspace}>
       <div className={styles.yearBar}>
         <Link
-          aria-label={`Открыть ${year - 1} год`}
+          aria-label={`Открыть ${shownYear - 1} год`}
           href={hrefForYear(year - 1)}
         >
           <ChevronLeft aria-hidden="true" size={20} />
         </Link>
-        <strong>{year}</strong>
+        <strong>{shownYear}</strong>
         <Link
-          aria-label={`Открыть ${year + 1} год`}
+          aria-label={`Открыть ${shownYear + 1} год`}
           href={hrefForYear(year + 1)}
         >
           <ChevronRight aria-hidden="true" size={20} />
@@ -346,7 +349,7 @@ export function DepartmentApprovalDashboard({
       </div>
 
       {vacationBoards.length + overtimeDepartments.length === 0 ? (
-        <p className={styles.empty}>Нет данных за {year} год</p>
+        <p className={styles.empty}>Нет данных за {shownYear} год</p>
       ) : null}
 
       {group === "employee"
@@ -412,103 +415,142 @@ export function DepartmentApprovalDashboard({
               <option value="attention">Сначала ждут решения</option>
             </select>
           </div>
-          {vacationBoards.length ? (
-            <section>
-              <button
-                type="button"
-                className={styles.sectionToggle}
-                aria-expanded={openSections.vacation}
-                onClick={() =>
-                  setOpenSections((current) => ({
-                    ...current,
-                    vacation: !current.vacation,
-                  }))
-                }
-              >
-                <span>Отпуска</span>
-                <small>{allVacations.length}</small>
-                <ChevronDown
-                  aria-hidden="true"
-                  size={18}
-                  className={
-                    openSections.vacation ? styles.chevronOpen : undefined
+          {vacationBoards.length > 0 && overtimeDepartments.length > 0 ? (
+            <>
+              <section>
+                <button
+                  type="button"
+                  className={styles.sectionToggle}
+                  aria-expanded={openSections.vacation}
+                  onClick={() =>
+                    setOpenSections((current) => ({
+                      ...current,
+                      vacation: !current.vacation,
+                    }))
                   }
-                />
-              </button>
-              {openSections.vacation ? (
-                <div className={styles.rows}>
-                  {allVacations.length ? (
-                    allVacations.map((row) => (
-                      <VacationRow
-                        key={`${row.departmentId}:${row.userId}`}
-                        row={row}
-                        expanded={
-                          openRow === `${row.departmentId}:${row.userId}`
-                        }
-                        onToggle={() =>
-                          setOpenRow((current) =>
-                            current === `${row.departmentId}:${row.userId}`
-                              ? null
-                              : `${row.departmentId}:${row.userId}`,
-                          )
-                        }
-                        saving={saving}
-                        audience={audience}
-                        onTransition={transitionVacation}
-                        subtitle={row.departmentName}
-                      />
-                    ))
-                  ) : (
-                    <p className={styles.emptyInline}>Ничего не найдено</p>
-                  )}
-                </div>
-              ) : null}
-            </section>
-          ) : null}
-          {overtimeDepartments.length ? (
-            <section className={styles.split}>
-              <button
-                type="button"
-                className={styles.sectionToggle}
-                aria-expanded={openSections.overtime}
-                onClick={() =>
-                  setOpenSections((current) => ({
-                    ...current,
-                    overtime: !current.overtime,
-                  }))
-                }
-              >
-                <span>Внеурочное время</span>
-                <small>{allOvertime.length}</small>
-                <ChevronDown
-                  aria-hidden="true"
-                  size={18}
-                  className={
-                    openSections.overtime ? styles.chevronOpen : undefined
+                >
+                  <span>Отпуска</span>
+                  <small>{allVacations.length}</small>
+                  <ChevronDown
+                    aria-hidden="true"
+                    size={18}
+                    className={
+                      openSections.vacation ? styles.chevronOpen : undefined
+                    }
+                  />
+                </button>
+                {openSections.vacation ? (
+                  <div className={styles.rows}>
+                    {allVacations.length ? (
+                      allVacations.map((row) => (
+                        <VacationRow
+                          key={`${row.departmentId}:${row.userId}`}
+                          row={row}
+                          expanded={
+                            openRow === `${row.departmentId}:${row.userId}`
+                          }
+                          onToggle={() =>
+                            setOpenRow((current) =>
+                              current === `${row.departmentId}:${row.userId}`
+                                ? null
+                                : `${row.departmentId}:${row.userId}`,
+                            )
+                          }
+                          saving={saving}
+                          audience={audience}
+                          onTransition={transitionVacation}
+                          subtitle={row.departmentName}
+                        />
+                      ))
+                    ) : (
+                      <p className={styles.emptyInline}>Ничего не найдено</p>
+                    )}
+                  </div>
+                ) : null}
+              </section>
+              <section className={styles.split}>
+                <button
+                  type="button"
+                  className={styles.sectionToggle}
+                  aria-expanded={openSections.overtime}
+                  onClick={() =>
+                    setOpenSections((current) => ({
+                      ...current,
+                      overtime: !current.overtime,
+                    }))
                   }
-                />
-              </button>
-              {openSections.overtime ? (
-                <div className={styles.rows}>
-                  {allOvertime.length ? (
-                    allOvertime.map((report) => (
-                      <ReportRow
-                        key={report.id}
-                        report={report}
-                        href={overtimeHref(report.id, audience)}
-                        extra={report.departmentName}
-                        canDelete={canDelete}
-                        saving={saving === report.id}
-                        onDelete={() => removeReport(report.id)}
-                      />
-                    ))
-                  ) : (
-                    <p className={styles.emptyInline}>Ничего не найдено</p>
-                  )}
-                </div>
+                >
+                  <span>Внеурочное время</span>
+                  <small>{allOvertime.length}</small>
+                  <ChevronDown
+                    aria-hidden="true"
+                    size={18}
+                    className={
+                      openSections.overtime ? styles.chevronOpen : undefined
+                    }
+                  />
+                </button>
+                {openSections.overtime ? (
+                  <div className={styles.rows}>
+                    {allOvertime.length ? (
+                      allOvertime.map((report) => (
+                        <ReportRow
+                          key={report.id}
+                          report={report}
+                          href={overtimeHref(report.id, audience)}
+                          extra={report.departmentName}
+                          canDelete={canDelete}
+                          saving={saving === report.id}
+                          onDelete={() => removeReport(report.id)}
+                        />
+                      ))
+                    ) : (
+                      <p className={styles.emptyInline}>Ничего не найдено</p>
+                    )}
+                  </div>
+                ) : null}
+              </section>
+            </>
+          ) : (
+            <div className={styles.rows}>
+              {vacationBoards.length
+                ? allVacations.map((row) => (
+                    <VacationRow
+                      key={`${row.departmentId}:${row.userId}`}
+                      row={row}
+                      expanded={openRow === `${row.departmentId}:${row.userId}`}
+                      onToggle={() =>
+                        setOpenRow((current) =>
+                          current === `${row.departmentId}:${row.userId}`
+                            ? null
+                            : `${row.departmentId}:${row.userId}`,
+                        )
+                      }
+                      saving={saving}
+                      audience={audience}
+                      onTransition={transitionVacation}
+                      subtitle={row.departmentName}
+                    />
+                  ))
+                : allOvertime.map((report) => (
+                    <ReportRow
+                      key={report.id}
+                      report={report}
+                      href={overtimeHref(report.id, audience)}
+                      extra={report.departmentName}
+                      canDelete={canDelete}
+                      saving={saving === report.id}
+                      onDelete={() => removeReport(report.id)}
+                    />
+                  ))}
+              {vacationBoards.length && !allVacations.length ? (
+                <p className={styles.emptyInline}>Ничего не найдено</p>
               ) : null}
-            </section>
-          ) : null}
+              {overtimeDepartments.length && !allOvertime.length ? (
+                <p className={styles.emptyInline}>Ничего не найдено</p>
+              ) : null}
+            </div>
+          )}
         </section>
       ) : null}
 
@@ -521,7 +563,11 @@ export function DepartmentApprovalDashboard({
             >
               <div className={styles.sectionHead}>
                 <div>
-                  <p className={styles.eyebrow}>Отпуска · {department.year}</p>
+                  {audience === "hr" ? null : (
+                    <p className={styles.eyebrow}>
+                      Отпуска · {department.year}
+                    </p>
+                  )}
                   <h2>{department.name}</h2>
                 </div>
                 <span className={styles.pending}>
@@ -555,7 +601,9 @@ export function DepartmentApprovalDashboard({
             <section className={styles.department} key={department.id}>
               <div className={styles.sectionHead}>
                 <div>
-                  <p className={styles.eyebrow}>Внеурочное время</p>
+                  {audience === "hr" ? null : (
+                    <p className={styles.eyebrow}>Внеурочное время</p>
+                  )}
                   <h2>{department.name}</h2>
                 </div>
               </div>

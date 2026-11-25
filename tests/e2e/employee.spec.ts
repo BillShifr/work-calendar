@@ -438,7 +438,7 @@ test("employee and HR complete a bilateral vacation approval", async ({
 
   await logout(page);
   await login(page, "hr", "CI-only-password-2026!");
-  await openMainNav(page, "Внеурочное время");
+  await openMainNav(page, "Кабинет кадровика");
   await openMainNav(page, "Свод");
   await page.getByLabel("Максимум дней для всех", { exact: true }).fill("11");
   await page.getByRole("button", { name: "Применить", exact: true }).click();
@@ -491,7 +491,7 @@ test("employee and HR complete a bilateral vacation approval", async ({
   expect(vacationArchive.subarray(0, 2).toString()).toBe("PK");
   await page
     .getByRole("main")
-    .getByRole("link", { name: "Все", exact: true })
+    .getByRole("link", { name: "Внеурочное время", exact: true })
     .click();
   await page.getByRole("link", { name: /Алексей Морозов Октябрь/ }).click();
   await expect(
@@ -819,21 +819,23 @@ test("HR screens use the shared readable UI system", async ({
   await expect(
     page.getByRole("link", { name: /Алексей Морозов Октябрь/ }),
   ).toBeVisible();
-  await page.getByRole("link", { name: "Все", exact: true }).click();
   await page.getByRole("link", { name: "Все скопом", exact: true }).click();
-  const vacationSection = page.getByRole("button", { name: /^Отпуска/ });
-  const overtimeSection = page.getByRole("button", {
-    name: /^Внеурочное время/,
-  });
-  await expect(vacationSection).toBeVisible();
-  await expect(overtimeSection).toBeVisible();
-  await vacationSection.click();
-  await expect(vacationSection).toHaveAttribute("aria-expanded", "false");
+  await expect(
+    page.getByRole("link", { name: /Алексей Морозов Октябрь/ }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Отпуска/ })).toHaveCount(0);
   await page.getByLabel("Фильтр по фамилии или отделу").fill("Алексей");
   await expect(
     page.getByRole("link", { name: /Алексей Морозов Октябрь/ }),
   ).toBeVisible();
   await page.getByLabel("Сортировка").selectOption("department");
+  await page
+    .getByRole("main")
+    .getByRole("link", { name: "Отпуска", exact: true })
+    .click();
+  await expect(
+    page.getByRole("link", { name: /Алексей Морозов Октябрь/ }),
+  ).toHaveCount(0);
 });
 
 test("employee opens the organization vacation board", async ({ page }) => {

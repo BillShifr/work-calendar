@@ -38,7 +38,7 @@ export default async function HrPage({
   searchParams: Promise<{ type?: string; group?: string; year?: string }>;
 }) {
   const params = await searchParams;
-  const selectedType = params.type;
+  const documentType = params.type === "overtime" ? "overtime" : "vacation";
   const selectedGroup =
     params.group === "employee" || params.group === "all"
       ? params.group
@@ -115,10 +115,10 @@ export default async function HrPage({
         ),
       )
       .orderBy(departments.name),
-    selectedType === "vacation"
+    documentType === "vacation"
       ? Promise.resolve([])
       : getDepartmentApprovalDashboard(hr, year, "organization"),
-    selectedType === "overtime"
+    documentType === "overtime"
       ? Promise.resolve([])
       : getDepartmentVacationBoard(hr, vacationYear, "organization"),
   ]);
@@ -143,14 +143,13 @@ export default async function HrPage({
   const vacationExportYear = exportYearRow?.year ?? currentYear + 1;
   const hrefBase = (next: { type?: string; group?: string; year?: number }) => {
     const search = new URLSearchParams();
-    const type = next.type ?? selectedType;
+    const type = next.type ?? documentType;
     const group = next.group ?? selectedGroup;
     const nextYear = next.year ?? year;
-    if (type) search.set("type", type);
+    search.set("type", type);
     if (group !== "department") search.set("group", group);
     if (nextYear !== currentYear) search.set("year", String(nextYear));
-    const query = search.toString();
-    return query ? `/hr?${query}` : "/hr";
+    return `/hr?${search.toString()}`;
   };
   return (
     <AppShell>
@@ -187,52 +186,43 @@ export default async function HrPage({
           <div className={styles.toolbar}>
             <div className={styles.toolbarMain}>
               <h2>Согласования</h2>
+              <nav className={styles.documentSwitch} aria-label="Документ">
+                {(
+                  [
+                    ["vacation", "Отпуска"],
+                    ["overtime", "Внеурочное время"],
+                  ] as const
+                ).map(([type, label]) => (
+                  <Link
+                    key={type}
+                    href={hrefBase({ type })}
+                    aria-current={documentType === type ? "page" : undefined}
+                  >
+                    {label}
+                  </Link>
+                ))}
+              </nav>
               <div className={styles.exports}>
-                <a
-                  className={styles.export}
-                  href={`/api/hr/export/vacations?year=${vacationExportYear}`}
-                >
-                  <Download aria-hidden="true" size={18} />
-                  Выгрузить отпуска
-                </a>
-                <a
-                  className={styles.export}
-                  href={`/api/hr/export/overtime?year=${year}`}
-                >
-                  <Download aria-hidden="true" size={18} />
-                  Выгрузить внеурочное время
-                </a>
+                {documentType === "vacation" ? (
+                  <a
+                    className={styles.export}
+                    href={`/api/hr/export/vacations?year=${vacationExportYear}`}
+                  >
+                    <Download aria-hidden="true" size={18} />
+                    Выгрузить отпуска
+                  </a>
+                ) : (
+                  <a
+                    className={styles.export}
+                    href={`/api/hr/export/overtime?year=${year}`}
+                  >
+                    <Download aria-hidden="true" size={18} />
+                    Выгрузить внеурочное время
+                  </a>
+                )}
               </div>
             </div>
             <div className={styles.toolbarMeta}>
-              <div className={styles.segmentBlock}>
-                <span>Состав</span>
-                <nav
-                  className={styles.segment}
-                  aria-label="Состав согласований"
-                >
-                  {(
-                    [
-                      ["", "Все"],
-                      ["overtime", "Внеурочное время"],
-                      ["vacation", "Отпуска"],
-                    ] as const
-                  ).map(([type, label]) => (
-                    <Link
-                      key={label}
-                      href={hrefBase({ type })}
-                      aria-current={
-                        (type || undefined) === selectedType ||
-                        (!type && !selectedType)
-                          ? "page"
-                          : undefined
-                      }
-                    >
-                      {label}
-                    </Link>
-                  ))}
-                </nav>
-              </div>
               <div className={styles.segmentBlock}>
                 <span>Вид</span>
                 <nav className={styles.segment} aria-label="Группировка">
@@ -255,6 +245,7 @@ export default async function HrPage({
             departments={overtimeDepartments}
             vacationDepartments={vacationDepartments}
             year={year}
+            labelYear={documentType === "vacation" ? vacationYear : year}
             audience="hr"
             group={selectedGroup}
             canDelete

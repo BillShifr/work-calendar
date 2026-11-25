@@ -77,11 +77,38 @@ a.summaryItem.attention:hover dd {
 .toolbarMain {
   display: flex;
   flex-wrap: wrap;
-  justify-content: space-between;
   align-items: center;
   gap: 12px 16px;
 }
+.documentSwitch {
+  display: flex;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-small);
+  background: var(--surface);
+}
+.documentSwitch a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-height);
+  padding: 0 16px;
+  color: var(--text-muted);
+  font-size: var(--text-base);
+  font-weight: 750;
+  text-decoration: none;
+}
+.documentSwitch a + a {
+  border-left: 1px solid var(--border);
+}
+.documentSwitch a[aria-current="page"] {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+.documentSwitch a:hover {
+  color: var(--text);
+}
 .sectionHeader {
+  display: flex;
+  justify-content: space-between;
   margin-bottom: 10px;
 }
 .toolbar {
@@ -100,6 +127,7 @@ a.summaryItem.attention:hover dd {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
+  margin-left: auto;
 }
 .export {
   display: inline-flex;

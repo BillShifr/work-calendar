@@ -221,9 +221,19 @@ describe("vacation schedule navigation", () => {
     expect(vacations?.children?.map((child) => child.href)).toEqual([
       "/vacations/board",
     ]);
-    expect(cabinet?.children?.[0].href).toBe("/hr/periods");
+    expect(cabinet?.children?.map((child) => child.href)).toEqual([
+      "/hr/periods",
+      "/hr/reporting",
+    ]);
     expect(isNavActive("/hr/periods", cabinet!.children![0])).toBe(true);
+    expect(isNavActive("/hr/reporting", cabinet!.children![1])).toBe(true);
     expect(isNavSectionActive("/hr/periods", cabinet!)).toBe(true);
+    expect(isNavSectionActive("/hr/reporting", cabinet!)).toBe(true);
     expect(isNavSectionActive("/hr/periods", vacations!)).toBe(false);
+    const overtime = getAppNavGroups(true, false).find(
+      (group) => group.id === "overtime",
+    );
+    expect(overtime?.children ?? []).toEqual([]);
+    expect(isNavSectionActive("/hr/reporting", overtime!)).toBe(false);
   });
 });
